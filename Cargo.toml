@@ -1,0 +1,9 @@
+[package]
+name = "lasso"
+version = "0.1.0"
+authors = ["Chase Wilson <contact@chasewilson.dev>"]
+edition = "2018"
+
+[dependencies.dashmap]
+version = "3.8.0"
+features = ["raw-api"]
