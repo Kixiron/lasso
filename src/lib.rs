@@ -1,3 +1,10 @@
+//! [![CI](https://github.com/Kixiron/lasso/workflows/CI/badge.svg)](https://github.com/Kixiron/lasso)
+//! [![Security Audit](https://github.com/Kixiron/lasso/workflows/Security%20Audit/badge.svg)](https://github.com/Kixiron/lasso)
+//! [![Coverage](https://coveralls.io/repos/github/Kixiron/lasso/badge.svg?branch=master)](https://coveralls.io/github/Kixiron/lasso?branch=master)
+//! [![LoC](https://tokei.rs/b1/github/Kixiron/lasso)](https://github.com/Kixiron/lasso)
+//! [![Docs.rs](https://docs.rs/lasso/badge.svg)](https://docs.rs/lasso)
+//! [![Crates.io](https://img.shields.io/crates/v/lasso.svg)](https://crates.io/crates/lasso)
+//!
 //! A concurrent string interner that allows strings to be cached with a minimal memory footprint,
 //! associating them with a unique [key] that can be used to retrieve them at any time. [`Lassos`] allow `O(1)`
 //! internment and resolution and can be turned into a [`ReadOnlyLasso`] to allow for contention-free resolutions
