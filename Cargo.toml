@@ -1,7 +1,15 @@
 [package]
 name = "lasso"
 version = "0.1.0"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Kixiron/lasso"
+documentation = "https://docs.rs/lasso"
 authors = ["Chase Wilson <contact@chasewilson.dev>"]
+keywords = ["interner", "intern", "string", "str", "symbol"]
+description = """A concurrent string interner that allows strings to be cached with a minimal
+memory footprint, allowing them with a unique key that can be used to retrieve them at any time.
+"""
+categories = ["data-structures"]
 edition = "2018"
 
 [features]
