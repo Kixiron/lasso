@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  pull_request:
+    paths:
+      - "**.rs"
+      - "**.toml"
+      - ".github/workflows/main.yml"
+  push:
+    branches: [master]
+    paths:
+      - "**.rs"
+      - "**.toml"
+      - ".github/workflows/main.yml"
+
+jobs:
+  Checks:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v2
+
+      # Caching
+      - name: Cache Cargo Registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache Cargo Bin
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/bin
+          key: ${{ runner.os }}-cargo-bin-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache Cargo Git
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache Cargo Build
+        uses: actions/cache@v1
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - uses: hecrj/setup-rust-action@v1
+        with:
+          rust-version: nightly
+          components: rustfmt
+
+      # Check that formatting is valid
+      - name: Check Formatting
+        run: cargo fmt --all -- --check
+
+      # Check that documentation is valid
+      - name: Check Documentation
+        run: cargo doc --no-deps
+
+  Tests:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64-pc-windows-msvc, i686-pc-windows-msvc, x86_64-unknown-linux-gnu, i686-unknown-linux-gnu, x86_64-apple-darwin]
+        include:
+          # Windows MSVC 32 and 64bit
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            rust_version: nightly
+            name: x86_64-pc-windows-msvc-nightly
+          - os: windows-latest
+            target: i686-pc-windows-msvc
+            rust_version: nightly
+            name: i686-pc-windows-msvc-nightly
+
+          # Linux 32 and 64bit
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            rust_version: nightly
+            name: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: i686-unknown-linux-gnu
+            rust_version: nightly
+            name: i686-unknown-linux-gnu
+
+          # OSX 64bit
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            rust_version: nightly
+            name: x86_64-apple-darwin
+
+    env:
+      RUST_BACKTRACE: 1
+      CARGO_INCREMENTAL: 0
+      RUSTFLAGS: "-C debuginfo=0"
+
+    steps:
+      - uses: actions/checkout@v2
+
+      # Caching
+      - name: Cache Cargo Registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache Cargo Bin
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/bin
+          key: ${{ runner.os }}-cargo-bin-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache Cargo Git
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache Cargo Build
+        uses: actions/cache@v1
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - uses: hecrj/setup-rust-action@v1
+        with:
+          rust-version: ${{ matrix.rust_version }}${{ matrix.platform.host }}
+          targets: ${{ matrix.target }}
+
+      - name: Install Dependences
+        if: matrix.target == 'i686-unknown-linux-gnu'
+        run: sudo apt install g++-multilib gcc-multilib
+
+      # Run tests in debug mode
+      - name: Run Tests Debug
+        run: cargo test --target ${{ matrix.target }}
+
+      # Run tests in release mode
+      - name: Run Tests Debug
+        run: cargo test --target ${{ matrix.target }}
