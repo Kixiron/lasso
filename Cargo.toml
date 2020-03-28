@@ -15,3 +15,6 @@ features = ["raw-api"]
 [dependencies.ahash]
 version = "0.3.2"
 optional = true
+
+[dev-dependencies.ahash]
+version = "0.3.2"

@@ -800,10 +800,11 @@ unsafe impl<K: Key, S: BuildHasher + Clone> Sync for ReadOnlyLasso<K, S> {}
 /// A read-only view of a [`Lasso`] that allows contention-free access to interned strings, but only for `key` -> `str`
 /// resolution
 ///
-/// Made with the [`Lasso::into_resolver`] method, the key type defaults to the ones used by the [`Lasso`] that created it
+/// Made with the [`Lasso::into_resolver`] or [`ReadOnlyLasso::into_resolver`] methods, the key type defaults to the ones used by the [`Lasso`] that created it
 ///
 /// [`Lasso`]: crate::Lasso
 /// [`Lasso::into_resolver`]: crate::Lasso#into_resolver
+/// [`ReadOnlyLasso::into_resolver`]: crate::ReadOnlyLasso#into_resolver
 #[derive(Debug)]
 pub struct ResolverLasso<K: Key = Cord> {
     /// Vec that allows `key` -> `str` resolution
