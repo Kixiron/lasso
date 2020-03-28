@@ -4,7 +4,7 @@ A concurrent string interner that allows strings to be cached with a minimal mem
 associating them with a unique [key] that can be used to retrieve them at any time. [`Lassos`] allow `O(1)`
 internment and resolution and can be turned into a [`ReadOnlyLasso`] to allow for contention-free resolutions.
 
-# Example: Interning Strings across threads
+## Example: Interning Strings across threads
 
 ```rust
 use lasso::Lasso;
@@ -30,7 +30,7 @@ assert_eq!(world, world_2);
 assert_eq!(lasso.resolve(&world), lasso.resolve(&world_2));
 ```
 
-# Example: Resolving Strings
+## Example: Resolving Strings
 
 ```rust
 use lasso::Lasso;
@@ -41,7 +41,7 @@ let key = lasso.intern("Hello, World!");
 assert_eq!(Some("Hello, World!"), lasso.resolve(&key));
 ```
 
-# Example: Creating a ReadOnlyLasso
+## Example: Creating a ReadOnlyLasso
 
 ```rust
 use lasso::Lasso;
