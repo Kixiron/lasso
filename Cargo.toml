@@ -4,6 +4,14 @@ version = "0.1.0"
 authors = ["Chase Wilson <contact@chasewilson.dev>"]
 edition = "2018"
 
+[features]
+default = ["ahasher"]
+ahasher = ["ahash"]
+
 [dependencies.dashmap]
-version = "3.8.0"
+version = "3.9.0"
 features = ["raw-api"]
+
+[dependencies.ahash]
+version = "0.3.2"
+optional = true
