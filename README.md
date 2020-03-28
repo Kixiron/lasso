@@ -45,7 +45,7 @@ assert_eq!(world, world_2);
 assert_eq!(lasso.resolve(&world), lasso.resolve(&world_2));
 ```
 
-# Example: Resolving Strings
+## Example: Resolving Strings
 
 ```rust
 use lasso::Lasso;
