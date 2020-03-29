@@ -20,11 +20,11 @@ the only way to get the other two interner types. As your program progresses tho
 and at that point you may choose either a [`ReadOnlyLasso`] or a [`ResolverLasso`]. If you need to go from str to key you
 should use a [`ReadOnlyLasso`], but anything else should use a [`ResolverLasso`].
 
-| Interner          |    Thread-safe     |   Intern String    |     key to str     |     str to key     |  Contention Free   | Relative Memory Usage |
-| ----------------- | :----------------: | :----------------: | :----------------: | :----------------: | :----------------: | :-------------------: |
-| [`Lasso`]         | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |        :x:         |         Most          |
-| [`ReadOnlyLasso`] | :white_check_mark: |        :x:         | :white_check_mark: | :white_check_mark: | :white_check_mark: |        Middle         |
-| [`ResolverLasso`] | :white_check_mark: |        :x:         | :white_check_mark: |        :x:         | :white_check_mark: |         Least         |
+| Interner          | Thread-safe | Intern String | key to str | str to key | Contention Free | Relative Memory Usage |
+| ----------------- | :---------: | :-----------: | :--------: | :--------: | :-------------: | :-------------------: |
+| [`Lasso`]         |      ✅      |       ✅       |     ✅      |     ✅      |        ❌        |         Most          |
+| [`ReadOnlyLasso`] |      ✅      |       ❌       |     ✅      |     ✅      |        ✅        |        Middle         |
+| [`ResolverLasso`] |      ✅      |       ❌       |     ✅      |     ❌      |        ✅        |         Least         |
 
 ## Example: Interning Strings across threads
 
