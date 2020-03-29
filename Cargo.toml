@@ -9,6 +9,7 @@ keywords = ["interner", "intern", "string", "str", "symbol"]
 description = """A concurrent string interner that allows strings to be cached with a minimal
 memory footprint, allowing them with a unique key that can be used to retrieve them at any time.
 """
+readme = "README.md"
 categories = ["data-structures"]
 edition = "2018"
 
