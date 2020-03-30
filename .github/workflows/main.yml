@@ -98,4 +98,4 @@ jobs:
 
       # Clean and run miri
       - name: Run Miri
-        run: cargo clean && cargo +nightly miri test --target ${{ matrix.target }} --features multi-threaded
+        run: cargo clean && cargo +nightly miri test --target ${{ matrix.target }} --features multi-threaded --verbose
