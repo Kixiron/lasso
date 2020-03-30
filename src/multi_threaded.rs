@@ -746,6 +746,7 @@ mod tests {
 
     #[test]
     #[cfg(not(miri))]
+    #[cfg_attr(tarpaulin, ignore)]
     fn resolve_panics_threaded() {
         let rodeo = Arc::new(ThreadedRodeo::default());
         let key = rodeo.get_or_intern("A");

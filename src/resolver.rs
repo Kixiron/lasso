@@ -326,11 +326,13 @@ mod tests {
             let b = rodeo.get_or_intern("b");
             let c = rodeo.get_or_intern("c");
 
-            let mut rodeo = rodeo.iter();
-            assert_eq!(Some((a, "a")), rodeo.next());
-            assert_eq!(Some((b, "b")), rodeo.next());
-            assert_eq!(Some((c, "c")), rodeo.next());
-            assert_eq!(None, rodeo.next());
+            let resolver = rodeo.into_resolver();
+            let mut iter = resolver.iter();
+
+            assert_eq!(Some((a, "a")), iter.next());
+            assert_eq!(Some((b, "b")), iter.next());
+            assert_eq!(Some((c, "c")), iter.next());
+            assert_eq!(None, iter.next());
         }
 
         #[test]
@@ -340,11 +342,13 @@ mod tests {
             rodeo.get_or_intern("b");
             rodeo.get_or_intern("c");
 
-            let mut rodeo = rodeo.strings();
-            assert_eq!(Some("a"), rodeo.next());
-            assert_eq!(Some("b"), rodeo.next());
-            assert_eq!(Some("c"), rodeo.next());
-            assert_eq!(None, rodeo.next());
+            let resolver = rodeo.into_resolver();
+            let mut iter = resolver.strings();
+
+            assert_eq!(Some("a"), iter.next());
+            assert_eq!(Some("b"), iter.next());
+            assert_eq!(Some("c"), iter.next());
+            assert_eq!(None, iter.next());
         }
 
         #[test]
@@ -471,6 +475,38 @@ mod tests {
         }
 
         #[test]
+        fn iter() {
+            let rodeo = ThreadedRodeo::default();
+            let a = rodeo.get_or_intern("a");
+            let b = rodeo.get_or_intern("b");
+            let c = rodeo.get_or_intern("c");
+
+            let resolver = rodeo.into_resolver();
+            let mut iter = resolver.iter();
+
+            assert_eq!(Some((a, "a")), iter.next());
+            assert_eq!(Some((b, "b")), iter.next());
+            assert_eq!(Some((c, "c")), iter.next());
+            assert_eq!(None, iter.next());
+        }
+
+        #[test]
+        fn strings() {
+            let rodeo = ThreadedRodeo::default();
+            rodeo.get_or_intern("a");
+            rodeo.get_or_intern("b");
+            rodeo.get_or_intern("c");
+
+            let resolver = rodeo.into_resolver();
+            let mut iter = resolver.strings();
+
+            assert_eq!(Some("a"), iter.next());
+            assert_eq!(Some("b"), iter.next());
+            assert_eq!(Some("c"), iter.next());
+            assert_eq!(None, iter.next());
+        }
+
+        #[test]
         fn clone() {
             let rodeo = ThreadedRodeo::default();
             let key = rodeo.intern("Test");
@@ -502,34 +538,6 @@ mod tests {
             thread::spawn(move || {
                 let _ = moved;
             });
-        }
-
-        #[test]
-        fn iter() {
-            let mut rodeo = ThreadedRodeo::default();
-            let a = rodeo.intern("a");
-            let b = rodeo.intern("b");
-            let c = rodeo.intern("c");
-
-            let mut rodeo = rodeo.iter();
-            assert_eq!(Some((a, "a")), rodeo.next());
-            assert_eq!(Some((b, "b")), rodeo.next());
-            assert_eq!(Some((c, "c")), rodeo.next());
-            assert_eq!(None, rodeo.next());
-        }
-
-        #[test]
-        fn strings() {
-            let mut rodeo = ThreadedRodeo::default();
-            rodeo.intern("a");
-            rodeo.intern("b");
-            rodeo.intern("c");
-
-            let mut rodeo = rodeo.strings();
-            assert_eq!(Some("a"), rodeo.next());
-            assert_eq!(Some("b"), rodeo.next());
-            assert_eq!(Some("c"), rodeo.next());
-            assert_eq!(None, rodeo.next());
         }
 
         #[test]

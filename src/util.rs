@@ -191,3 +191,126 @@ macro_rules! compile {
     };
     (@inner ($($prev_metas:tt)*))=>{};
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn iter_rodeo() {
+        let mut rodeo = Rodeo::default();
+        let a = rodeo.get_or_intern("A");
+        let b = rodeo.get_or_intern("B");
+        let c = rodeo.get_or_intern("C");
+        let d = rodeo.get_or_intern("D");
+
+        let mut iter = Iter::from_rodeo(&rodeo);
+
+        assert_eq!((4, Some(4)), iter.size_hint());
+        assert_eq!(Some((a, "A")), iter.next());
+        assert_eq!(Some((b, "B")), iter.next());
+        assert_eq!(Some((c, "C")), iter.next());
+        assert_eq!(Some((d, "D")), iter.next());
+        assert_eq!(None, iter.next());
+        assert_eq!((0, Some(0)), iter.size_hint());
+    }
+
+    #[test]
+    fn iter_reader() {
+        let mut rodeo = Rodeo::default();
+        let a = rodeo.get_or_intern("A");
+        let b = rodeo.get_or_intern("B");
+        let c = rodeo.get_or_intern("C");
+        let d = rodeo.get_or_intern("D");
+
+        let reader = rodeo.into_reader();
+        let mut iter = Iter::from_reader(&reader);
+
+        assert_eq!((4, Some(4)), iter.size_hint());
+        assert_eq!(Some((a, "A")), iter.next());
+        assert_eq!(Some((b, "B")), iter.next());
+        assert_eq!(Some((c, "C")), iter.next());
+        assert_eq!(Some((d, "D")), iter.next());
+        assert_eq!(None, iter.next());
+        assert_eq!((0, Some(0)), iter.size_hint());
+    }
+
+    #[test]
+    fn iter_resolver() {
+        let mut rodeo = Rodeo::default();
+        let a = rodeo.get_or_intern("A");
+        let b = rodeo.get_or_intern("B");
+        let c = rodeo.get_or_intern("C");
+        let d = rodeo.get_or_intern("D");
+
+        let resolver = rodeo.into_resolver();
+        let mut iter = Iter::from_resolver(&resolver);
+
+        assert_eq!((4, Some(4)), iter.size_hint());
+        assert_eq!(Some((a, "A")), iter.next());
+        assert_eq!(Some((b, "B")), iter.next());
+        assert_eq!(Some((c, "C")), iter.next());
+        assert_eq!(Some((d, "D")), iter.next());
+        assert_eq!(None, iter.next());
+        assert_eq!((0, Some(0)), iter.size_hint());
+    }
+
+    #[test]
+    fn strings_rodeo() {
+        let mut rodeo = Rodeo::default();
+        rodeo.get_or_intern("A");
+        rodeo.get_or_intern("B");
+        rodeo.get_or_intern("C");
+        rodeo.get_or_intern("D");
+
+        let mut iter = Strings::from_rodeo(&rodeo);
+
+        assert_eq!((4, Some(4)), iter.size_hint());
+        assert_eq!(Some("A"), iter.next());
+        assert_eq!(Some("B"), iter.next());
+        assert_eq!(Some("C"), iter.next());
+        assert_eq!(Some("D"), iter.next());
+        assert_eq!(None, iter.next());
+        assert_eq!((0, Some(0)), iter.size_hint());
+    }
+
+    #[test]
+    fn strings_reader() {
+        let mut rodeo = Rodeo::default();
+        rodeo.get_or_intern("A");
+        rodeo.get_or_intern("B");
+        rodeo.get_or_intern("C");
+        rodeo.get_or_intern("D");
+
+        let reader = rodeo.into_reader();
+        let mut iter = Strings::from_reader(&reader);
+
+        assert_eq!((4, Some(4)), iter.size_hint());
+        assert_eq!(Some("A"), iter.next());
+        assert_eq!(Some("B"), iter.next());
+        assert_eq!(Some("C"), iter.next());
+        assert_eq!(Some("D"), iter.next());
+        assert_eq!(None, iter.next());
+        assert_eq!((0, Some(0)), iter.size_hint());
+    }
+
+    #[test]
+    fn strings_resolver() {
+        let mut rodeo = Rodeo::default();
+        rodeo.get_or_intern("A");
+        rodeo.get_or_intern("B");
+        rodeo.get_or_intern("C");
+        rodeo.get_or_intern("D");
+
+        let resolver = rodeo.into_resolver();
+        let mut iter = Strings::from_resolver(&resolver);
+
+        assert_eq!((4, Some(4)), iter.size_hint());
+        assert_eq!(Some("A"), iter.next());
+        assert_eq!(Some("B"), iter.next());
+        assert_eq!(Some("C"), iter.next());
+        assert_eq!(Some("D"), iter.next());
+        assert_eq!(None, iter.next());
+        assert_eq!((0, Some(0)), iter.size_hint());
+    }
+}

@@ -43,11 +43,13 @@ unsafe impl Key for Cord {
     #[inline]
     fn try_from_usize(int: usize) -> Option<Self> {
         if int < usize::max_value() {
-            Some(Self {
-                key: NonZeroUsize::new(int + 1).unwrap_or_else(|| {
-                    unreachable!("The value is already asserted to be less than usize::MAX")
-                }),
-            })
+            // Safety: The integer is less than the max value and then incremented by one, meaning that
+            // is is impossible for a zero to inhabit the NonZeroUsize
+            unsafe {
+                Some(Self {
+                    key: NonZeroUsize::new_unchecked(int + 1),
+                })
+            }
         } else {
             None
         }
@@ -76,11 +78,13 @@ unsafe impl Key for SmallCord {
     #[inline]
     fn try_from_usize(int: usize) -> Option<Self> {
         if int < u32::max_value() as usize {
-            Some(Self {
-                key: NonZeroU32::new(int as u32 + 1).unwrap_or_else(|| {
-                    unreachable!("The value is already asserted to be less than u32::MAX")
-                }),
-            })
+            // Safety: The integer is less than the max value and then incremented by one, meaning that
+            // is is impossible for a zero to inhabit the NonZeroU32
+            unsafe {
+                Some(Self {
+                    key: NonZeroU32::new_unchecked(int as u32 + 1),
+                })
+            }
         } else {
             None
         }
@@ -109,11 +113,13 @@ unsafe impl Key for MiniCord {
     #[inline]
     fn try_from_usize(int: usize) -> Option<Self> {
         if int < u16::max_value() as usize {
-            Some(Self {
-                key: NonZeroU16::new(int as u16 + 1).unwrap_or_else(|| {
-                    unreachable!("The value is already asserted to be less than u16::MAX")
-                }),
-            })
+            // Safety: The integer is less than the max value and then incremented by one, meaning that
+            // is is impossible for a zero to inhabit the NonZeroU16
+            unsafe {
+                Some(Self {
+                    key: NonZeroU16::new_unchecked(int as u16 + 1),
+                })
+            }
         } else {
             None
         }
