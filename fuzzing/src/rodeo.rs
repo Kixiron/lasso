@@ -9,6 +9,7 @@ fn main() {
             if let Ok(string) = std::str::from_utf8(data) {
                 if let Some(key) = rodeo.try_get_or_intern(string) {
                     assert_eq!(string, rodeo.resolve(&key));
+                    assert_eq!(Some(key), rodeo.get(string));
                 }
             } else {
                 rodeo = Rodeo::default();
