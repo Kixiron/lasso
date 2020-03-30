@@ -632,6 +632,7 @@ mod tests {
         }
 
         let space = rodeo.try_get_or_intern("A").unwrap();
+        assert_eq!(Some(space), rodeo.try_get_or_intern("A"));
         assert_eq!("A", rodeo.resolve(&space));
 
         assert!(rodeo.try_get_or_intern("C").is_none());

@@ -148,11 +148,13 @@ unsafe impl Key for MicroCord {
     #[inline]
     fn try_from_usize(int: usize) -> Option<Self> {
         if int < u8::max_value() as usize {
-            Some(Self {
-                key: NonZeroU8::new(int as u8 + 1).unwrap_or_else(|| {
-                    unreachable!("The value is already asserted to be less than u8::MAX")
-                }),
-            })
+            // Safety: The integer is less than the max value and then incremented by one, meaning that
+            // is is impossible for a zero to inhabit the NonZeroU16
+            unsafe {
+                Some(Self {
+                    key: NonZeroU8::new_unchecked(int as u8 + 1),
+                })
+            }
         } else {
             None
         }

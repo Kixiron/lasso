@@ -391,7 +391,7 @@ mod tests {
             let b = rodeo.get_or_intern("b");
             let c = rodeo.get_or_intern("c");
 
-            let resolver = rodeo.into_resolver();
+            let resolver = rodeo.into_reader();
             let mut iter = resolver.iter();
 
             assert_eq!(Some((a, "a")), iter.next());
@@ -407,7 +407,7 @@ mod tests {
             rodeo.get_or_intern("b");
             rodeo.get_or_intern("c");
 
-            let resolver = rodeo.into_resolver();
+            let resolver = rodeo.into_reader();
             let mut iter = resolver.strings();
 
             assert_eq!(Some("a"), iter.next());

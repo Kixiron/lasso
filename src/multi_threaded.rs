@@ -551,7 +551,8 @@ mod tests {
 
     #[test]
     fn with_capacity() {
-        let _: ThreadedRodeo<Cord> = ThreadedRodeo::with_capacity(10);
+        let rodeo: ThreadedRodeo<Cord> = ThreadedRodeo::with_capacity(10);
+        assert_eq!(10, rodeo.capacity());
     }
 
     #[test]
