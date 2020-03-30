@@ -1,0 +1,15 @@
+[package]
+name = "fuzzing"
+version = "0.1.0"
+authors = ["Chase Wilson <contact@chasewilson.dev>"]
+edition = "2018"
+
+[[bin]]
+name = "rodeo"
+path = "src/rodeo.rs"
+
+[dependencies.honggfuzz]
+version = "0.5.47"
+
+[dependencies.lasso]
+path = "../"
