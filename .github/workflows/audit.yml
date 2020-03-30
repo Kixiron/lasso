@@ -7,7 +7,6 @@ on:
     branches: [master]
     paths:
       - "**/Cargo.toml"
-      - "**/Cargo.lock"
       - ".github/workflows/audit.yml"
   pull_request:
     branches: [master]
