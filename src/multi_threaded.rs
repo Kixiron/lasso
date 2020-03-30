@@ -149,8 +149,6 @@ where
         let string: &'static str = Box::leak(val.into().into_boxed_str());
 
         strings.push(string);
-        drop(strings);
-
         self.map.insert(string, key);
 
         Some(key)
@@ -866,5 +864,23 @@ mod tests {
     fn debug() {
         let rodeo = ThreadedRodeo::default();
         println!("{:?}", rodeo);
+    }
+
+    #[test]
+    fn into_resolver() {
+        let rodeo = ThreadedRodeo::default();
+        let key = rodeo.get_or_intern("A");
+
+        let resolver = rodeo.into_resolver();
+        assert_eq!("A", resolver.resolve(&key));
+    }
+
+    #[test]
+    fn into_reader() {
+        let rodeo = ThreadedRodeo::default();
+        let key = rodeo.get_or_intern("A");
+
+        let reader = rodeo.into_reader();
+        assert_eq!("A", reader.resolve(&key));
     }
 }
