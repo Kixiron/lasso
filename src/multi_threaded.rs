@@ -472,7 +472,7 @@ where
         unsafe { RodeoReader::new(map, strings) }
     }
 
-    /// Consumes the current ThreadedRodeo, returning a [`ResolverRodeo`] to allow contention-free access of the interner
+    /// Consumes the current ThreadedRodeo, returning a [`RodeoResolver`] to allow contention-free access of the interner
     /// from multiple threads with the lowest possible memory consumption
     ///
     /// # Example
@@ -490,7 +490,7 @@ where
     /// );
     /// ```
     ///
-    /// [`ResolverRodeo`]: crate::ResolverRodeo
+    /// [`RodeoResolver`]: crate::RodeoResolver
     #[inline]
     #[must_use]
     pub fn into_resolver(self) -> RodeoResolver<K> {
