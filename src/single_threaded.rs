@@ -171,13 +171,12 @@ where
     where
         T: Into<String> + AsRef<str>,
     {
-        let key = K::try_from_usize(self.strings.len()).expect("Failed to get or intern string");
-        let string = Box::leak(val.into().into_boxed_str());
-
-        self.strings.push(string);
-        self.map.insert(string, key);
-
-        key
+        if let Some(key) = self.get(val.as_ref()) {
+            key
+        } else {
+            self.try_intern(val.into())
+                .expect("Failed to get or intern string")
+        }
     }
 
     /// Get the key for a string, interning it if it does not yet exist
