@@ -39,10 +39,10 @@ By default `lasso` has zero dependencies only the [`Rodeo`] is exposed. To make 
 * `ahasher` - Use [`ahash`]'s `RandomState` as the default hasher
 * `no_std` - Enables `no_std` + `alloc` support for [`Rodeo`] and [`ThreadedRodeo`]
   * Automatically enables the following required features:
-    * `dashmap/no_std` - `no_std` compatibility for `DashMap`
-    * `parking_locks` - `no_std` locks
-    * `hashbrown-table` - `no_std` `HashMap`
-    * `ahasher` - `no_std` hashing function
+    * `dashmap/no_std` - Enables `no_std` compatibility for `DashMap`
+    * `parking_locks` - Required for `no_std` locks
+    * `hashbrown-table` - Required for `no_std` `HashMap`
+    * `ahasher` - Required for `no_std` hashing function
 
 ## Example: Using Rodeo
 
@@ -52,7 +52,7 @@ use lasso::Rodeo;
 let mut rodeo = Rodeo::default();
 let key = rodeo.get_or_intern("Hello, world!");
 
-// Easily retrieve the value of the key and find the key for values
+// Easily retrieve the value of a key and find the key for values
 assert_eq!("Hello, world!", rodeo.resolve(&key));
 assert_eq!(Some(key), rodeo.get("Hello, world!"));
 
@@ -71,7 +71,7 @@ use std::{thread, sync::Arc};
 let rodeo = Arc::new(ThreadedRodeo::default());
 let key = rodeo.get_or_intern("Hello, world!");
 
-// Easily retrieve the value of the key and find the key for values
+// Easily retrieve the value of a key and find the key for values
 assert_eq!("Hello, world!", rodeo.resolve(&key));
 assert_eq!(Some(key), rodeo.get("Hello, world!"));
 
@@ -133,7 +133,7 @@ assert_eq!("Hello, world!", resolver.resolve(&key));
 ```
 
 [0]: https://github.com/Kixiron/lasso
-[1]: https://github.com/Kixiron/lasso/workflows/CI/badge.svg
+[1]: https://github.com/Kixiron/lasso/workflows/Build/badge.svg
 [2]: https://github.com/Kixiron/lasso/workflows/Security%20Audit/badge.svg
 [3]: https://coveralls.io/repos/github/Kixiron/lasso/badge.svg?branch=master
 [4]: https://coveralls.io/github/Kixiron/lasso?branch=master

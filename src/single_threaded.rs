@@ -554,28 +554,76 @@ mod tests {
 
     #[test]
     fn new() {
-        let _: Rodeo<Cord> = Rodeo::new();
+        let mut rodeo: Rodeo<Cord> = Rodeo::new();
+        rodeo.intern("Test");
     }
 
     #[test]
     fn with_capacity() {
-        let _: Rodeo<Cord> = Rodeo::with_capacity(10);
+        let mut rodeo: Rodeo<Cord> = Rodeo::with_capacity(10);
+        assert_eq!(rodeo.capacity(), 10);
+
+        rodeo.intern("Test");
+        rodeo.intern("Test1");
+        rodeo.intern("Test2");
+        rodeo.intern("Test3");
+        rodeo.intern("Test4");
+        rodeo.intern("Test5");
+        rodeo.intern("Test6");
+        rodeo.intern("Test7");
+        rodeo.intern("Test8");
+        rodeo.intern("Test9");
+
+        assert_eq!(rodeo.len(), rodeo.capacity());
     }
 
     #[test]
     fn with_hasher() {
-        let mut std_rodeo: Rodeo<Cord, RandomState> = Rodeo::with_hasher(RandomState::new());
-        let key = std_rodeo.intern("Test");
-        assert_eq!("Test", std_rodeo.resolve(&key));
+        let mut rodeo: Rodeo<Cord, RandomState> = Rodeo::with_hasher(RandomState::new());
+        let key = rodeo.intern("Test");
+        assert_eq!("Test", rodeo.resolve(&key));
+
+        let mut rodeo: Rodeo<Cord, ahash::RandomState> =
+            Rodeo::with_hasher(ahash::RandomState::new());
+        let key = rodeo.intern("Test");
+        assert_eq!("Test", rodeo.resolve(&key));
     }
 
     #[test]
     fn with_capacity_and_hasher() {
-        let mut std_rodeo: Rodeo<Cord, RandomState> =
+        let mut rodeo: Rodeo<Cord, RandomState> =
             Rodeo::with_capacity_and_hasher(10, RandomState::new());
+        assert_eq!(rodeo.capacity(), 10);
 
-        let key = std_rodeo.intern("Test");
-        assert_eq!("Test", std_rodeo.resolve(&key));
+        rodeo.intern("Test");
+        rodeo.intern("Test1");
+        rodeo.intern("Test2");
+        rodeo.intern("Test3");
+        rodeo.intern("Test4");
+        rodeo.intern("Test5");
+        rodeo.intern("Test6");
+        rodeo.intern("Test7");
+        rodeo.intern("Test8");
+        rodeo.intern("Test9");
+
+        assert_eq!(rodeo.len(), rodeo.capacity());
+
+        let mut rodeo: Rodeo<Cord, ahash::RandomState> =
+            Rodeo::with_capacity_and_hasher(10, ahash::RandomState::new());
+        assert_eq!(rodeo.capacity(), 10);
+
+        rodeo.intern("Test");
+        rodeo.intern("Test1");
+        rodeo.intern("Test2");
+        rodeo.intern("Test3");
+        rodeo.intern("Test4");
+        rodeo.intern("Test5");
+        rodeo.intern("Test6");
+        rodeo.intern("Test7");
+        rodeo.intern("Test8");
+        rodeo.intern("Test9");
+
+        assert_eq!(rodeo.len(), rodeo.capacity());
     }
 
     #[test]

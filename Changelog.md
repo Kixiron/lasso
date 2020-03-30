@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed `.intern` from all structs
 
+### Fixed
+
+- Fixed memory leaks and possible unsoundness
+
 ## 0.1.2
 ## 0.1.1
 ## 0.1.0

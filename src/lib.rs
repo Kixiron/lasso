@@ -34,7 +34,7 @@
 //! ## Cargo Features
 //!
 //!
-//! By default `lasso` has zero dependencies only the [`Rodeo`] is exposed. To make use of [`ThreadedRodeo`], you must enable the `multi-threaded` feature
+//! By default `lasso` has zero dependencies and only [`Rodeo`] is exposed. To make use of [`ThreadedRodeo`], you must enable the `multi-threaded` feature.
 //!
 //! * `multi-threaded` - Enables [`ThreadedRodeo`], the interner for multi-threaded tasks
 //! * `parking_locks` - Uses [`parking_lot`] for the internal concurrent locks
@@ -55,7 +55,7 @@
 //! let mut rodeo = Rodeo::default();
 //! let key = rodeo.get_or_intern("Hello, world!");
 //!
-//! // Easily retrieve the value of the key and find the key for values
+//! // Easily retrieve the value of a key and find the key for values
 //! assert_eq!("Hello, world!", rodeo.resolve(&key));
 //! assert_eq!(Some(key), rodeo.get("Hello, world!"));
 //!
@@ -74,7 +74,7 @@
 //! let rodeo = Arc::new(ThreadedRodeo::default());
 //! let key = rodeo.get_or_intern("Hello, world!");
 //!
-//! // Easily retrieve the value of the key and find the key for values
+//! // Easily retrieve the value of a key and find the key for values
 //! assert_eq!("Hello, world!", rodeo.resolve(&key));
 //! assert_eq!(Some(key), rodeo.get("Hello, world!"));
 //!
@@ -136,7 +136,7 @@
 //! ```
 //!
 //! [0]: https://github.com/Kixiron/lasso
-//! [1]: https://github.com/Kixiron/lasso/workflows/CI/badge.svg
+//! [1]: https://github.com/Kixiron/lasso/workflows/Build/badge.svg
 //! [2]: https://github.com/Kixiron/lasso/workflows/Security%20Audit/badge.svg
 //! [3]: https://coveralls.io/repos/github/Kixiron/lasso/badge.svg?branch=master
 //! [4]: https://coveralls.io/github/Kixiron/lasso?branch=master
@@ -213,4 +213,3 @@ mod locks {
 }
 
 // TODO: No-alloc interner
-// TODO: Benchmarks

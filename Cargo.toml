@@ -56,3 +56,6 @@ version = "1.4.0"
 
 [dev-dependencies.string-interner]
 version = "0.7.1"
+
+[dev-dependencies.ahash]
+version = "0.3.2"

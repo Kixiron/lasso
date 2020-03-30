@@ -5,6 +5,8 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughpu
 use std::collections::hash_map::RandomState;
 use string_interner::{StringInterner, Sym};
 
+// TODO: More inputs, benchmark all of Rodeo's functions & benchmark ThreadedRodeo, RodeoReader and RodeoResolver
+
 static INPUT: &'static str = include_str!("input.txt");
 
 lazy_static::lazy_static! {
