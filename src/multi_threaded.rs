@@ -139,18 +139,18 @@ where
     where
         T: Into<String>,
     {
-        let string = Box::leak(val.into().into_boxed_str());
-
-        let key = {
+        let (key, string) = {
             #[cfg(feature = "parking_locks")]
             let mut strings = self.strings.lock();
             #[cfg(not(feature = "parking_locks"))]
             let mut strings = self.strings.lock().unwrap();
 
             let key = K::try_from_usize(strings.len()).expect("The key's namespace is full");
+            let string: &'static str = Box::leak(val.into().into_boxed_str());
+
             strings.push(string);
 
-            key
+            (key, string)
         };
 
         self.map.insert(string, key);
@@ -171,18 +171,18 @@ where
     where
         T: Into<String>,
     {
-        let string = Box::leak(val.into().into_boxed_str());
-
-        let key = {
+        let (key, string) = {
             #[cfg(feature = "parking_locks")]
             let mut strings = self.strings.lock();
             #[cfg(not(feature = "parking_locks"))]
             let mut strings = self.strings.lock().unwrap();
 
             let key = K::try_from_usize(strings.len())?;
+            let string: &'static str = Box::leak(val.into().into_boxed_str());
+
             strings.push(string);
 
-            key
+            (key, string)
         };
 
         self.map.insert(string, key);

@@ -1,12 +1,11 @@
 use core::num::{NonZeroU16, NonZeroU32, NonZeroU8, NonZeroUsize};
 
-/// Types implementing this trait can be used as keys for [`Lasso`]
+/// Types implementing this trait can be used as keys for all Rodeos
 ///
 /// # Safety
 ///
 /// into/from must be perfectly symmetrical, any key that goes on must be perfectly reproduced with the other
 ///
-/// [`Lasso`]: crate::Lasso
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 pub unsafe trait Key: Copy + Eq {
     /// Returns the `usize` that represents the current key
@@ -22,11 +21,10 @@ pub unsafe trait Key: Copy + Eq {
     fn try_from_usize(int: usize) -> Option<Self>;
 }
 
-/// The default key for [`Lasso`], the same size as a `usize`
+/// The default key for every Rodeo, the same size as a `usize`
 ///
 /// Internally is a `NonZeroUsize` to allow for space optimizations when stored inside of an [`Option`]
 ///
-/// [`Lasso`]: crate::Lasso
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -56,11 +54,10 @@ unsafe impl Key for Cord {
     }
 }
 
-/// A small Key for [`Lasso`], utilizing only 32 bits of space
+/// A small Key, utilizing only 32 bits of space
 ///
 /// Internally is a `NonZeroU32` to allow for space optimizations when stored inside of an [`Option`]
 ///
-/// [`Lasso`]: crate::Lasso
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

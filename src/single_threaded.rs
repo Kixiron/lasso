@@ -137,9 +137,8 @@ where
     where
         T: Into<String>,
     {
-        let string = Box::leak(val.into().into_boxed_str());
-
         let key = K::try_from_usize(self.strings.len()).unwrap();
+        let string = Box::leak(val.into().into_boxed_str());
 
         self.strings.push(string);
         self.map.insert(string, key);
@@ -171,9 +170,8 @@ where
     where
         T: Into<String>,
     {
-        let string = Box::leak(val.into().into_boxed_str());
-
         let key = K::try_from_usize(self.strings.len())?;
+        let string = Box::leak(val.into().into_boxed_str());
 
         self.strings.push(string);
         self.map.insert(string, key);
