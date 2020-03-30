@@ -4,7 +4,7 @@ on: [push]
 
 jobs:
   check:
-    name: Rust project
+    name: Lasso
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
