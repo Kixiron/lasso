@@ -6,24 +6,48 @@ repository = "https://github.com/Kixiron/lasso"
 documentation = "https://docs.rs/lasso"
 authors = ["Chase Wilson <contact@chasewilson.dev>"]
 keywords = ["interner", "intern", "string", "str", "symbol"]
-description = """A concurrent string interner that allows strings to be cached with a minimal
-memory footprint, allowing them with a unique key that can be used to retrieve them at any time.
+description = """A multithreaded and single threaded string interner that allows strings to be cached with a
+minimal memory footprint, associating them with a unique key that can be used to retrieve them at any time.
 """
 readme = "README.md"
-categories = ["data-structures"]
+categories = ["data-structures", "concurrency", "no-std"]
 edition = "2018"
 
+# TODO: Update description
+
 [features]
-default = ["ahasher"]
+default = ["multi-threaded"]
+multi-threaded = ["dashmap"]
+no_std = [
+    "ahasher",
+    "hashbrown-table",
+    "dashmap/no_std",
+    "parking_locks",
+]
+hashbrown-table = ["hashbrown"]
 ahasher = ["ahash"]
+parking_locks = ["parking_lot"]
+bench = []
 
 [dependencies.dashmap]
 version = "3.9.0"
 features = ["raw-api"]
+optional = true
 
 [dependencies.ahash]
 version = "0.3.2"
 optional = true
 
-[dev-dependencies.ahash]
-version = "0.3.2"
+[dependencies.hashbrown]
+version = "0.7.1"
+optional = true
+
+[dependencies.parking_lot]
+version = "0.10.0"
+optional = true
+
+[dev-dependencies.criterion]
+version = "0.3.1"
+
+[dev-dependencies.lazy_static]
+version = "1.4.0"

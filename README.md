@@ -20,11 +20,12 @@ the only way to get the other two interner types. As your program progresses tho
 and at that point you may choose either a [`ReadOnlyLasso`] or a [`ResolverLasso`]. If you need to go from str to key you
 should use a [`ReadOnlyLasso`], but anything else should use a [`ResolverLasso`].
 
-| Interner          | Thread-safe | Intern String | key to str | str to key | Contention Free | Relative Memory Usage |
-| ----------------- | :---------: | :-----------: | :--------: | :--------: | :-------------: | :-------------------: |
-| [`Lasso`]         |      ✅      |       ✅       |     ✅      |     ✅      |        ❌        |         Most          |
-| [`ReadOnlyLasso`] |      ✅      |       ❌       |     ✅      |     ✅      |        ✅        |        Middle         |
-| [`ResolverLasso`] |      ✅      |       ❌       |     ✅      |     ❌      |        ✅        |         Least         |
+| Interner          | Thread-safe | Intern String | str to key | key to str | Contention Free | Memory Usage |
+| ----------------- | :---------: | :-----------: | :--------: | :--------: | :-------------: | :----------: |
+| [`Rodeo`]         |      ❌      |       ✅       |     ✅      |     ✅      |       N/A       |    Medium    |
+| [`ThreadedRodeo`] |      ✅      |       ✅       |     ✅      |     ✅      |        ❌        |     Most     |
+| [`RodeoReader`]   |      ✅      |       ❌       |     ✅      |     ✅      |        ✅        |    Medium    |
+| [`RodeoResolver`] |      ✅      |       ❌       |     ❌      |     ✅      |        ✅        |    Least     |
 
 ## Example: Interning Strings across threads
 
@@ -37,7 +38,7 @@ let hello = lasso.get_or_intern("Hello, ");
 
 let l = Arc::clone(&lasso);
 let world = thread::spawn(move || {
-    l.get_or_intern("World!".to_string())
+    l.get_or_intern("World!")
 })
 .join()
 .unwrap();
