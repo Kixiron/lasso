@@ -13,7 +13,9 @@ readme = "README.md"
 categories = ["data-structures", "concurrency", "no-std"]
 edition = "2018"
 
-# TODO: Update description
+[[bench]]
+name = "single_threaded"
+harness = false
 
 [features]
 default = ["multi-threaded"]
@@ -51,3 +53,6 @@ version = "0.3.1"
 
 [dev-dependencies.lazy_static]
 version = "1.4.0"
+
+[dev-dependencies.string-interner]
+version = "0.7.1"

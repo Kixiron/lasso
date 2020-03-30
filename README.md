@@ -1,24 +1,25 @@
-# Lasso
 
-[![CI](https://github.com/Kixiron/lasso/workflows/CI/badge.svg)](https://github.com/Kixiron/lasso)
-[![Security Audit](https://github.com/Kixiron/lasso/workflows/Security%20Audit/badge.svg)](https://github.com/Kixiron/lasso)
-[![Coverage](https://coveralls.io/repos/github/Kixiron/lasso/badge.svg?branch=master)](https://coveralls.io/github/Kixiron/lasso?branch=master)
-[![LoC](https://tokei.rs/b1/github/Kixiron/lasso)](https://github.com/Kixiron/lasso)
-[![Docs.rs](https://docs.rs/lasso/badge.svg)](https://docs.rs/lasso)
-[![Crates.io](https://img.shields.io/crates/v/lasso.svg)](https://crates.io/crates/lasso)
+[![CI][1]][0]
+[![Security Audit][2]][0]
+[![Coverage][3]][4]
+[![LoC][5]][0]
+[![Docs.rs][6]][7]
+[![Crates.io][8]][9]
 
-A concurrent string interner that allows strings to be cached with a minimal memory footprint,
-associating them with a unique [key] that can be used to retrieve them at any time. [`Lassos`] allow `O(1)`
-internment and resolution and can be turned into a [`ReadOnlyLasso`] to allow for contention-free resolutions
-with both key to str and str to key operations. It can also be turned into a [`ResolverLasso`] with only
-key to str operations for the lowest possible memory usage
+A multithreaded and single threaded string interner that allows strings to be cached with a minimal memory footprint,
+associating them with a unique [key] that can be used to retrieve them at any time. A [`Rodeo`] allows `O(1)`
+internment and resolution and can be turned into a [`RodeoReader`] to allow for contention-free resolutions
+with both key to str and str to key operations. It can also be turned into a [`RodeoResolver`] with only
+key to str operations for the lowest possible memory usage.
 
-## Which Interner do I use?
+## Which interner do I use?
 
-No matter which interner you decide to use, you must start with a [`Lasso`], as that is the only way to intern strings and
-the only way to get the other two interner types. As your program progresses though you may not need to intern strings anymore,
-and at that point you may choose either a [`ReadOnlyLasso`] or a [`ResolverLasso`]. If you need to go from str to key you
-should use a [`ReadOnlyLasso`], but anything else should use a [`ResolverLasso`].
+For single-threaded workloads [`Rodeo`] is encouraged, while multi-threaded applications should use [`ThreadedRodeo`].
+Both of these are the only way to intern strings, but most applications will hit a stage where they are done interning
+strings, and at that point is where the choice between [`RodeoReader`] and [`RodeoResolver`]. If the user needs to get
+keys for strings still, then they must use the [`RodeoReader`] (although they can still transfer into a  [`RodeoResolver`])
+at this point. For users who just need key to string resolution, the [`RodeoResolver`] gives contention-free access at the
+minimum possible memory usage. Note that to gain access to [`ThreadedRodeo`] the `multi-threaded` feature is required.
 
 | Interner          | Thread-safe | Intern String | str to key | key to str | Contention Free | Memory Usage |
 | ----------------- | :---------: | :-----------: | :--------: | :--------: | :-------------: | :----------: |
@@ -27,93 +28,125 @@ should use a [`ReadOnlyLasso`], but anything else should use a [`ResolverLasso`]
 | [`RodeoReader`]   |      ✅      |       ❌       |     ✅      |     ✅      |        ✅        |    Medium    |
 | [`RodeoResolver`] |      ✅      |       ❌       |     ❌      |     ✅      |        ✅        |    Least     |
 
-## Example: Interning Strings across threads
+## Cargo Features
+
+
+By default `lasso` has zero dependencies only the [`Rodeo`] is exposed. To make use of [`ThreadedRodeo`], you must enable the `multi-threaded` feature
+
+* `multi-threaded` - Enables [`ThreadedRodeo`], the interner for multi-threaded tasks
+* `parking_locks` - Uses [`parking_lot`] for the internal concurrent locks
+* `hashbrown-table` - Uses [`hashbrown`] as the internal `HashMap`
+* `ahasher` - Use [`ahash`]'s `RandomState` as the default hasher
+* `no_std` - Enables `no_std` + `alloc` support for [`Rodeo`] and [`ThreadedRodeo`]
+  * Automatically enables the following required features:
+    * `dashmap/no_std` - `no_std` compatibility for `DashMap`
+    * `parking_locks` - `no_std` locks
+    * `hashbrown-table` - `no_std` `HashMap`
+    * `ahasher` - `no_std` hashing function
+
+## Example: Using Rodeo
 
 ```rust
-use lasso::Lasso;
+use lasso::Rodeo;
+
+let mut rodeo = Rodeo::default();
+let key = rodeo.get_or_intern("Hello, world!");
+
+// Easily retrieve the value of the key and find the key for values
+assert_eq!("Hello, world!", rodeo.resolve(&key));
+assert_eq!(Some(key), rodeo.get("Hello, world!"));
+
+// Interning the same string again will yield the same key
+let key2 = rodeo.get_or_intern("Hello, world!");
+
+assert_eq!(key, key2);
+```
+
+## Example: Using ThreadedRodeo
+
+```rust
+use lasso::ThreadedRodeo;
 use std::{thread, sync::Arc};
 
-let lasso = Arc::new(Lasso::default());
-let hello = lasso.get_or_intern("Hello, ");
+let rodeo = Arc::new(ThreadedRodeo::default());
+let key = rodeo.get_or_intern("Hello, world!");
 
-let l = Arc::clone(&lasso);
-let world = thread::spawn(move || {
-    l.get_or_intern("World!")
+// Easily retrieve the value of the key and find the key for values
+assert_eq!("Hello, world!", rodeo.resolve(&key));
+assert_eq!(Some(key), rodeo.get("Hello, world!"));
+
+// Interning the same string again will yield the same key
+let key2 = rodeo.get_or_intern("Hello, world!");
+
+assert_eq!(key, key2);
+
+// ThreadedRodeo can be shared across threads
+let moved = Arc::clone(&rodeo);
+let hello = thread::spawn(move || {
+    assert_eq!("Hello, world!", moved.resolve(&key));
+    moved.get_or_intern("Hello from the thread!")
 })
 .join()
 .unwrap();
 
-let world_2 = lasso.get_or_intern("World!");
-
-assert_eq!("Hello, ", lasso.resolve(&hello));
-assert_eq!("World!", lasso.resolve(&world));
-
-// These are the same because they interned the same string
-assert_eq!(world, world_2);
-assert_eq!(lasso.resolve(&world), lasso.resolve(&world_2));
+assert_eq!("Hello, world!", rodeo.resolve(&key));
+assert_eq!("Hello from the thread!", rodeo.resolve(&hello));
 ```
 
-## Example: Resolving Strings
+## Example: Creating a RodeoReader
 
 ```rust
-use lasso::Lasso;
+use lasso::Rodeo;
 
-let lasso = Lasso::default();
-let key = lasso.intern("Hello, World!");
+// Rodeo and ThreadedRodeo are interchangeable here
+let mut rodeo = Rodeo::default();
 
-assert_eq!("Hello, World!", lasso.resolve(&key));
+let key = rodeo.get_or_intern("Hello, world!");
+assert_eq!("Hello, world!", rodeo.resolve(&key));
+
+let reader = rodeo.into_reader();
+
+// Reader keeps all the strings from the parent
+assert_eq!("Hello, world!", reader.resolve(&key));
+assert_eq!(Some(key), reader.get("Hello, world!"));
+
+// The Reader can now be shared across threads, no matter what kind of Rodeo created it
 ```
 
-## Example: Creating a ReadOnlyLasso
+## Example: Creating a RodeoResolver
 
 ```rust
-use lasso::Lasso;
-use std::{thread, sync::Arc};
+use lasso::Rodeo;
 
-let lasso = Lasso::default();
-let key = lasso.intern("Contention free!");
+// Rodeo and ThreadedRodeo are interchangeable here
+let mut rodeo = Rodeo::default();
 
-// Can be used for resolving strings with zero contention, but not for interning new ones
-let read_only_lasso = Arc::new(lasso.into_read_only());
+let key = rodeo.get_or_intern("Hello, world!");
+assert_eq!("Hello, world!", rodeo.resolve(&key));
 
-let lasso = Arc::clone(&read_only_lasso);
-thread::spawn(move || {
-    assert_eq!("Contention free!", lasso.resolve(&key));
-});
+let resolver = rodeo.into_resolver();
 
-assert_eq!("Contention free!", read_only_lasso.resolve(&key));
+// Resolver keeps all the strings from the parent
+assert_eq!("Hello, world!", resolver.resolve(&key));
+
+// The Resolver can now be shared across threads, no matter what kind of Rodeo created it
 ```
 
-## Example: Creating a ResolverLasso
-
-```rust
-use lasso::Lasso;
-use std::{thread, sync::Arc};
-
-let lasso = Lasso::default();
-let key = lasso.intern("Contention free!");
-
-// Can be used for resolving strings with zero contention and the lowest possible memory consumption,
-// but not for interning new ones
-let resolver_lasso = Arc::new(lasso.into_resolver());
-
-let lasso = Arc::clone(&resolver_lasso);
-thread::spawn(move || {
-    assert_eq!("Contention free!", lasso.resolve(&key));
-});
-
-assert_eq!("Contention free!", resolver_lasso.resolve(&key));
-```
-
-## Cargo Features
-
-* `default` - By default the `ahasher` feature is enabled
-* `ahasher` - Use [`ahash::RandomState`] as the default hasher for extra speed, without this then std's [`RandomState`] will be used
-
+[0]: https://github.com/Kixiron/lasso
+[1]: https://github.com/Kixiron/lasso/workflows/CI/badge.svg
+[2]: https://github.com/Kixiron/lasso/workflows/Security%20Audit/badge.svg
+[3]: https://coveralls.io/repos/github/Kixiron/lasso/badge.svg?branch=master
+[4]: https://coveralls.io/github/Kixiron/lasso?branch=master
+[5]: https://tokei.rs/b1/github/Kixiron/lasso
+[6]: https://docs.rs/lasso/badge.svg
+[7]: https://docs.rs/lasso
+[8]: https://img.shields.io/crates/v/lasso.svg
+[9]: https://crates.io/crates/lasso
 [key]: crate::Key
-[`Lasso`]: crate::Lasso
-[`Lassos`]: crate::Lasso
-[`ReadOnlyLasso`]: crate::ReadOnlyLasso
-[`ResolverLasso`]: crate::ResolverLasso
-[`ahash::RandomState`]: https://docs.rs/ahash/0.3.2/ahash/
-[`RandomState`]: https://doc.rust-lang.org/std/collections/hash_map/struct.RandomState.html
+[`Rodeo`]: crate::Rodeo
+[`ThreadedRodeo`]: crate::ThreadedRodeo
+[`RodeoResolver`]: crate::RodeoResolver
+[`RodeoReader`]: crate::RodeoReader
+[`hashbrown`]: https://crates.io/crates/hashbrown
+[`ahash`]: https://crates.io/crates/ahash
+[`parking_lot`]: https://crates.io/crates/parking_lot
