@@ -29,11 +29,11 @@ jobs:
 
       # Check that formatting is valid
       - name: Check Formatting
-        run: cargo fmt --all -- --check
+        run: cargo fmt --all -- --check --features multi-threaded
 
       # Check that documentation is valid
       - name: Check Documentation
-        run: cargo doc --no-deps
+        run: cargo doc --no-deps --features multi-threaded
 
   Tests:
     name: ${{ matrix.name }}
@@ -82,6 +82,7 @@ jobs:
         with:
           rust-version: ${{ matrix.rust_version }}${{ matrix.platform.host }}
           targets: ${{ matrix.target }}
+          components: miri
 
       - name: Install Dependences
         if: matrix.target == 'i686-unknown-linux-gnu'
@@ -89,8 +90,12 @@ jobs:
 
       # Run tests in debug mode
       - name: Run Tests Debug
-        run: cargo test --target ${{ matrix.target }}
+        run: cargo test --target ${{ matrix.target }} --features multi-threaded
 
       # Run tests in release mode
       - name: Run Tests Debug
-        run: cargo test --target ${{ matrix.target }}
+        run: cargo test --target ${{ matrix.target }} --features multi-threaded
+
+      # Clean and run miri
+      - name: Run Miri
+        run: cargo clean && cargo +nightly miri test --target ${{ matrix.target }} --features multi-threaded
