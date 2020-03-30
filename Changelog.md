@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `ResolverLasso` to `RodeoResolver`
 - Changed default impl of `Key::from_usize`
 - Added `Send` and `Sync` bounds for `ThreadedRodeo`, `RodeoResolver` and `RodeoReader`
+- Changed internals of `get_or_intern` to be `try_get_or_intern.expect()`
 
 ### Removed
 
@@ -39,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed memory leaks and possible unsoundness
+- Fixed data races on `ThreadedRodeo`
 
 ## 0.1.2
 ## 0.1.1

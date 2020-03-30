@@ -1,7 +1,7 @@
 use crate::{
     hasher::{HashMap, RandomState},
     key::{Cord, Key},
-    locks::Mutex,
+    locks::{Mutex, MutexGuard},
     reader::RodeoReader,
     resolver::RodeoResolver,
 };
@@ -128,36 +128,6 @@ where
         }
     }
 
-    /// Intern a string, updating the value if it already exists, and return its key
-    ///
-    /// # Panics
-    ///
-    /// Panics if the call to `Key::from_usize` fails, indicating that the key's namespace is full
-    ///
-    #[inline]
-    pub(crate) fn intern<T>(&self, val: T) -> K
-    where
-        T: Into<String>,
-    {
-        let (key, string) = {
-            #[cfg(feature = "parking_locks")]
-            let mut strings = self.strings.lock();
-            #[cfg(not(feature = "parking_locks"))]
-            let mut strings = self.strings.lock().unwrap();
-
-            let key = K::try_from_usize(strings.len()).expect("The key's namespace is full");
-            let string: &'static str = Box::leak(val.into().into_boxed_str());
-
-            strings.push(string);
-
-            (key, string)
-        };
-
-        self.map.insert(string, key);
-
-        key
-    }
-
     /// Attempt to intern a string, updating the value if it already exists,
     /// returning its key if the key is able to be made and `None` if not.
     ///
@@ -167,23 +137,19 @@ where
     ///
     /// [`Key::try_from`]: crate::Key#try_from_usize
     #[inline]
-    pub(crate) fn try_intern<T>(&self, val: T) -> Option<K>
+    pub(crate) fn try_intern<T>(
+        &self,
+        val: T,
+        mut strings: MutexGuard<Vec<&'static str>>,
+    ) -> Option<K>
     where
         T: Into<String>,
     {
-        let (key, string) = {
-            #[cfg(feature = "parking_locks")]
-            let mut strings = self.strings.lock();
-            #[cfg(not(feature = "parking_locks"))]
-            let mut strings = self.strings.lock().unwrap();
+        let key = K::try_from_usize(strings.len())?;
+        let string: &'static str = Box::leak(val.into().into_boxed_str());
 
-            let key = K::try_from_usize(strings.len())?;
-            let string: &'static str = Box::leak(val.into().into_boxed_str());
-
-            strings.push(string);
-
-            (key, string)
-        };
+        strings.push(string);
+        drop(strings);
 
         self.map.insert(string, key);
 
@@ -213,11 +179,8 @@ where
     where
         T: Into<String> + AsRef<str>,
     {
-        if let Some(key) = self.get(val.as_ref()) {
-            key
-        } else {
-            self.intern(val.into())
-        }
+        self.try_get_or_intern(val)
+            .expect("Failed to get or intern string")
     }
 
     /// Get the key for a string, interning it if it does not yet exist
@@ -243,10 +206,14 @@ where
     where
         T: Into<String> + AsRef<str>,
     {
+        // Take a lock on self.strings to ensure we're the only one modifying
+        // the map and string vector
+        let guard = self.lock_strings();
+
         if let Some(key) = self.get(val.as_ref()) {
             Some(key)
         } else {
-            self.try_intern(val.into())
+            self.try_intern(val.into(), guard)
         }
     }
 
@@ -297,15 +264,15 @@ where
         // and symmetric, then it will succeed, as the usize used to create it is a valid
         // index into self.strings
         unsafe {
-            #[cfg(feature = "parking_locks")]
-            assert!(key.into_usize() < self.strings.lock().len());
-            #[cfg(not(feature = "parking_locks"))]
-            assert!(key.into_usize() < self.strings.lock().unwrap().len());
+            let strings = self.lock_strings();
 
-            #[cfg(feature = "parking_locks")]
-            return self.strings.lock().get_unchecked(key.into_usize());
-            #[cfg(not(feature = "parking_locks"))]
-            return self.strings.lock().unwrap().get_unchecked(key.into_usize());
+            if key.into_usize() < strings.len() {
+                strings.get_unchecked(key.into_usize())
+            } else {
+                drop(strings);
+
+                panic!("Key out of bounds");
+            }
         }
     }
 
@@ -330,16 +297,10 @@ where
         // and symmetric, then it will succeed, as the usize used to create it is a valid
         // index into self.strings
         unsafe {
-            #[cfg(feature = "parking_locks")]
-            let in_bounds = key.into_usize() < self.strings.lock().len();
-            #[cfg(not(feature = "parking_locks"))]
-            let in_bounds = key.into_usize() < self.strings.lock().unwrap().len();
+            let strings = self.lock_strings();
 
-            if in_bounds {
-                #[cfg(feature = "parking_locks")]
-                return Some(self.strings.lock().get_unchecked(key.into_usize()));
-                #[cfg(not(feature = "parking_locks"))]
-                return Some(self.strings.lock().unwrap().get_unchecked(key.into_usize()));
+            if key.into_usize() < strings.len() {
+                Some(strings.get_unchecked(key.into_usize()))
             } else {
                 None
             }
@@ -367,11 +328,7 @@ where
     ///
     #[inline]
     pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
-        #[cfg(feature = "parking_locks")]
-        return self.strings.lock().get_unchecked(key.into_usize());
-
-        #[cfg(not(feature = "parking_locks"))]
-        return self.strings.lock().unwrap().get_unchecked(key.into_usize());
+        self.lock_strings().get_unchecked(key.into_usize())
     }
 
     /// Gets the number of interned strings
@@ -389,11 +346,7 @@ where
     ///
     #[inline]
     pub fn len(&self) -> usize {
-        #[cfg(feature = "parking_locks")]
-        return self.strings.lock().len();
-
-        #[cfg(not(feature = "parking_locks"))]
-        return self.strings.lock().unwrap().len();
+        self.lock_strings().len()
     }
 
     /// Returns `true` if there are no currently interned strings
@@ -425,11 +378,7 @@ where
     ///
     #[inline]
     pub fn capacity(&self) -> usize {
-        #[cfg(feature = "parking_locks")]
-        return self.strings.lock().capacity();
-
-        #[cfg(not(feature = "parking_locks"))]
-        return self.strings.lock().unwrap().capacity();
+        self.lock_strings().capacity()
     }
 
     /// Consumes the current ThreadedRodeo, returning a [`RodeoReader`] to allow contention-free access of the interner
@@ -455,10 +404,7 @@ where
     #[must_use]
     pub fn into_reader(self) -> RodeoReader<K, S> {
         // Take the strings vec from the old lasso
-        #[cfg(feature = "parking_locks")]
-        let strings = mem::replace(&mut *self.strings.lock(), Vec::new());
-        #[cfg(not(feature = "parking_locks"))]
-        let strings = mem::replace(&mut *self.strings.lock().unwrap(), Vec::new());
+        let strings = mem::replace(&mut *self.lock_strings(), Vec::new());
 
         // Drain the DashMap by draining each of its buckets and creating a new hashmap to store their values
         let mut map: HashMap<&'static str, K, S> =
@@ -496,10 +442,7 @@ where
     pub fn into_resolver(self) -> RodeoResolver<K> {
         self.map.clear();
 
-        #[cfg(feature = "parking_locks")]
-        let old_strings = &mut *self.strings.lock();
-        #[cfg(not(feature = "parking_locks"))]
-        let old_strings = &mut *self.strings.lock().unwrap();
+        let old_strings = &mut *self.lock_strings();
 
         let mut strings = Vec::with_capacity(old_strings.len());
 
@@ -509,6 +452,15 @@ where
 
         // Safety: No other references to the strings exist
         unsafe { RodeoResolver::new(strings) }
+    }
+
+    #[inline]
+    fn lock_strings(&self) -> MutexGuard<Vec<&'static str>> {
+        #[cfg(feature = "parking_locks")]
+        return self.strings.lock();
+
+        #[cfg(not(feature = "parking_locks"))]
+        return self.strings.lock().unwrap();
     }
 }
 
@@ -531,10 +483,7 @@ where
         // Safety: The strings of the current Rodeo **cannot** be used in the new one,
         // otherwise it will cause double-frees
 
-        #[cfg(feature = "parking_locks")]
-        let old_strings = &*self.strings.lock();
-        #[cfg(not(feature = "parking_locks"))]
-        let old_strings = &*self.strings.lock().unwrap();
+        let old_strings = &*self.lock_strings();
 
         // Create the new map/vec that will fill the new ThreadedRodeo, pre-allocating their capacity
         let map = DashMap::with_capacity_and_hasher(old_strings.len(), self.map.hasher().clone());
@@ -569,10 +518,7 @@ where
         // Clear the map to remove all other references to the strings in self.strings
         self.map.clear();
 
-        #[cfg(feature = "parking_locks")]
-        let strings = &mut *self.strings.lock();
-        #[cfg(not(feature = "parking_locks"))]
-        let strings = &mut *self.strings.lock().unwrap();
+        let strings = &mut *self.lock_strings();
 
         // Drain self.strings while deallocating the strings it holds
         for string in strings.drain(..) {
@@ -612,54 +558,20 @@ mod tests {
 
     #[test]
     fn with_hasher() {
-        let std_rodeo: ThreadedRodeo<Cord, RandomState> =
+        let rodeo: ThreadedRodeo<Cord, RandomState> =
             ThreadedRodeo::with_hasher(RandomState::new());
-        let key = std_rodeo.intern("Test");
-        assert_eq!("Test", std_rodeo.resolve(&key));
+
+        let key = rodeo.get_or_intern("Test");
+        assert_eq!("Test", rodeo.resolve(&key));
     }
 
     #[test]
     fn with_capacity_and_hasher() {
-        let std_rodeo: ThreadedRodeo<Cord, RandomState> =
+        let rodeo: ThreadedRodeo<Cord, RandomState> =
             ThreadedRodeo::with_capacity_and_hasher(10, RandomState::new());
 
-        let key = std_rodeo.intern("Test");
-        assert_eq!("Test", std_rodeo.resolve(&key));
-    }
-
-    #[test]
-    fn intern() {
-        let rodeo = ThreadedRodeo::default();
-
-        rodeo.intern("A");
-        rodeo.intern("A");
-        rodeo.intern("B");
-        rodeo.intern("B");
-        rodeo.intern("C");
-        rodeo.intern("C");
-    }
-
-    #[test]
-    #[cfg(not(any(miri, feature = "no_std")))]
-    fn intern_threaded() {
-        let rodeo = Arc::new(ThreadedRodeo::default());
-
-        let moved = Arc::clone(&rodeo);
-        thread::spawn(move || {
-            moved.intern("A");
-            moved.intern("A");
-            moved.intern("B");
-            moved.intern("B");
-            moved.intern("C");
-            moved.intern("C");
-        });
-
-        rodeo.intern("A");
-        rodeo.intern("A");
-        rodeo.intern("B");
-        rodeo.intern("B");
-        rodeo.intern("C");
-        rodeo.intern("C");
+        let key = rodeo.get_or_intern("Test");
+        assert_eq!("Test", rodeo.resolve(&key));
     }
 
     #[test]
@@ -667,13 +579,13 @@ mod tests {
         let rodeo: ThreadedRodeo<MicroCord> = ThreadedRodeo::new();
 
         for i in 0..u8::max_value() as usize - 1 {
-            rodeo.intern(i.to_string());
+            rodeo.get_or_intern(i.to_string());
         }
 
-        let space = rodeo.try_intern("A").unwrap();
+        let space = rodeo.try_intern("A", rodeo.lock_strings()).unwrap();
         assert_eq!("A", rodeo.resolve(&space));
 
-        assert!(rodeo.try_intern("C").is_none());
+        assert!(rodeo.try_intern("C", rodeo.lock_strings()).is_none());
     }
 
     #[test]
@@ -682,18 +594,18 @@ mod tests {
         let rodeo: Arc<ThreadedRodeo<MicroCord>> = Arc::new(ThreadedRodeo::new());
 
         for i in 0..u8::max_value() as usize - 1 {
-            rodeo.intern(i.to_string());
+            rodeo.get_or_intern(i.to_string());
         }
 
-        let space = rodeo.try_intern("A").unwrap();
+        let space = rodeo.try_intern("A", rodeo.lock_strings()).unwrap();
         assert_eq!("A", rodeo.resolve(&space));
 
         let moved = Arc::clone(&rodeo);
         thread::spawn(move || {
-            assert!(moved.try_intern("C").is_none());
+            assert!(moved.try_intern("C", moved.lock_strings()).is_none());
         });
 
-        assert!(rodeo.try_intern("C").is_none());
+        assert!(rodeo.try_intern("C", rodeo.lock_strings()).is_none());
     }
 
     #[test]
@@ -742,7 +654,7 @@ mod tests {
         let rodeo: ThreadedRodeo<MicroCord> = ThreadedRodeo::new();
 
         for i in 0..u8::max_value() as usize - 1 {
-            rodeo.intern(i.to_string());
+            rodeo.get_or_intern(i.to_string());
         }
 
         let space = rodeo.try_get_or_intern("A").unwrap();
@@ -757,7 +669,7 @@ mod tests {
         let rodeo: Arc<ThreadedRodeo<MicroCord>> = Arc::new(ThreadedRodeo::new());
 
         for i in 0..u8::max_value() as usize - 1 {
-            rodeo.intern(i.to_string());
+            rodeo.get_or_intern(i.to_string());
         }
 
         let moved = Arc::clone(&rodeo);
@@ -785,7 +697,7 @@ mod tests {
     #[test]
     fn get() {
         let rodeo = ThreadedRodeo::default();
-        let key = rodeo.intern("A");
+        let key = rodeo.get_or_intern("A");
 
         assert_eq!(Some(key), rodeo.get("A"));
     }
@@ -794,7 +706,7 @@ mod tests {
     #[cfg(not(any(miri, feature = "no_std")))]
     fn get_threaded() {
         let rodeo = Arc::new(ThreadedRodeo::default());
-        let key = rodeo.intern("A");
+        let key = rodeo.get_or_intern("A");
 
         let moved = Arc::clone(&rodeo);
         thread::spawn(move || {
@@ -807,7 +719,7 @@ mod tests {
     #[test]
     fn resolve() {
         let rodeo = ThreadedRodeo::default();
-        let key = rodeo.intern("A");
+        let key = rodeo.get_or_intern("A");
 
         assert_eq!("A", rodeo.resolve(&key));
     }
@@ -824,7 +736,7 @@ mod tests {
     #[cfg(not(any(miri, feature = "no_std")))]
     fn resolve_threaded() {
         let rodeo = Arc::new(ThreadedRodeo::default());
-        let key = rodeo.intern("A");
+        let key = rodeo.get_or_intern("A");
 
         let moved = Arc::clone(&rodeo);
         thread::spawn(move || {
@@ -835,9 +747,25 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(miri))]
+    fn resolve_panics_threaded() {
+        let rodeo = Arc::new(ThreadedRodeo::default());
+        let key = rodeo.get_or_intern("A");
+
+        let moved = Arc::clone(&rodeo);
+        let handle = thread::spawn(move || {
+            assert_eq!("A", moved.resolve(&key));
+            moved.resolve(&Cord::try_from_usize(100).unwrap());
+        });
+
+        assert_eq!("A", rodeo.resolve(&key));
+        assert!(handle.join().is_err());
+    }
+
+    #[test]
     fn try_resolve() {
         let rodeo = ThreadedRodeo::default();
-        let key = rodeo.intern("A");
+        let key = rodeo.get_or_intern("A");
 
         assert_eq!(Some("A"), rodeo.try_resolve(&key));
         assert_eq!(None, rodeo.try_resolve(&Cord::try_from_usize(100).unwrap()));
@@ -847,7 +775,7 @@ mod tests {
     #[cfg(not(any(miri, feature = "no_std")))]
     fn try_resolve_threaded() {
         let rodeo = Arc::new(ThreadedRodeo::default());
-        let key = rodeo.intern("A");
+        let key = rodeo.get_or_intern("A");
 
         let moved = Arc::clone(&rodeo);
         thread::spawn(move || {
@@ -862,7 +790,7 @@ mod tests {
     #[test]
     fn resolve_unchecked() {
         let rodeo = ThreadedRodeo::default();
-        let key = rodeo.intern("A");
+        let key = rodeo.get_or_intern("A");
 
         unsafe {
             assert_eq!("A", rodeo.resolve_unchecked(&key));
@@ -873,7 +801,7 @@ mod tests {
     #[cfg(not(any(miri, feature = "no_std")))]
     fn resolve_unchecked_threaded() {
         let rodeo = Arc::new(ThreadedRodeo::default());
-        let key = rodeo.intern("A");
+        let key = rodeo.get_or_intern("A");
 
         let moved = Arc::clone(&rodeo);
         thread::spawn(move || unsafe {
@@ -888,9 +816,9 @@ mod tests {
     #[test]
     fn len() {
         let rodeo = ThreadedRodeo::default();
-        rodeo.intern("A");
-        rodeo.intern("B");
-        rodeo.intern("C");
+        rodeo.get_or_intern("A");
+        rodeo.get_or_intern("B");
+        rodeo.get_or_intern("C");
 
         assert_eq!(rodeo.len(), 3);
     }
@@ -905,7 +833,7 @@ mod tests {
     #[test]
     fn clone() {
         let rodeo = ThreadedRodeo::default();
-        let key = rodeo.intern("Test");
+        let key = rodeo.get_or_intern("Test");
 
         assert_eq!("Test", rodeo.resolve(&key));
 

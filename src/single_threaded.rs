@@ -115,37 +115,6 @@ where
         }
     }
 
-    /// Intern a string, updating the value if it already exists, and return its key
-    ///
-    /// # Panics
-    ///
-    /// Panics if the call to `Key::from_usize` fails, indicating that the key's namespace is full
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lasso::Rodeo;
-    ///
-    /// let mut rodeo = Rodeo::default();
-    ///
-    /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
-    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
-    /// ```
-    ///
-    #[inline]
-    pub(crate) fn intern<T>(&mut self, val: T) -> K
-    where
-        T: Into<String>,
-    {
-        let key = K::try_from_usize(self.strings.len()).unwrap();
-        let string = Box::leak(val.into().into_boxed_str());
-
-        self.strings.push(string);
-        self.map.insert(string, key);
-
-        key
-    }
-
     /// Attempt to intern a string, updating the value if it already exists,
     /// returning its key if the key is able to be made and `None` if not.
     ///
@@ -202,11 +171,13 @@ where
     where
         T: Into<String> + AsRef<str>,
     {
-        if let Some(key) = self.get(val.as_ref()) {
-            key
-        } else {
-            self.intern(val.into())
-        }
+        let key = K::try_from_usize(self.strings.len()).expect("Failed to get or intern string");
+        let string = Box::leak(val.into().into_boxed_str());
+
+        self.strings.push(string);
+        self.map.insert(string, key);
+
+        key
     }
 
     /// Get the key for a string, interning it if it does not yet exist
@@ -555,7 +526,7 @@ mod tests {
     #[test]
     fn new() {
         let mut rodeo: Rodeo<Cord> = Rodeo::new();
-        rodeo.intern("Test");
+        rodeo.get_or_intern("Test");
     }
 
     #[test]
@@ -563,16 +534,16 @@ mod tests {
         let mut rodeo: Rodeo<Cord> = Rodeo::with_capacity(10);
         assert_eq!(rodeo.capacity(), 10);
 
-        rodeo.intern("Test");
-        rodeo.intern("Test1");
-        rodeo.intern("Test2");
-        rodeo.intern("Test3");
-        rodeo.intern("Test4");
-        rodeo.intern("Test5");
-        rodeo.intern("Test6");
-        rodeo.intern("Test7");
-        rodeo.intern("Test8");
-        rodeo.intern("Test9");
+        rodeo.get_or_intern("Test");
+        rodeo.get_or_intern("Test1");
+        rodeo.get_or_intern("Test2");
+        rodeo.get_or_intern("Test3");
+        rodeo.get_or_intern("Test4");
+        rodeo.get_or_intern("Test5");
+        rodeo.get_or_intern("Test6");
+        rodeo.get_or_intern("Test7");
+        rodeo.get_or_intern("Test8");
+        rodeo.get_or_intern("Test9");
 
         assert_eq!(rodeo.len(), rodeo.capacity());
     }
@@ -580,12 +551,12 @@ mod tests {
     #[test]
     fn with_hasher() {
         let mut rodeo: Rodeo<Cord, RandomState> = Rodeo::with_hasher(RandomState::new());
-        let key = rodeo.intern("Test");
+        let key = rodeo.get_or_intern("Test");
         assert_eq!("Test", rodeo.resolve(&key));
 
         let mut rodeo: Rodeo<Cord, ahash::RandomState> =
             Rodeo::with_hasher(ahash::RandomState::new());
-        let key = rodeo.intern("Test");
+        let key = rodeo.get_or_intern("Test");
         assert_eq!("Test", rodeo.resolve(&key));
     }
 
@@ -595,16 +566,16 @@ mod tests {
             Rodeo::with_capacity_and_hasher(10, RandomState::new());
         assert_eq!(rodeo.capacity(), 10);
 
-        rodeo.intern("Test");
-        rodeo.intern("Test1");
-        rodeo.intern("Test2");
-        rodeo.intern("Test3");
-        rodeo.intern("Test4");
-        rodeo.intern("Test5");
-        rodeo.intern("Test6");
-        rodeo.intern("Test7");
-        rodeo.intern("Test8");
-        rodeo.intern("Test9");
+        rodeo.get_or_intern("Test");
+        rodeo.get_or_intern("Test1");
+        rodeo.get_or_intern("Test2");
+        rodeo.get_or_intern("Test3");
+        rodeo.get_or_intern("Test4");
+        rodeo.get_or_intern("Test5");
+        rodeo.get_or_intern("Test6");
+        rodeo.get_or_intern("Test7");
+        rodeo.get_or_intern("Test8");
+        rodeo.get_or_intern("Test9");
 
         assert_eq!(rodeo.len(), rodeo.capacity());
 
@@ -612,30 +583,18 @@ mod tests {
             Rodeo::with_capacity_and_hasher(10, ahash::RandomState::new());
         assert_eq!(rodeo.capacity(), 10);
 
-        rodeo.intern("Test");
-        rodeo.intern("Test1");
-        rodeo.intern("Test2");
-        rodeo.intern("Test3");
-        rodeo.intern("Test4");
-        rodeo.intern("Test5");
-        rodeo.intern("Test6");
-        rodeo.intern("Test7");
-        rodeo.intern("Test8");
-        rodeo.intern("Test9");
+        rodeo.get_or_intern("Test");
+        rodeo.get_or_intern("Test1");
+        rodeo.get_or_intern("Test2");
+        rodeo.get_or_intern("Test3");
+        rodeo.get_or_intern("Test4");
+        rodeo.get_or_intern("Test5");
+        rodeo.get_or_intern("Test6");
+        rodeo.get_or_intern("Test7");
+        rodeo.get_or_intern("Test8");
+        rodeo.get_or_intern("Test9");
 
         assert_eq!(rodeo.len(), rodeo.capacity());
-    }
-
-    #[test]
-    fn intern() {
-        let mut rodeo = Rodeo::default();
-
-        rodeo.intern("A");
-        rodeo.intern("A");
-        rodeo.intern("B");
-        rodeo.intern("B");
-        rodeo.intern("C");
-        rodeo.intern("C");
     }
 
     #[test]
@@ -643,7 +602,7 @@ mod tests {
         let mut rodeo: Rodeo<MicroCord> = Rodeo::new();
 
         for i in 0..u8::max_value() as usize - 1 {
-            rodeo.intern(i.to_string());
+            rodeo.get_or_intern(i.to_string());
         }
 
         let space = rodeo.try_intern("A").unwrap();
@@ -670,7 +629,7 @@ mod tests {
         let mut rodeo: Rodeo<MicroCord> = Rodeo::new();
 
         for i in 0..u8::max_value() as usize - 1 {
-            rodeo.intern(i.to_string());
+            rodeo.get_or_intern(i.to_string());
         }
 
         let space = rodeo.try_get_or_intern("A").unwrap();
@@ -682,7 +641,7 @@ mod tests {
     #[test]
     fn get() {
         let mut rodeo = Rodeo::default();
-        let key = rodeo.intern("A");
+        let key = rodeo.get_or_intern("A");
 
         assert_eq!(Some(key), rodeo.get("A"));
     }
@@ -690,7 +649,7 @@ mod tests {
     #[test]
     fn resolve() {
         let mut rodeo = Rodeo::default();
-        let key = rodeo.intern("A");
+        let key = rodeo.get_or_intern("A");
 
         assert_eq!("A", rodeo.resolve(&key));
     }
@@ -706,7 +665,7 @@ mod tests {
     #[test]
     fn try_resolve() {
         let mut rodeo = Rodeo::default();
-        let key = rodeo.intern("A");
+        let key = rodeo.get_or_intern("A");
 
         assert_eq!(Some("A"), rodeo.try_resolve(&key));
         assert_eq!(None, rodeo.try_resolve(&Cord::try_from_usize(100).unwrap()));
@@ -715,7 +674,7 @@ mod tests {
     #[test]
     fn resolve_unchecked() {
         let mut rodeo = Rodeo::default();
-        let key = rodeo.intern("A");
+        let key = rodeo.get_or_intern("A");
 
         unsafe {
             assert_eq!("A", rodeo.resolve_unchecked(&key));
@@ -725,9 +684,9 @@ mod tests {
     #[test]
     fn len() {
         let mut rodeo = Rodeo::default();
-        rodeo.intern("A");
-        rodeo.intern("B");
-        rodeo.intern("C");
+        rodeo.get_or_intern("A");
+        rodeo.get_or_intern("B");
+        rodeo.get_or_intern("C");
 
         assert_eq!(rodeo.len(), 3);
     }
@@ -742,7 +701,7 @@ mod tests {
     #[test]
     fn clone_rodeo() {
         let mut rodeo = Rodeo::default();
-        let key = rodeo.intern("Test");
+        let key = rodeo.get_or_intern("Test");
 
         assert_eq!("Test", rodeo.resolve(&key));
 
@@ -762,9 +721,9 @@ mod tests {
     #[test]
     fn iter() {
         let mut rodeo = Rodeo::default();
-        let a = rodeo.intern("a");
-        let b = rodeo.intern("b");
-        let c = rodeo.intern("c");
+        let a = rodeo.get_or_intern("a");
+        let b = rodeo.get_or_intern("b");
+        let c = rodeo.get_or_intern("c");
 
         let mut rodeo = rodeo.iter();
         assert_eq!(Some((a, "a")), rodeo.next());
@@ -776,9 +735,9 @@ mod tests {
     #[test]
     fn strings() {
         let mut rodeo = Rodeo::default();
-        rodeo.intern("a");
-        rodeo.intern("b");
-        rodeo.intern("c");
+        rodeo.get_or_intern("a");
+        rodeo.get_or_intern("b");
+        rodeo.get_or_intern("c");
 
         let mut rodeo = rodeo.strings();
         assert_eq!(Some("a"), rodeo.next());

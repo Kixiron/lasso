@@ -300,7 +300,7 @@ mod tests {
         #[test]
         fn get() {
             let mut rodeo = Rodeo::default();
-            let key = rodeo.intern("A");
+            let key = rodeo.get_or_intern("A");
 
             let reader = rodeo.into_reader();
             assert_eq!(Some(key), reader.get("A"));
@@ -311,7 +311,7 @@ mod tests {
         #[test]
         fn resolve() {
             let mut rodeo = Rodeo::default();
-            let key = rodeo.intern("A");
+            let key = rodeo.get_or_intern("A");
 
             let reader = rodeo.into_reader();
             assert_eq!("A", reader.resolve(&key));
@@ -328,7 +328,7 @@ mod tests {
         #[test]
         fn try_resolve() {
             let mut rodeo = Rodeo::default();
-            let key = rodeo.intern("A");
+            let key = rodeo.get_or_intern("A");
 
             let reader = rodeo.into_reader();
             assert_eq!(Some("A"), reader.try_resolve(&key));
@@ -341,7 +341,7 @@ mod tests {
         #[test]
         fn resolve_unchecked() {
             let mut rodeo = Rodeo::default();
-            let key = rodeo.intern("A");
+            let key = rodeo.get_or_intern("A");
 
             let reader = rodeo.into_reader();
             unsafe {
@@ -352,9 +352,9 @@ mod tests {
         #[test]
         fn len() {
             let mut rodeo = Rodeo::default();
-            rodeo.intern("A");
-            rodeo.intern("B");
-            rodeo.intern("C");
+            rodeo.get_or_intern("A");
+            rodeo.get_or_intern("B");
+            rodeo.get_or_intern("C");
 
             let reader = rodeo.into_reader();
             assert_eq!(reader.len(), 3);
@@ -371,7 +371,7 @@ mod tests {
         #[test]
         fn clone() {
             let mut rodeo = Rodeo::default();
-            let key = rodeo.intern("Test");
+            let key = rodeo.get_or_intern("Test");
 
             let reader_rodeo = rodeo.into_reader();
             assert_eq!("Test", reader_rodeo.resolve(&key));
@@ -393,7 +393,7 @@ mod tests {
         #[test]
         fn into_resolver() {
             let mut rodeo = Rodeo::default();
-            let key = rodeo.intern("A");
+            let key = rodeo.get_or_intern("A");
 
             let resolver = rodeo.into_reader().into_resolver();
             assert_eq!("A", resolver.resolve(&key));

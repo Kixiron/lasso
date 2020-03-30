@@ -122,13 +122,12 @@ fn filled_setup() -> FilledSetup<RandomState> {
     FilledSetup::new()
 }
 
-fn throughput(c: &mut Criterion) {
-    let mut group = c.benchmark_group("single-threaded throughput");
-
+fn rodeo(c: &mut Criterion) {
+    let mut group = c.benchmark_group("rodeo");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = empty_setup();
-    group.bench_function("get_or_intern empty", |b| {
+    group.bench_function("get_or_intern (empty)", |b| {
         b.iter(|| {
             let mut rodeo = setup.empty_rodeo();
             for &line in setup.lines() {
@@ -138,7 +137,7 @@ fn throughput(c: &mut Criterion) {
     });
 
     let mut setup = filled_setup();
-    group.bench_function("get_or_intern filled", |b| {
+    group.bench_function("get_or_intern (filled)", |b| {
         b.iter(|| {
             for &line in setup.lines() {
                 black_box(setup.filled_rodeo_mut().get_or_intern(line));
@@ -147,7 +146,7 @@ fn throughput(c: &mut Criterion) {
     });
 
     let setup = empty_setup();
-    group.bench_function("try_get_or_intern empty", |b| {
+    group.bench_function("try_get_or_intern (empty)", |b| {
         b.iter(|| {
             let mut rodeo = setup.empty_rodeo();
             for &line in setup.lines() {
@@ -157,7 +156,7 @@ fn throughput(c: &mut Criterion) {
     });
 
     let mut setup = filled_setup();
-    group.bench_function("try_get_or_intern filled", |b| {
+    group.bench_function("try_get_or_intern (filled)", |b| {
         b.iter(|| {
             for &line in setup.lines() {
                 black_box(setup.filled_rodeo_mut().try_get_or_intern(line).unwrap());
@@ -166,7 +165,7 @@ fn throughput(c: &mut Criterion) {
     });
 
     let setup = empty_setup();
-    group.bench_function("get empty", |b| {
+    group.bench_function("get (empty)", |b| {
         b.iter(|| {
             let rodeo = setup.empty_rodeo();
             for &line in setup.lines() {
@@ -176,7 +175,7 @@ fn throughput(c: &mut Criterion) {
     });
 
     let setup = filled_setup();
-    group.bench_function("get filled", |b| {
+    group.bench_function("get (filled)", |b| {
         b.iter(|| {
             let rodeo = setup.filled_rodeo();
             for &line in setup.lines() {
@@ -186,7 +185,7 @@ fn throughput(c: &mut Criterion) {
     });
 
     let setup = filled_setup();
-    group.bench_function("resolve filled", |b| {
+    group.bench_function("resolve (filled)", |b| {
         b.iter(|| {
             let rodeo = setup.filled_rodeo();
             for key in setup.keys() {
@@ -196,7 +195,7 @@ fn throughput(c: &mut Criterion) {
     });
 
     let setup = filled_setup();
-    group.bench_function("try_resolve filled", |b| {
+    group.bench_function("try_resolve (filled)", |b| {
         b.iter(|| {
             let rodeo = setup.filled_rodeo();
             for key in setup.keys() {
@@ -206,7 +205,7 @@ fn throughput(c: &mut Criterion) {
     });
 
     let setup = filled_setup();
-    group.bench_function("resolve_unchecked filled", |b| {
+    group.bench_function("resolve_unchecked (filled)", |b| {
         b.iter(|| {
             let rodeo = setup.filled_rodeo();
             for key in setup.keys() {
@@ -217,8 +216,15 @@ fn throughput(c: &mut Criterion) {
         })
     });
 
+    group.finish();
+}
+
+fn string_interner(c: &mut Criterion) {
+    let mut group = c.benchmark_group("string-interner single-threaded");
+    group.throughput(Throughput::Bytes(INPUT.len() as u64));
+
     let setup = empty_setup();
-    group.bench_function("string-interner get_or_intern empty", |b| {
+    group.bench_function("string-interner get_or_intern (empty)", |b| {
         b.iter(|| {
             let mut interner = setup.empty_interner();
             for &line in setup.lines() {
@@ -228,7 +234,7 @@ fn throughput(c: &mut Criterion) {
     });
 
     let mut setup = filled_setup();
-    group.bench_function("string-interner get_or_intern filled", |b| {
+    group.bench_function("string-interner get_or_intern (filled)", |b| {
         b.iter(|| {
             for &line in setup.lines() {
                 black_box(setup.filled_interner_mut().get_or_intern(line));
@@ -237,7 +243,7 @@ fn throughput(c: &mut Criterion) {
     });
 
     let setup = empty_setup();
-    group.bench_function("string-interner get empty", |b| {
+    group.bench_function("string-interner get (empty)", |b| {
         b.iter(|| {
             let interner = setup.empty_interner();
             for &line in setup.lines() {
@@ -247,7 +253,7 @@ fn throughput(c: &mut Criterion) {
     });
 
     let setup = filled_setup();
-    group.bench_function("string-interner get filled", |b| {
+    group.bench_function("string-interner get (filled)", |b| {
         b.iter(|| {
             let interner = setup.filled_interner();
             for &line in setup.lines() {
@@ -257,7 +263,7 @@ fn throughput(c: &mut Criterion) {
     });
 
     let setup = filled_setup();
-    group.bench_function("string-interner resolve filled", |b| {
+    group.bench_function("string-interner resolve (filled)", |b| {
         b.iter(|| {
             let interner = setup.filled_interner();
             for key in setup.symbols() {
@@ -267,7 +273,7 @@ fn throughput(c: &mut Criterion) {
     });
 
     let setup = filled_setup();
-    group.bench_function("string-interner resolve_unchecked filled", |b| {
+    group.bench_function("string-interner resolve_unchecked (filled)", |b| {
         b.iter(|| {
             let interner = setup.filled_interner();
             for key in setup.symbols() {
@@ -277,9 +283,7 @@ fn throughput(c: &mut Criterion) {
             }
         })
     });
-
-    group.finish();
 }
 
-criterion_group!(benches, throughput);
+criterion_group!(benches, rodeo, string_interner);
 criterion_main!(benches);

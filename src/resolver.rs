@@ -240,7 +240,7 @@ mod tests {
         #[test]
         fn resolve() {
             let mut rodeo = Rodeo::default();
-            let key = rodeo.intern("A");
+            let key = rodeo.get_or_intern("A");
 
             let resolver = rodeo.into_resolver();
             assert_eq!("A", resolver.resolve(&key));
@@ -257,7 +257,7 @@ mod tests {
         #[test]
         fn try_resolve() {
             let mut rodeo = Rodeo::default();
-            let key = rodeo.intern("A");
+            let key = rodeo.get_or_intern("A");
 
             let resolver = rodeo.into_resolver();
             assert_eq!(Some("A"), resolver.try_resolve(&key));
@@ -281,9 +281,9 @@ mod tests {
         #[test]
         fn len() {
             let mut rodeo = Rodeo::default();
-            rodeo.intern("A");
-            rodeo.intern("B");
-            rodeo.intern("C");
+            rodeo.get_or_intern("A");
+            rodeo.get_or_intern("B");
+            rodeo.get_or_intern("C");
 
             let resolver = rodeo.into_resolver();
             assert_eq!(resolver.len(), 3);
@@ -300,7 +300,7 @@ mod tests {
         #[test]
         fn clone() {
             let mut rodeo = Rodeo::default();
-            let key = rodeo.intern("Test");
+            let key = rodeo.get_or_intern("Test");
 
             let resolver_rodeo = rodeo.into_resolver();
             assert_eq!("Test", resolver_rodeo.resolve(&key));
@@ -322,9 +322,9 @@ mod tests {
         #[test]
         fn iter() {
             let mut rodeo = Rodeo::default();
-            let a = rodeo.intern("a");
-            let b = rodeo.intern("b");
-            let c = rodeo.intern("c");
+            let a = rodeo.get_or_intern("a");
+            let b = rodeo.get_or_intern("b");
+            let c = rodeo.get_or_intern("c");
 
             let mut rodeo = rodeo.iter();
             assert_eq!(Some((a, "a")), rodeo.next());
@@ -336,9 +336,9 @@ mod tests {
         #[test]
         fn strings() {
             let mut rodeo = Rodeo::default();
-            rodeo.intern("a");
-            rodeo.intern("b");
-            rodeo.intern("c");
+            rodeo.get_or_intern("a");
+            rodeo.get_or_intern("b");
+            rodeo.get_or_intern("c");
 
             let mut rodeo = rodeo.strings();
             assert_eq!(Some("a"), rodeo.next());
