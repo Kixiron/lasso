@@ -29,7 +29,7 @@ jobs:
 
       # Check that formatting is valid
       - name: Check Formatting
-        run: cargo fmt --all -- --check --features multi-threaded
+        run: cargo fmt --all -- --check
 
       # Check that documentation is valid
       - name: Check Documentation
@@ -98,4 +98,4 @@ jobs:
 
       # Clean and run miri
       - name: Run Miri
-        run: cargo clean && cargo +nightly miri test --target ${{ matrix.target }} --features multi-threaded
+        run: cargo clean && cargo +nightly miri test --target ${{ matrix.target }} --features multi-threaded --verbose
