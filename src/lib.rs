@@ -162,7 +162,7 @@ mod reader;
 mod resolver;
 mod single_threaded;
 
-pub use key::{Cord, Key, MicroCord, MiniCord, SmallCord};
+pub use key::{Key, MicroSpur, MiniSpur, SmallSpur, Spur};
 pub use reader::RodeoReader;
 pub use resolver::RodeoResolver;
 pub use single_threaded::Rodeo;

@@ -29,11 +29,11 @@ pub unsafe trait Key: Copy + Eq {
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct Cord {
+pub struct Spur {
     key: NonZeroUsize,
 }
 
-unsafe impl Key for Cord {
+unsafe impl Key for Spur {
     #[inline]
     unsafe fn into_usize(self) -> usize {
         self.key.get() - 1
@@ -64,11 +64,11 @@ unsafe impl Key for Cord {
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct SmallCord {
+pub struct SmallSpur {
     key: NonZeroU32,
 }
 
-unsafe impl Key for SmallCord {
+unsafe impl Key for SmallSpur {
     #[inline]
     unsafe fn into_usize(self) -> usize {
         self.key.get() as usize - 1
@@ -99,11 +99,11 @@ unsafe impl Key for SmallCord {
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct MiniCord {
+pub struct MiniSpur {
     key: NonZeroU16,
 }
 
-unsafe impl Key for MiniCord {
+unsafe impl Key for MiniSpur {
     #[inline]
     unsafe fn into_usize(self) -> usize {
         self.key.get() as usize - 1
@@ -134,11 +134,11 @@ unsafe impl Key for MiniCord {
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct MicroCord {
+pub struct MicroSpur {
     key: NonZeroU8,
 }
 
-unsafe impl Key for MicroCord {
+unsafe impl Key for MicroSpur {
     #[inline]
     unsafe fn into_usize(self) -> usize {
         self.key.get() as usize - 1
@@ -167,8 +167,8 @@ mod tests {
 
     #[test]
     fn cord() {
-        let zero = Cord::try_from_usize(0).unwrap();
-        let max = Cord::try_from_usize(usize::max_value() - 1).unwrap();
+        let zero = Spur::try_from_usize(0).unwrap();
+        let max = Spur::try_from_usize(usize::max_value() - 1).unwrap();
 
         unsafe {
             assert_eq!(zero.into_usize(), 0);
@@ -178,20 +178,20 @@ mod tests {
 
     #[test]
     fn cord_max_returns_none() {
-        assert_eq!(None, Cord::try_from_usize(usize::max_value()));
+        assert_eq!(None, Spur::try_from_usize(usize::max_value()));
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
     fn cord_max_panics() {
-        Cord::try_from_usize(usize::max_value()).unwrap();
+        Spur::try_from_usize(usize::max_value()).unwrap();
     }
 
     #[test]
     fn small_cord() {
-        let zero = SmallCord::try_from_usize(0).unwrap();
-        let max = SmallCord::try_from_usize(u32::max_value() as usize - 1).unwrap();
+        let zero = SmallSpur::try_from_usize(0).unwrap();
+        let max = SmallSpur::try_from_usize(u32::max_value() as usize - 1).unwrap();
         unsafe {
             assert_eq!(zero.into_usize(), 0);
             assert_eq!(max.into_usize(), u32::max_value() as usize - 1);
@@ -200,20 +200,20 @@ mod tests {
 
     #[test]
     fn small_cord_returns_none() {
-        assert_eq!(None, SmallCord::try_from_usize(u32::max_value() as usize));
+        assert_eq!(None, SmallSpur::try_from_usize(u32::max_value() as usize));
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
     fn small_cord_panics() {
-        SmallCord::try_from_usize(u32::max_value() as usize).unwrap();
+        SmallSpur::try_from_usize(u32::max_value() as usize).unwrap();
     }
 
     #[test]
     fn mini_cord() {
-        let zero = MiniCord::try_from_usize(0).unwrap();
-        let max = MiniCord::try_from_usize(u16::max_value() as usize - 1).unwrap();
+        let zero = MiniSpur::try_from_usize(0).unwrap();
+        let max = MiniSpur::try_from_usize(u16::max_value() as usize - 1).unwrap();
         unsafe {
             assert_eq!(zero.into_usize(), 0);
             assert_eq!(max.into_usize(), u16::max_value() as usize - 1);
@@ -222,20 +222,20 @@ mod tests {
 
     #[test]
     fn mini_cord_returns_none() {
-        assert_eq!(None, MiniCord::try_from_usize(u16::max_value() as usize));
+        assert_eq!(None, MiniSpur::try_from_usize(u16::max_value() as usize));
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
     fn mini_cord_panics() {
-        MiniCord::try_from_usize(u16::max_value() as usize).unwrap();
+        MiniSpur::try_from_usize(u16::max_value() as usize).unwrap();
     }
 
     #[test]
     fn micro_cord() {
-        let zero = MicroCord::try_from_usize(0).unwrap();
-        let max = MicroCord::try_from_usize(u8::max_value() as usize - 1).unwrap();
+        let zero = MicroSpur::try_from_usize(0).unwrap();
+        let max = MicroSpur::try_from_usize(u8::max_value() as usize - 1).unwrap();
         unsafe {
             assert_eq!(zero.into_usize(), 0);
             assert_eq!(max.into_usize(), u8::max_value() as usize - 1);
@@ -244,13 +244,13 @@ mod tests {
 
     #[test]
     fn micro_cord_returns_none() {
-        assert_eq!(None, MicroCord::try_from_usize(u8::max_value() as usize));
+        assert_eq!(None, MicroSpur::try_from_usize(u8::max_value() as usize));
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
     fn micro_cord_panics() {
-        MicroCord::try_from_usize(u8::max_value() as usize).unwrap();
+        MicroSpur::try_from_usize(u8::max_value() as usize).unwrap();
     }
 }

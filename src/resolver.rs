@@ -1,5 +1,5 @@
 use crate::{
-    key::{Cord, Key},
+    key::{Key, Spur},
     util::{Iter, Strings},
 };
 
@@ -19,7 +19,7 @@ compile! {
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoResolver<K: Key = Cord> {
+pub struct RodeoResolver<K: Key = Spur> {
     /// Vector of strings mapped to key indexes that allows key to string resolution
     pub(crate) strings: Vec<&'static str>,
     __key: PhantomData<K>,
@@ -235,7 +235,7 @@ unsafe impl<K: Key + Sync> Sync for RodeoResolver<K> {}
 #[cfg(test)]
 mod tests {
     mod single_threaded {
-        use crate::{single_threaded::Rodeo, Cord, Key};
+        use crate::{single_threaded::Rodeo, Key, Spur};
 
         #[test]
         fn resolve() {
@@ -251,7 +251,7 @@ mod tests {
         #[cfg(not(miri))]
         fn resolve_out_of_bounds() {
             let resolver = Rodeo::default().into_resolver();
-            resolver.resolve(&Cord::try_from_usize(10).unwrap());
+            resolver.resolve(&Spur::try_from_usize(10).unwrap());
         }
 
         #[test]
@@ -263,7 +263,7 @@ mod tests {
             assert_eq!(Some("A"), resolver.try_resolve(&key));
             assert_eq!(
                 None,
-                resolver.try_resolve(&Cord::try_from_usize(10).unwrap())
+                resolver.try_resolve(&Spur::try_from_usize(10).unwrap())
             );
         }
 
@@ -382,7 +382,7 @@ mod tests {
             assert_eq!(Some("A"), resolver.try_resolve(&key));
             assert_eq!(
                 None,
-                resolver.try_resolve(&Cord::try_from_usize(10).unwrap())
+                resolver.try_resolve(&Spur::try_from_usize(10).unwrap())
             );
         }
 
@@ -399,14 +399,14 @@ mod tests {
                 assert_eq!(Some("A"), resolver.try_resolve(&key));
                 assert_eq!(
                     None,
-                    resolver.try_resolve(&Cord::try_from_usize(10).unwrap())
+                    resolver.try_resolve(&Spur::try_from_usize(10).unwrap())
                 );
             });
 
             assert_eq!(Some("A"), resolver.try_resolve(&key));
             assert_eq!(
                 None,
-                resolver.try_resolve(&Cord::try_from_usize(10).unwrap())
+                resolver.try_resolve(&Spur::try_from_usize(10).unwrap())
             );
         }
 

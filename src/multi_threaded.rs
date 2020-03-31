@@ -1,6 +1,6 @@
 use crate::{
     hasher::{HashMap, RandomState},
-    key::{Cord, Key},
+    key::{Key, Spur},
     locks::{Mutex, MutexGuard},
     reader::RodeoReader,
     resolver::RodeoResolver,
@@ -19,13 +19,13 @@ compile! {
 /// returning a unique key to re-access it with `O(1)` internment and resolution.
 ///
 /// This struct is only avaliable with the `multi-threaded` feature!  
-/// By default ThreadedRodeo uses the [`Cord`] type for keys and [`RandomState`] as the hasher
+/// By default ThreadedRodeo uses the [`Spur`] type for keys and [`RandomState`] as the hasher
 ///
-/// [`Cord`]: crate::Cord
+/// [`Spur`]: crate::Spur
 /// [`ahash::RandomState`]: https://docs.rs/ahash/0.3.2/ahash/struct.RandomState.html
 /// [`RandomState`]: index.html#cargo-features
 #[derive(Debug)]
-pub struct ThreadedRodeo<K: Key = Cord, S: BuildHasher + Clone = RandomState> {
+pub struct ThreadedRodeo<K: Key = Spur, S: BuildHasher + Clone = RandomState> {
     /// Map that allows str to key resolution
     map: DashMap<&'static str, K, S>,
     /// Vec that allows key to str resolution
@@ -40,10 +40,10 @@ impl<K: Key> ThreadedRodeo<K, RandomState> {
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{ThreadedRodeo, Cord};
+    /// use lasso::{ThreadedRodeo, Spur};
     /// use std::{thread, sync::Arc};
     ///
-    /// let lasso: Arc<ThreadedRodeo<Cord>> = Arc::new(ThreadedRodeo::new());
+    /// let lasso: Arc<ThreadedRodeo<Spur>> = Arc::new(ThreadedRodeo::new());
     /// let hello = lasso.get_or_intern("Hello, ");
     ///
     /// let l = Arc::clone(&lasso);
@@ -71,9 +71,9 @@ impl<K: Key> ThreadedRodeo<K, RandomState> {
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{ThreadedRodeo, Cord};
+    /// use lasso::{ThreadedRodeo, Spur};
     ///
-    /// let rodeo: ThreadedRodeo<Cord> = ThreadedRodeo::with_capacity(10);
+    /// let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(10);
     /// ```
     ///
     #[inline]
@@ -95,10 +95,10 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{Cord, ThreadedRodeo};
+    /// use lasso::{Spur, ThreadedRodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: ThreadedRodeo<Cord, RandomState> = ThreadedRodeo::with_hasher(RandomState::new());
+    /// let rodeo: ThreadedRodeo<Spur, RandomState> = ThreadedRodeo::with_hasher(RandomState::new());
     /// ```
     ///
     #[inline]
@@ -114,10 +114,10 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{Cord, ThreadedRodeo};
+    /// use lasso::{Spur, ThreadedRodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: ThreadedRodeo<Cord, RandomState> = ThreadedRodeo::with_capacity_and_hasher(10, RandomState::new());
+    /// let rodeo: ThreadedRodeo<Spur, RandomState> = ThreadedRodeo::with_capacity_and_hasher(10, RandomState::new());
     /// ```
     ///
     #[inline]
@@ -368,9 +368,9 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{Cord, ThreadedRodeo};
+    /// use lasso::{Spur, ThreadedRodeo};
     ///
-    /// let rodeo: ThreadedRodeo<Cord> = ThreadedRodeo::with_capacity(10);
+    /// let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(10);
     /// assert_eq!(rodeo.capacity(), 10);
     /// ```
     ///
@@ -462,11 +462,11 @@ where
     }
 }
 
-/// Creates a ThreadedRodeo using [`Cord`] as its key and [`RandomState`] as its hasher
+/// Creates a ThreadedRodeo using [`Spur`] as its key and [`RandomState`] as its hasher
 ///
-/// [`Cord`]: crate::Cord
+/// [`Spur`]: crate::Spur
 /// [`RandomState`]: index.html#cargo-features
-impl Default for ThreadedRodeo<Cord, RandomState> {
+impl Default for ThreadedRodeo<Spur, RandomState> {
     fn default() -> Self {
         Self::new()
     }
@@ -539,25 +539,25 @@ unsafe impl<K: Key + Send, S: BuildHasher + Clone + Send> Send for ThreadedRodeo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{hasher::RandomState, MicroCord};
+    use crate::{hasher::RandomState, MicroSpur};
 
     #[cfg(not(any(miri, feature = "no_std")))]
     use std::{sync::Arc, thread};
 
     #[test]
     fn new() {
-        let _: ThreadedRodeo<Cord> = ThreadedRodeo::new();
+        let _: ThreadedRodeo<Spur> = ThreadedRodeo::new();
     }
 
     #[test]
     fn with_capacity() {
-        let rodeo: ThreadedRodeo<Cord> = ThreadedRodeo::with_capacity(10);
+        let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(10);
         assert_eq!(10, rodeo.capacity());
     }
 
     #[test]
     fn with_hasher() {
-        let rodeo: ThreadedRodeo<Cord, RandomState> =
+        let rodeo: ThreadedRodeo<Spur, RandomState> =
             ThreadedRodeo::with_hasher(RandomState::new());
 
         let key = rodeo.get_or_intern("Test");
@@ -566,7 +566,7 @@ mod tests {
 
     #[test]
     fn with_capacity_and_hasher() {
-        let rodeo: ThreadedRodeo<Cord, RandomState> =
+        let rodeo: ThreadedRodeo<Spur, RandomState> =
             ThreadedRodeo::with_capacity_and_hasher(10, RandomState::new());
 
         let key = rodeo.get_or_intern("Test");
@@ -575,7 +575,7 @@ mod tests {
 
     #[test]
     fn try_intern() {
-        let rodeo: ThreadedRodeo<MicroCord> = ThreadedRodeo::new();
+        let rodeo: ThreadedRodeo<MicroSpur> = ThreadedRodeo::new();
 
         for i in 0..u8::max_value() as usize - 1 {
             rodeo.get_or_intern(i.to_string());
@@ -590,7 +590,7 @@ mod tests {
     #[test]
     #[cfg(not(any(miri, feature = "no_std")))]
     fn try_intern_threaded() {
-        let rodeo: Arc<ThreadedRodeo<MicroCord>> = Arc::new(ThreadedRodeo::new());
+        let rodeo: Arc<ThreadedRodeo<MicroSpur>> = Arc::new(ThreadedRodeo::new());
 
         for i in 0..u8::max_value() as usize - 1 {
             rodeo.get_or_intern(i.to_string());
@@ -650,7 +650,7 @@ mod tests {
 
     #[test]
     fn try_get_or_intern() {
-        let rodeo: ThreadedRodeo<MicroCord> = ThreadedRodeo::new();
+        let rodeo: ThreadedRodeo<MicroSpur> = ThreadedRodeo::new();
 
         for i in 0..u8::max_value() as usize - 1 {
             rodeo.get_or_intern(i.to_string());
@@ -665,7 +665,7 @@ mod tests {
     #[test]
     #[cfg(not(any(miri, feature = "no_std")))]
     fn try_get_or_intern_threaded() {
-        let rodeo: Arc<ThreadedRodeo<MicroCord>> = Arc::new(ThreadedRodeo::new());
+        let rodeo: Arc<ThreadedRodeo<MicroSpur>> = Arc::new(ThreadedRodeo::new());
 
         for i in 0..u8::max_value() as usize - 1 {
             rodeo.get_or_intern(i.to_string());
@@ -728,7 +728,7 @@ mod tests {
     #[cfg(not(miri))]
     fn resolve_panics() {
         let rodeo = ThreadedRodeo::default();
-        rodeo.resolve(&Cord::try_from_usize(100).unwrap());
+        rodeo.resolve(&Spur::try_from_usize(100).unwrap());
     }
 
     #[test]
@@ -755,7 +755,7 @@ mod tests {
         let moved = Arc::clone(&rodeo);
         let handle = thread::spawn(move || {
             assert_eq!("A", moved.resolve(&key));
-            moved.resolve(&Cord::try_from_usize(100).unwrap());
+            moved.resolve(&Spur::try_from_usize(100).unwrap());
         });
 
         assert_eq!("A", rodeo.resolve(&key));
@@ -768,7 +768,7 @@ mod tests {
         let key = rodeo.get_or_intern("A");
 
         assert_eq!(Some("A"), rodeo.try_resolve(&key));
-        assert_eq!(None, rodeo.try_resolve(&Cord::try_from_usize(100).unwrap()));
+        assert_eq!(None, rodeo.try_resolve(&Spur::try_from_usize(100).unwrap()));
     }
 
     #[test]
@@ -780,11 +780,11 @@ mod tests {
         let moved = Arc::clone(&rodeo);
         thread::spawn(move || {
             assert_eq!(Some("A"), moved.try_resolve(&key));
-            assert_eq!(None, moved.try_resolve(&Cord::try_from_usize(100).unwrap()));
+            assert_eq!(None, moved.try_resolve(&Spur::try_from_usize(100).unwrap()));
         });
 
         assert_eq!(Some("A"), rodeo.try_resolve(&key));
-        assert_eq!(None, rodeo.try_resolve(&Cord::try_from_usize(100).unwrap()));
+        assert_eq!(None, rodeo.try_resolve(&Spur::try_from_usize(100).unwrap()));
     }
 
     #[test]

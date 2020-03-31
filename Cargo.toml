@@ -17,6 +17,18 @@ edition = "2018"
 name = "single_threaded"
 harness = false
 
+[[bench]]
+name = "multi_threaded"
+harness = false
+
+[[bench]]
+name = "reader"
+harness = false
+
+[[bench]]
+name = "resolver"
+harness = false
+
 [features]
 default = ["multi-threaded"]
 multi-threaded = ["dashmap"]
@@ -54,8 +66,8 @@ version = "0.3.1"
 [dev-dependencies.lazy_static]
 version = "1.4.0"
 
-[dev-dependencies.string-interner]
-version = "0.7.1"
-
 [dev-dependencies.ahash]
 version = "0.3.2"
+
+[dev-dependencies.fxhash]
+version = "0.2.1"

@@ -1,7 +1,7 @@
 use super::RodeoResolver;
 use crate::{
     hasher::{HashMap, RandomState},
-    key::{Cord, Key},
+    key::{Key, Spur},
     util::{Iter, Strings},
 };
 
@@ -22,7 +22,7 @@ compile! {
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoReader<K: Key = Cord, S: BuildHasher + Clone = RandomState> {
+pub struct RodeoReader<K: Key = Spur, S: BuildHasher + Clone = RandomState> {
     map: HashMap<&'static str, K, S>,
     pub(crate) strings: Vec<&'static str>,
 }
@@ -295,7 +295,7 @@ unsafe impl<K: Key + Send, S: BuildHasher + Clone + Send> Send for RodeoReader<K
 #[cfg(test)]
 mod tests {
     mod single_threaded {
-        use crate::{single_threaded::Rodeo, Cord, Key};
+        use crate::{single_threaded::Rodeo, Key, Spur};
 
         #[test]
         fn get() {
@@ -322,7 +322,7 @@ mod tests {
         #[cfg(not(miri))]
         fn resolve_panics() {
             let reader = Rodeo::default().into_reader();
-            reader.resolve(&Cord::try_from_usize(100).unwrap());
+            reader.resolve(&Spur::try_from_usize(100).unwrap());
         }
 
         #[test]
@@ -334,7 +334,7 @@ mod tests {
             assert_eq!(Some("A"), reader.try_resolve(&key));
             assert_eq!(
                 None,
-                reader.try_resolve(&Cord::try_from_usize(100).unwrap())
+                reader.try_resolve(&Spur::try_from_usize(100).unwrap())
             );
         }
 

@@ -1,6 +1,6 @@
 use crate::{
     hasher::{HashMap, RandomState},
-    key::{Cord, Key},
+    key::{Key, Spur},
     reader::RodeoReader,
     resolver::RodeoResolver,
     util::{Iter, Strings},
@@ -17,11 +17,11 @@ compile! {
 /// A string interner that caches strings quickly with a minimal memory footprint,
 /// returning a unique key to re-access it with `O(1)` internment and resolution.
 ///
-/// By default Rodeo uses the [`Cord`] type for keys and [`RandomState`] as its hasher
+/// By default Rodeo uses the [`Spur`] type for keys and [`RandomState`] as its hasher
 ///
 /// [`RandomState`]: index.html#cargo-features
 #[derive(Debug)]
-pub struct Rodeo<K: Key = Cord, S: BuildHasher + Clone = RandomState> {
+pub struct Rodeo<K: Key = Spur, S: BuildHasher + Clone = RandomState> {
     /// Map that allows `str` -> `key` resolution
     map: HashMap<&'static str, K, S>,
     /// Vec that allows `key` -> `str` resolution
@@ -34,9 +34,9 @@ impl<K: Key> Rodeo<K, RandomState> {
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{Rodeo, Cord};
+    /// use lasso::{Rodeo, Spur};
     ///
-    /// let mut rodeo: Rodeo<Cord> = Rodeo::new();
+    /// let mut rodeo: Rodeo<Spur> = Rodeo::new();
     /// let hello = rodeo.get_or_intern("Hello, ");
     /// let world = rodeo.get_or_intern("World!");
     ///
@@ -58,9 +58,9 @@ impl<K: Key> Rodeo<K, RandomState> {
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{Rodeo, Cord};
+    /// use lasso::{Rodeo, Spur};
     ///
-    /// let rodeo: Rodeo<Cord> = Rodeo::with_capacity(10);
+    /// let rodeo: Rodeo<Spur> = Rodeo::with_capacity(10);
     /// ```
     ///
     #[inline]
@@ -82,10 +82,10 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{Cord, Rodeo};
+    /// use lasso::{Spur, Rodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: Rodeo<Cord, RandomState> = Rodeo::with_hasher(RandomState::new());
+    /// let rodeo: Rodeo<Spur, RandomState> = Rodeo::with_hasher(RandomState::new());
     /// ```
     ///
     #[inline]
@@ -101,10 +101,10 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{Cord, Rodeo};
+    /// use lasso::{Spur, Rodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: Rodeo<Cord, RandomState> = Rodeo::with_capacity_and_hasher(10, RandomState::new());
+    /// let rodeo: Rodeo<Spur, RandomState> = Rodeo::with_capacity_and_hasher(10, RandomState::new());
     /// ```
     ///
     #[inline]
@@ -353,9 +353,9 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{Cord, Rodeo};
+    /// use lasso::{Spur, Rodeo};
     ///
-    /// let rodeo: Rodeo<Cord> = Rodeo::with_capacity(10);
+    /// let rodeo: Rodeo<Spur> = Rodeo::with_capacity(10);
     /// assert_eq!(rodeo.capacity(), 10);
     /// ```
     ///
@@ -447,11 +447,11 @@ where
     }
 }
 
-/// Creates a Rodeo using [`Cord`] as its key and [`RandomState`] as its hasher
+/// Creates a Rodeo using [`Spur`] as its key and [`RandomState`] as its hasher
 ///
-/// [`Cord`]: crate::Cord
+/// [`Spur`]: crate::Spur
 /// [`RandomState`]: index.html#cargo-features
-impl Default for Rodeo<Cord, RandomState> {
+impl Default for Rodeo<Spur, RandomState> {
     fn default() -> Self {
         Self::new()
     }
@@ -514,7 +514,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{hasher::RandomState, Cord, Key, MicroCord, Rodeo};
+    use crate::{hasher::RandomState, Key, MicroSpur, Rodeo, Spur};
 
     compile! {
         if #[feature = "no_std"] {
@@ -524,13 +524,13 @@ mod tests {
 
     #[test]
     fn new() {
-        let mut rodeo: Rodeo<Cord> = Rodeo::new();
+        let mut rodeo: Rodeo<Spur> = Rodeo::new();
         rodeo.get_or_intern("Test");
     }
 
     #[test]
     fn with_capacity() {
-        let mut rodeo: Rodeo<Cord> = Rodeo::with_capacity(10);
+        let mut rodeo: Rodeo<Spur> = Rodeo::with_capacity(10);
         assert_eq!(rodeo.capacity(), 10);
 
         rodeo.get_or_intern("Test");
@@ -549,11 +549,11 @@ mod tests {
 
     #[test]
     fn with_hasher() {
-        let mut rodeo: Rodeo<Cord, RandomState> = Rodeo::with_hasher(RandomState::new());
+        let mut rodeo: Rodeo<Spur, RandomState> = Rodeo::with_hasher(RandomState::new());
         let key = rodeo.get_or_intern("Test");
         assert_eq!("Test", rodeo.resolve(&key));
 
-        let mut rodeo: Rodeo<Cord, ahash::RandomState> =
+        let mut rodeo: Rodeo<Spur, ahash::RandomState> =
             Rodeo::with_hasher(ahash::RandomState::new());
         let key = rodeo.get_or_intern("Test");
         assert_eq!("Test", rodeo.resolve(&key));
@@ -561,7 +561,7 @@ mod tests {
 
     #[test]
     fn with_capacity_and_hasher() {
-        let mut rodeo: Rodeo<Cord, RandomState> =
+        let mut rodeo: Rodeo<Spur, RandomState> =
             Rodeo::with_capacity_and_hasher(10, RandomState::new());
         assert_eq!(rodeo.capacity(), 10);
 
@@ -578,7 +578,7 @@ mod tests {
 
         assert_eq!(rodeo.len(), rodeo.capacity());
 
-        let mut rodeo: Rodeo<Cord, ahash::RandomState> =
+        let mut rodeo: Rodeo<Spur, ahash::RandomState> =
             Rodeo::with_capacity_and_hasher(10, ahash::RandomState::new());
         assert_eq!(rodeo.capacity(), 10);
 
@@ -598,7 +598,7 @@ mod tests {
 
     #[test]
     fn try_intern() {
-        let mut rodeo: Rodeo<MicroCord> = Rodeo::new();
+        let mut rodeo: Rodeo<MicroSpur> = Rodeo::new();
 
         for i in 0..u8::max_value() as usize - 1 {
             rodeo.get_or_intern(i.to_string());
@@ -625,7 +625,7 @@ mod tests {
 
     #[test]
     fn try_get_or_intern() {
-        let mut rodeo: Rodeo<MicroCord> = Rodeo::new();
+        let mut rodeo: Rodeo<MicroSpur> = Rodeo::new();
 
         for i in 0..u8::max_value() as usize - 1 {
             rodeo.get_or_intern(i.to_string());
@@ -659,7 +659,7 @@ mod tests {
     #[cfg(not(miri))]
     fn resolve_panics() {
         let rodeo = Rodeo::default();
-        rodeo.resolve(&Cord::try_from_usize(100).unwrap());
+        rodeo.resolve(&Spur::try_from_usize(100).unwrap());
     }
 
     #[test]
@@ -668,7 +668,7 @@ mod tests {
         let key = rodeo.get_or_intern("A");
 
         assert_eq!(Some("A"), rodeo.try_resolve(&key));
-        assert_eq!(None, rodeo.try_resolve(&Cord::try_from_usize(100).unwrap()));
+        assert_eq!(None, rodeo.try_resolve(&Spur::try_from_usize(100).unwrap()));
     }
 
     #[test]

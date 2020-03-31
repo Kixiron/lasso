@@ -11,6 +11,13 @@ fn main() {
                     assert_eq!(string, rodeo.resolve(&key));
                     assert_eq!(Some(key), rodeo.get(string));
                 }
+
+                for (key, string) in rodeo.iter() {
+                    assert_eq!(string, rodeo.resolve(&key));
+                    assert_eq!(Some(string), rodeo.try_resolve(&key));
+                    unsafe { assert_eq!(string, rodeo.resolve_unchecked(&key)) };
+                    assert_eq!(Some(key), rodeo.get(string));
+                }
             } else {
                 rodeo = Rodeo::default();
             }
