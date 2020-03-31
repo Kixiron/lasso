@@ -5,12 +5,10 @@ use setup::{
     run_threaded_filled, ThreadedRodeoEmptySetup, ThreadedRodeoFilledSetup, INPUT, NUM_THREADS,
 };
 
-// TODO: Benchmark all of Rodeo's functions & benchmark ThreadedRodeo, RodeoReader and RodeoResolver
-
 fn rodeo_std(c: &mut Criterion) {
     use std::collections::hash_map::RandomState;
 
-    let mut group = c.benchmark_group("threaded rodeo (std)");
+    let mut group = c.benchmark_group("multi-threaded rodeo (std)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = ThreadedRodeoEmptySetup::new(RandomState::default());
@@ -109,26 +107,13 @@ fn rodeo_std(c: &mut Criterion) {
         )
     });
 
-    let setup = ThreadedRodeoFilledSetup::new(RandomState::default());
-    group.bench_function("resolve_unchecked", |b| {
-        b.iter_batched(
-            || setup.filled_rodeo(),
-            |rodeo| {
-                for key in setup.keys() {
-                    unsafe { black_box(rodeo.resolve_unchecked(key)) };
-                }
-            },
-            BatchSize::PerIteration,
-        )
-    });
-
     group.finish();
 }
 
 fn rodeo_std_threaded(c: &mut Criterion) {
     use std::collections::hash_map::RandomState;
 
-    let mut group = c.benchmark_group("threaded rodeo w/threads (std)");
+    let mut group = c.benchmark_group("multi-threaded rodeo w/threads (std)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     group.bench_function("get_or_intern", |b| {
@@ -197,21 +182,6 @@ fn rodeo_std_threaded(c: &mut Criterion) {
                 |rodeo, keys| {
                     for key in keys {
                         black_box(rodeo.try_resolve(key).unwrap());
-                    }
-                },
-                NUM_THREADS,
-                iters,
-                RandomState::new(),
-            )
-        })
-    });
-
-    group.bench_function("resolve_unchecked", |b| {
-        b.iter_custom(|iters| {
-            run_threaded_filled(
-                |rodeo, keys| {
-                    for key in keys {
-                        unsafe { black_box(rodeo.resolve_unchecked(key)) };
                     }
                 },
                 NUM_THREADS,
@@ -227,7 +197,7 @@ fn rodeo_std_threaded(c: &mut Criterion) {
 fn rodeo_ahash(c: &mut Criterion) {
     use ahash::RandomState;
 
-    let mut group = c.benchmark_group("threaded rodeo (ahash)");
+    let mut group = c.benchmark_group("multi-threaded rodeo (ahash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = ThreadedRodeoEmptySetup::new(RandomState::default());
@@ -326,26 +296,13 @@ fn rodeo_ahash(c: &mut Criterion) {
         )
     });
 
-    let setup = ThreadedRodeoFilledSetup::new(RandomState::default());
-    group.bench_function("resolve_unchecked", |b| {
-        b.iter_batched(
-            || setup.filled_rodeo(),
-            |rodeo| {
-                for key in setup.keys() {
-                    unsafe { black_box(rodeo.resolve_unchecked(key)) };
-                }
-            },
-            BatchSize::PerIteration,
-        )
-    });
-
     group.finish();
 }
 
 fn rodeo_ahash_threaded(c: &mut Criterion) {
     use ahash::RandomState;
 
-    let mut group = c.benchmark_group("threaded rodeo w/threads (ahash)");
+    let mut group = c.benchmark_group("multi-threaded rodeo w/threads (ahash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     group.bench_function("get_or_intern", |b| {
@@ -414,21 +371,6 @@ fn rodeo_ahash_threaded(c: &mut Criterion) {
                 |rodeo, keys| {
                     for key in keys {
                         black_box(rodeo.try_resolve(key).unwrap());
-                    }
-                },
-                NUM_THREADS,
-                iters,
-                RandomState::new(),
-            )
-        })
-    });
-
-    group.bench_function("resolve_unchecked", |b| {
-        b.iter_custom(|iters| {
-            run_threaded_filled(
-                |rodeo, keys| {
-                    for key in keys {
-                        unsafe { black_box(rodeo.resolve_unchecked(key)) };
                     }
                 },
                 NUM_THREADS,
@@ -444,7 +386,7 @@ fn rodeo_ahash_threaded(c: &mut Criterion) {
 fn rodeo_fxhash(c: &mut Criterion) {
     use fxhash::FxBuildHasher;
 
-    let mut group = c.benchmark_group("threaded rodeo w/ threads (fxhash)");
+    let mut group = c.benchmark_group("multi-threaded rodeo w/ threads (fxhash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = ThreadedRodeoEmptySetup::new(FxBuildHasher::default());
@@ -543,26 +485,13 @@ fn rodeo_fxhash(c: &mut Criterion) {
         )
     });
 
-    let setup = ThreadedRodeoFilledSetup::new(FxBuildHasher::default());
-    group.bench_function("resolve_unchecked", |b| {
-        b.iter_batched(
-            || setup.filled_rodeo(),
-            |rodeo| {
-                for key in setup.keys() {
-                    unsafe { black_box(rodeo.resolve_unchecked(key)) };
-                }
-            },
-            BatchSize::PerIteration,
-        )
-    });
-
     group.finish();
 }
 
 fn rodeo_fxhash_threaded(c: &mut Criterion) {
     use fxhash::FxBuildHasher;
 
-    let mut group = c.benchmark_group("threaded rodeo w/threads (fxhash)");
+    let mut group = c.benchmark_group("multi-threaded rodeo w/threads (fxhash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     group.bench_function("get_or_intern", |b| {
@@ -631,21 +560,6 @@ fn rodeo_fxhash_threaded(c: &mut Criterion) {
                 |rodeo, keys| {
                     for key in keys {
                         black_box(rodeo.try_resolve(key).unwrap());
-                    }
-                },
-                NUM_THREADS,
-                iters,
-                FxBuildHasher::default(),
-            )
-        })
-    });
-
-    group.bench_function("resolve_unchecked", |b| {
-        b.iter_custom(|iters| {
-            run_threaded_filled(
-                |rodeo, keys| {
-                    for key in keys {
-                        unsafe { black_box(rodeo.resolve_unchecked(key)) };
                     }
                 },
                 NUM_THREADS,

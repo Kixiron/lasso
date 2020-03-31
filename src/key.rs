@@ -56,6 +56,14 @@ unsafe impl Key for Spur {
     }
 }
 
+impl Default for Spur {
+    fn default() -> Self {
+        Self {
+            key: unsafe { NonZeroUsize::new_unchecked(1) },
+        }
+    }
+}
+
 /// A small Key, utilizing only 32 bits of space
 ///
 /// Internally is a `NonZeroU32` to allow for space optimizations when stored inside of an [`Option`]
@@ -87,6 +95,14 @@ unsafe impl Key for SmallSpur {
             }
         } else {
             None
+        }
+    }
+}
+
+impl Default for SmallSpur {
+    fn default() -> Self {
+        Self {
+            key: unsafe { NonZeroU32::new_unchecked(1) },
         }
     }
 }
@@ -126,6 +142,14 @@ unsafe impl Key for MiniSpur {
     }
 }
 
+impl Default for MiniSpur {
+    fn default() -> Self {
+        Self {
+            key: unsafe { NonZeroU16::new_unchecked(1) },
+        }
+    }
+}
+
 /// A miniature Key utilizing only 8 bits of space
 ///
 /// Internally is a `NonZeroU8` to allow for space optimizations when stored inside of an [`Option`]
@@ -157,6 +181,14 @@ unsafe impl Key for MicroSpur {
             }
         } else {
             None
+        }
+    }
+}
+
+impl Default for MicroSpur {
+    fn default() -> Self {
+        Self {
+            key: unsafe { NonZeroU8::new_unchecked(1) },
         }
     }
 }

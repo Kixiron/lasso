@@ -198,12 +198,6 @@ mod hasher {
 #[doc(hidden)]
 mod locks {
     compile! {
-        if #[feature = "parking_locks"] {
-            pub use parking_lot::Mutex;
-        } else {
-            pub use std::sync::{MutexGuard, Mutex};
-        }
-
         if #[feature = "no_std"] {
             pub use alloc::sync::Arc;
         } else {
