@@ -112,7 +112,7 @@ impl<'a, K: Key> Iterator for Strings<'a, K> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|string| *string)
+        self.iter.next().copied()
     }
 
     #[inline]

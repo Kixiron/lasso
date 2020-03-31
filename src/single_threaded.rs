@@ -229,7 +229,7 @@ where
     where
         T: AsRef<str>,
     {
-        self.map.get(val.as_ref()).map(|k| *k)
+        self.map.get(val.as_ref()).copied()
     }
 
     /// Resolves a string by its key. Only keys made by the current Rodeo may be used
@@ -452,6 +452,7 @@ where
 /// [`Spur`]: crate::Spur
 /// [`RandomState`]: index.html#cargo-features
 impl Default for Rodeo<Spur, RandomState> {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
@@ -462,6 +463,7 @@ where
     K: Key,
     S: BuildHasher + Clone,
 {
+    #[inline]
     fn clone(&self) -> Self {
         // Safety: The strings of the current Rodeo **cannot** be used in the new one,
         // otherwise it will cause double-frees
@@ -475,7 +477,7 @@ where
         // therefore cloning it onto the heap, calling into_boxed_str and leaking that
         for (i, string) in self.strings.iter().enumerate() {
             // Clone the static string from self.strings, box and leak it
-            let new: &'static str = Box::leak(string.to_string().into_boxed_str());
+            let new: &'static str = Box::leak((*string).to_string().into_boxed_str());
 
             // Store the new string, which we have ownership of, in the new map and vec
             strings.push(new);
@@ -493,6 +495,7 @@ where
     K: Key,
     S: BuildHasher + Clone,
 {
+    #[inline]
     fn drop(&mut self) {
         // Clear the map to remove all other references to the strings in self.strings
         self.map.clear();

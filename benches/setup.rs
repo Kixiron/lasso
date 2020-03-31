@@ -6,6 +6,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc, Barrier},
     thread,
 };
+use string_interner::{StringInterner, Sym};
 
 pub const NUM_THREADS: usize = 24;
 
@@ -399,4 +400,68 @@ where
     threads.into_iter().for_each(|x| x.join().unwrap());
 
     time
+}
+
+pub struct StringInternerEmptySetup<S: BuildHasher + Clone> {
+    lines: &'static [&'static str],
+    build_hasher: S,
+}
+
+impl<S: BuildHasher + Clone> StringInternerEmptySetup<S> {
+    pub fn new(build_hasher: S) -> Self {
+        let lines = bench_lines();
+
+        Self {
+            lines,
+            build_hasher,
+        }
+    }
+
+    pub fn empty_interner(&self) -> StringInterner<Sym, S> {
+        StringInterner::with_capacity_and_hasher(self.lines.len(), self.build_hasher.clone())
+    }
+
+    pub fn lines(&self) -> &'static [&'static str] {
+        self.lines
+    }
+}
+
+pub struct StringInternerFilledSetup<S: BuildHasher + Clone> {
+    lines: &'static [&'static str],
+    string_interner: StringInterner<Sym, S>,
+    keys: Vec<Sym>,
+}
+
+impl<S: BuildHasher + Clone> StringInternerFilledSetup<S> {
+    pub fn new(hash_builder: S) -> Self {
+        let lines = bench_lines();
+        let mut string_interner =
+            StringInterner::with_capacity_and_hasher(lines.len(), hash_builder);
+        let keys = lines
+            .into_iter()
+            .map(|&line| string_interner.get_or_intern(line))
+            .collect::<Vec<_>>();
+
+        Self {
+            lines,
+            string_interner,
+            keys,
+        }
+    }
+
+    pub fn lines(&self) -> &'static [&'static str] {
+        self.lines
+    }
+
+    pub fn filled_interner(&self) -> &StringInterner<Sym, S> {
+        &self.string_interner
+    }
+
+    pub fn filled_interner_mut(&mut self) -> &mut StringInterner<Sym, S> {
+        &mut self.string_interner
+    }
+
+    pub fn keys(&self) -> &[Sym] {
+        &self.keys
+    }
 }

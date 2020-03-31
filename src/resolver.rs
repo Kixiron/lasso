@@ -186,6 +186,7 @@ impl<K: Key> RodeoResolver<K> {
 }
 
 impl<K: Key> Clone for RodeoResolver<K> {
+    #[inline]
     fn clone(&self) -> Self {
         // Safety: The strings of the current Rodeo **cannot** be used in the new one,
         // otherwise it will cause double-frees
@@ -197,7 +198,7 @@ impl<K: Key> Clone for RodeoResolver<K> {
         // therefore cloning it onto the heap, calling into_boxed_str and leaking that
         for string in self.strings.iter() {
             // Clone the static string from self.strings onto the heap, box and leak it
-            let new: &'static str = Box::leak(string.to_string().into_boxed_str());
+            let new: &'static str = Box::leak((*string).to_string().into_boxed_str());
 
             // Store the new string, which we have ownership of, in the new vec
             // The indexes of items are preserved through iter(), so pushing allows us to keep the indices
@@ -214,6 +215,7 @@ impl<K: Key> Clone for RodeoResolver<K> {
 
 /// Deallocate the leaked strings interned by RodeoResolver
 impl<K: Key> Drop for RodeoResolver<K> {
+    #[inline]
     fn drop(&mut self) {
         // Drain self.strings while deallocating the strings it holds
         for string in self.strings.drain(..) {

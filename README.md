@@ -133,7 +133,10 @@ assert_eq!("Hello, world!", resolver.resolve(&key));
 
 ## Benchmarks
 
-Benchmarks were gathered with [Criterion.rs](https://github.com/bheisler/criterion.rs)
+Benchmarks were gathered with [Criterion.rs](https://github.com/bheisler/criterion.rs)  
+OS: Windows 10  
+CPU: Ryzen 9 3900X at 3800Mhz  
+RAM: 3200Mhz  
 
 ### Rodeo
 
@@ -267,6 +270,19 @@ Benchmarks were gathered with [Criterion.rs](https://github.com/bheisler/criteri
 | `try_resolve`       |    1.9171 μs    |     13.303 GiB/s      |     3.9563 μs     |      6.4462 GiB/s       |
 | `resolve_unchecked` |    1.6777 μs    |     15.202 GiB/s      |     3.0775 μs     |      8.2870 GiB/s       |
 
+### Other Interners
+
+Other interners were tested with std's RandomState
+
+| [`string-interner`]      |   Time    |  Throughput  | Relative Perf (vs `Rodeo`) |
+| :----------------------- | :-------: | :----------: | :------------------------: |
+| `get_or_intern` (empty)  | 304.24 μs | 85.839 MiB/s |           -46.0%           |
+| `get_or_intern` (filled) | 62.462 μs | 418.10 MiB/s |           -21.7%           |
+| `get` (empty)            | 39.794 μs | 656.26 MiB/s |           -13.9%           |
+| `get` (filled)           | 62.434 μs | 418.29 MiB/s |           -21.8%           |
+| `resolve`                | 2.8477 μs | 8.9559 GiB/s |           -47.7%           |
+| `resolve_unchecked`      | 2.3829 μs | 10.703 GiB/s |           -65.4%           |
+
 [0]: https://github.com/Kixiron/lasso
 [1]: https://github.com/Kixiron/lasso/workflows/Build/badge.svg
 [2]: https://github.com/Kixiron/lasso/workflows/Security%20Audit/badge.svg
@@ -285,3 +301,4 @@ Benchmarks were gathered with [Criterion.rs](https://github.com/bheisler/criteri
 [`hashbrown`]: https://crates.io/crates/hashbrown
 [`ahash`]: https://crates.io/crates/ahash
 [`parking_lot`]: https://crates.io/crates/parking_lot
+[`string-interner`]: https://github.com/Robbepop/string-interner

@@ -29,6 +29,10 @@ harness = false
 name = "resolver"
 harness = false
 
+[[bench]]
+name = "string_interner"
+harness = false
+
 [features]
 default = ["multi-threaded"]
 multi-threaded = ["dashmap"]
@@ -71,3 +75,6 @@ version = "0.3.2"
 
 [dev-dependencies.fxhash]
 version = "0.2.1"
+
+[dev-dependencies.string-interner]
+version = "0.7.1"
