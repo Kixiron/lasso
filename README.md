@@ -272,7 +272,7 @@ RAM: 3200Mhz
 
 ### Other Interners
 
-Other interners were tested with std's RandomState
+Other interners were tested with std's RandomState. Relative performance was calculated with $\frac{(other - rodeo)}{|rodeo|}$ $\times$ 100%
 
 | [`string-interner`]      |   Time    |  Throughput  | Relative Perf (vs `Rodeo`) |
 | :----------------------- | :-------: | :----------: | :------------------------: |
