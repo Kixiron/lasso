@@ -1,4 +1,5 @@
 #![cfg_attr(feature = "no_std", no_std)]
+#![cfg_attr(feature = "nightly", feature(hash_raw_entry))]
 #![warn(clippy::missing_inline_in_public_items)]
 #![deny(missing_docs, missing_debug_implementations)]
 

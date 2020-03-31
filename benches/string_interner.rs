@@ -6,7 +6,7 @@ use setup::{StringInternerEmptySetup, StringInternerFilledSetup, INPUT};
 fn interner_std(c: &mut Criterion) {
     use std::collections::hash_map::RandomState;
 
-    let mut group = c.benchmark_group("string-interner (std)");
+    let mut group = c.benchmark_group("string_interner::StringInterner (std)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = StringInternerEmptySetup::new(RandomState::default());
@@ -89,7 +89,7 @@ fn interner_std(c: &mut Criterion) {
 fn interner_ahash(c: &mut Criterion) {
     use ahash::RandomState;
 
-    let mut group = c.benchmark_group("string-interner (ahash)");
+    let mut group = c.benchmark_group("string_interner::StringInterner (ahash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = StringInternerEmptySetup::new(RandomState::default());
@@ -172,7 +172,7 @@ fn interner_ahash(c: &mut Criterion) {
 fn interner_fxhash(c: &mut Criterion) {
     use fxhash::FxBuildHasher;
 
-    let mut group = c.benchmark_group("string-interner (fxhash)");
+    let mut group = c.benchmark_group("string_interner::StringInterner (fxhash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = StringInternerEmptySetup::new(FxBuildHasher::default());

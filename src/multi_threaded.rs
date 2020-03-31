@@ -13,7 +13,9 @@ use dashmap::DashMap;
 
 compile! {
     if #[feature = "no_std"] {
-        use alloc::{vec::Vec, string::{ToString, String}, boxed::Box};
+        use alloc::{vec::Vec, sync::atomic::{Ordering, AtomicUsize}, string::{ToString, String}, boxed::Box};
+    } else {
+        use std::sync::atomic::{Ordering, AtomicUsize};
     }
 }
 
@@ -36,6 +38,8 @@ where
     map: DashMap<&'static str, K, S>,
     /// Map that allows key to str resolution
     strings: DashMap<K, &'static str, S>,
+    /// The current key value
+    key: AtomicUsize,
 }
 
 // TODO: More parity functions with std::HashMap
@@ -68,6 +72,7 @@ impl<K: Key + Hash> ThreadedRodeo<K, RandomState> {
         Self {
             map: DashMap::with_hasher(RandomState::new()),
             strings: DashMap::with_hasher(RandomState::new()),
+            key: AtomicUsize::new(0),
         }
     }
 
@@ -87,6 +92,7 @@ impl<K: Key + Hash> ThreadedRodeo<K, RandomState> {
         Self {
             map: DashMap::with_capacity_and_hasher(capacity, RandomState::new()),
             strings: DashMap::with_capacity_and_hasher(capacity, RandomState::new()),
+            key: AtomicUsize::new(0),
         }
     }
 }
@@ -112,6 +118,7 @@ where
         Self {
             map: DashMap::with_hasher(hash_builder.clone()),
             strings: DashMap::with_hasher(hash_builder),
+            key: AtomicUsize::new(0),
         }
     }
 
@@ -131,29 +138,8 @@ where
         Self {
             map: DashMap::with_capacity_and_hasher(capacity, hash_builder.clone()),
             strings: DashMap::with_capacity_and_hasher(capacity, hash_builder),
+            key: AtomicUsize::new(0),
         }
-    }
-
-    /// Attempt to intern a string, updating the value if it already exists,
-    /// returning its key if the key is able to be made and `None` if not.
-    ///
-    /// Can be used to determine if another interner needs to be created due to the namespace
-    /// of the key being full.  
-    /// Determines if the key can be made by using [`Key::try_from_usize`].
-    ///
-    /// [`Key::try_from`]: crate::Key#try_from_usize
-    #[inline]
-    pub(crate) fn try_intern<T>(&self, val: T) -> Option<K>
-    where
-        T: Into<String>,
-    {
-        let key = K::try_from_usize(self.strings.len())?;
-        let string: &'static str = Box::leak(val.into().into_boxed_str());
-
-        self.map.insert(string, key);
-        self.strings.insert(key, string);
-
-        Some(key)
     }
 
     /// Get the key for a string, interning it if it does not yet exist
@@ -179,8 +165,41 @@ where
     where
         T: Into<String> + AsRef<str>,
     {
-        self.try_get_or_intern(val)
-            .expect("Failed to get or intern string")
+        use core::hash::{Hash, Hasher};
+        use dashmap::SharedValue;
+        use hashbrown::hash_map::RawEntryMut;
+
+        let mut hasher = self.map.hasher().build_hasher();
+        val.as_ref().hash(&mut hasher);
+        let hash = hasher.finish();
+
+        let shard = unsafe {
+            self.map
+                .shards()
+                .get_unchecked(self.map.determine_shard(hash as usize))
+        };
+
+        let (string, key) = match shard
+            .write()
+            .raw_entry_mut()
+            .from_key_hashed_nocheck(hash, val.as_ref())
+        {
+            RawEntryMut::Occupied(entry) => return *entry.get().get(),
+            RawEntryMut::Vacant(entry) => {
+                let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
+                    .expect("Failed to get or intern string");
+
+                let string: &'static str = Box::leak(val.into().into_boxed_str());
+
+                entry.insert_hashed_nocheck(hash, string, SharedValue::new(key));
+
+                (string, key)
+            }
+        };
+
+        self.strings.insert(key, string);
+
+        key
     }
 
     /// Get the key for a string, interning it if it does not yet exist
@@ -206,11 +225,48 @@ where
     where
         T: Into<String> + AsRef<str>,
     {
-        if let Some(key) = self.get(val.as_ref()) {
-            Some(key)
-        } else {
-            self.try_intern(val.into())
+        use core::hash::{Hash, Hasher};
+        use dashmap::SharedValue;
+        use hashbrown::hash_map::RawEntryMut;
+
+        let mut hasher = self.map.hasher().build_hasher();
+        val.as_ref().hash(&mut hasher);
+        let hash = hasher.finish();
+
+        let shard = unsafe {
+            self.map
+                .shards()
+                .get_unchecked(self.map.determine_shard(hash as usize))
+        };
+
+        if let Some((_, key)) = shard
+            .read()
+            .raw_entry()
+            .from_key_hashed_nocheck(hash, val.as_ref())
+        {
+            return Some(*key.get());
         }
+
+        let (string, key) = match shard
+            .write()
+            .raw_entry_mut()
+            .from_key_hashed_nocheck(hash, val.as_ref())
+        {
+            RawEntryMut::Occupied(entry) => return Some(*entry.get().get()),
+            RawEntryMut::Vacant(entry) => {
+                let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))?;
+
+                let string: &'static str = Box::leak(val.into().into_boxed_str());
+
+                entry.insert_hashed_nocheck(hash, string, SharedValue::new(key));
+
+                (string, key)
+            }
+        };
+
+        self.strings.insert(key, string);
+
+        Some(key)
     }
 
     /// Get the key value of a string, returning `None` if it doesn't exist
@@ -467,7 +523,11 @@ where
             map.insert(new, *key);
         }
 
-        Self { map, strings }
+        Self {
+            map,
+            strings,
+            key: AtomicUsize::new(self.key.load(Ordering::SeqCst)),
+        }
     }
 }
 
@@ -538,40 +598,6 @@ mod tests {
 
         let key = rodeo.get_or_intern("Test");
         assert_eq!("Test", rodeo.resolve(&key));
-    }
-
-    #[test]
-    fn try_intern() {
-        let rodeo: ThreadedRodeo<MicroSpur> = ThreadedRodeo::new();
-
-        for i in 0..u8::max_value() as usize - 1 {
-            rodeo.get_or_intern(i.to_string());
-        }
-
-        let space = rodeo.try_intern("A").unwrap();
-        assert_eq!("A", rodeo.resolve(&space));
-
-        assert!(rodeo.try_intern("C").is_none());
-    }
-
-    #[test]
-    #[cfg(not(any(miri, feature = "no_std")))]
-    fn try_intern_threaded() {
-        let rodeo: Arc<ThreadedRodeo<MicroSpur>> = Arc::new(ThreadedRodeo::new());
-
-        for i in 0..u8::max_value() as usize - 1 {
-            rodeo.get_or_intern(i.to_string());
-        }
-
-        let space = rodeo.try_intern("A").unwrap();
-        assert_eq!("A", rodeo.resolve(&space));
-
-        let moved = Arc::clone(&rodeo);
-        thread::spawn(move || {
-            assert!(moved.try_intern("C").is_none());
-        });
-
-        assert!(rodeo.try_intern("C").is_none());
     }
 
     #[test]

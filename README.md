@@ -40,6 +40,7 @@ By default `lasso` has zero dependencies only the [`Rodeo`] is exposed. To make 
     * `dashmap/no_std` - Enables `no_std` compatibility for `DashMap`
     * `hashbrown-table` - Required for `no_std` `HashMap`
     * `ahasher` - Required for `no_std` hashing function
+* `nightly` - Allows the use of the nightly `hash_raw_entry` feature internally, giving better speed on interning where the key does not yet exist (Only affects `Rodeo`).
 
 ## Example: Using Rodeo
 

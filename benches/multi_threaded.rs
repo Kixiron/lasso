@@ -8,7 +8,7 @@ use setup::{
 fn rodeo_std(c: &mut Criterion) {
     use std::collections::hash_map::RandomState;
 
-    let mut group = c.benchmark_group("multi-threaded rodeo (std)");
+    let mut group = c.benchmark_group("ThreadedRodeo 1 Thread (std)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = ThreadedRodeoEmptySetup::new(RandomState::default());
@@ -113,7 +113,7 @@ fn rodeo_std(c: &mut Criterion) {
 fn rodeo_std_threaded(c: &mut Criterion) {
     use std::collections::hash_map::RandomState;
 
-    let mut group = c.benchmark_group("multi-threaded rodeo w/threads (std)");
+    let mut group = c.benchmark_group("ThreadedRodeo 24 Thread (std)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     group.bench_function("get_or_intern", |b| {
@@ -197,7 +197,7 @@ fn rodeo_std_threaded(c: &mut Criterion) {
 fn rodeo_ahash(c: &mut Criterion) {
     use ahash::RandomState;
 
-    let mut group = c.benchmark_group("multi-threaded rodeo (ahash)");
+    let mut group = c.benchmark_group("ThreadedRodeo 1 Thread (ahash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = ThreadedRodeoEmptySetup::new(RandomState::default());
@@ -302,7 +302,7 @@ fn rodeo_ahash(c: &mut Criterion) {
 fn rodeo_ahash_threaded(c: &mut Criterion) {
     use ahash::RandomState;
 
-    let mut group = c.benchmark_group("multi-threaded rodeo w/threads (ahash)");
+    let mut group = c.benchmark_group("ThreadedRodeo 24 Thread (ahash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     group.bench_function("get_or_intern", |b| {
@@ -386,7 +386,7 @@ fn rodeo_ahash_threaded(c: &mut Criterion) {
 fn rodeo_fxhash(c: &mut Criterion) {
     use fxhash::FxBuildHasher;
 
-    let mut group = c.benchmark_group("multi-threaded rodeo w/ threads (fxhash)");
+    let mut group = c.benchmark_group("ThreadedRodeo 1 Thread (fxhash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = ThreadedRodeoEmptySetup::new(FxBuildHasher::default());
@@ -491,7 +491,7 @@ fn rodeo_fxhash(c: &mut Criterion) {
 fn rodeo_fxhash_threaded(c: &mut Criterion) {
     use fxhash::FxBuildHasher;
 
-    let mut group = c.benchmark_group("multi-threaded rodeo w/threads (fxhash)");
+    let mut group = c.benchmark_group("ThreadedRodeo 24 Thread (fxhash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     group.bench_function("get_or_intern", |b| {

@@ -4,7 +4,7 @@ use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion
 use setup::{ResolverFilledSetup, INPUT, NUM_THREADS};
 
 fn resolver(c: &mut Criterion) {
-    let mut group = c.benchmark_group("resolver");
+    let mut group = c.benchmark_group("RodeoResolver 1 Thread");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = ResolverFilledSetup::new();
@@ -50,7 +50,7 @@ fn resolver(c: &mut Criterion) {
 }
 
 fn resolver_threaded(c: &mut Criterion) {
-    let mut group = c.benchmark_group("resolver w/ threads");
+    let mut group = c.benchmark_group("RodeoResolver 24 Thread");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     group.bench_function("resolve", |b| {

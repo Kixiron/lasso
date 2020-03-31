@@ -6,7 +6,7 @@ use setup::{RodeoEmptySetup, RodeoFilledSetup, INPUT};
 fn rodeo_std(c: &mut Criterion) {
     use std::collections::hash_map::RandomState;
 
-    let mut group = c.benchmark_group("rodeo (std)");
+    let mut group = c.benchmark_group("Rodeo (std)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = RodeoEmptySetup::new(RandomState::default());
@@ -124,7 +124,7 @@ fn rodeo_std(c: &mut Criterion) {
 fn rodeo_ahash(c: &mut Criterion) {
     use ahash::RandomState;
 
-    let mut group = c.benchmark_group("rodeo (ahash)");
+    let mut group = c.benchmark_group("Rodeo (ahash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = RodeoEmptySetup::new(RandomState::default());
@@ -242,7 +242,7 @@ fn rodeo_ahash(c: &mut Criterion) {
 fn rodeo_fxhash(c: &mut Criterion) {
     use fxhash::FxBuildHasher;
 
-    let mut group = c.benchmark_group("rodeo (fxhash)");
+    let mut group = c.benchmark_group("Rodeo (fxhash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = RodeoEmptySetup::new(FxBuildHasher::default());

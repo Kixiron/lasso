@@ -6,7 +6,7 @@ use setup::{ReaderEmptySetup, ReaderFilledSetup, INPUT, NUM_THREADS};
 fn reader_std(c: &mut Criterion) {
     use std::collections::hash_map::RandomState;
 
-    let mut group = c.benchmark_group("reader (std)");
+    let mut group = c.benchmark_group("RodeoReader 1 Thread (std)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = ReaderEmptySetup::new(RandomState::default());
@@ -80,7 +80,7 @@ fn reader_std(c: &mut Criterion) {
 fn reader_std_threaded(c: &mut Criterion) {
     use std::collections::hash_map::RandomState;
 
-    let mut group = c.benchmark_group("reader w/ threads (std)");
+    let mut group = c.benchmark_group("RodeoReader 24 Thread (std)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     group.bench_function("get", |b| {
@@ -149,7 +149,7 @@ fn reader_std_threaded(c: &mut Criterion) {
 fn reader_ahash(c: &mut Criterion) {
     use ahash::RandomState;
 
-    let mut group = c.benchmark_group("reader (ahash)");
+    let mut group = c.benchmark_group("RodeoReader 1 Thread (ahash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = ReaderEmptySetup::new(RandomState::default());
@@ -223,7 +223,7 @@ fn reader_ahash(c: &mut Criterion) {
 fn reader_ahash_threaded(c: &mut Criterion) {
     use ahash::RandomState;
 
-    let mut group = c.benchmark_group("reader w/ threads (ahash)");
+    let mut group = c.benchmark_group("RodeoReader 24 Thread (ahash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     group.bench_function("get", |b| {
@@ -292,7 +292,7 @@ fn reader_ahash_threaded(c: &mut Criterion) {
 fn reader_fxhash(c: &mut Criterion) {
     use fxhash::FxBuildHasher;
 
-    let mut group = c.benchmark_group("reader (fxhash)");
+    let mut group = c.benchmark_group("RodeoReader 1 Thread (fxhash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     let setup = ReaderEmptySetup::new(FxBuildHasher::default());
@@ -366,7 +366,7 @@ fn reader_fxhash(c: &mut Criterion) {
 fn reader_fxhash_threaded(c: &mut Criterion) {
     use fxhash::FxBuildHasher;
 
-    let mut group = c.benchmark_group("reader w/ threads (fxhash)");
+    let mut group = c.benchmark_group("RodeoReader 24 Thread (fxhash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
     group.bench_function("get", |b| {

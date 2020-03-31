@@ -115,39 +115,6 @@ where
         }
     }
 
-    /// Attempt to intern a string, updating the value if it already exists,
-    /// returning its key if the key is able to be made and `None` if not.
-    ///
-    /// Can be used to determine if another interner needs to be created due to the namespace
-    /// of the key being full.  
-    /// Determines if the key can be made by using [`Key::try_from_usize`].
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lasso::Rodeo;
-    ///
-    /// let mut rodeo = Rodeo::default();
-    ///
-    /// let key = rodeo.try_get_or_intern("Strings of things with wings and dings").unwrap();
-    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
-    /// ```
-    ///
-    /// [`Key::try_from`]: crate::Key#try_from_usize
-    #[inline]
-    pub(crate) fn try_intern<T>(&mut self, val: T) -> Option<K>
-    where
-        T: Into<String>,
-    {
-        let key = K::try_from_usize(self.strings.len())?;
-        let string = Box::leak(val.into().into_boxed_str());
-
-        self.strings.push(string);
-        self.map.insert(string, key);
-
-        Some(key)
-    }
-
     /// Get the key for a string, interning it if it does not yet exist
     ///
     /// # Example
@@ -171,11 +138,47 @@ where
     where
         T: Into<String> + AsRef<str>,
     {
-        if let Some(key) = self.get(val.as_ref()) {
-            key
-        } else {
-            self.try_intern(val.into())
-                .expect("Failed to get or intern string")
+        // When the feature-set supports it, only hash the value once
+        compile_expr! {
+            if #[any(feature = "nightly", feature = "hashbrown-table")] {
+                use core::hash::{Hash, Hasher};
+                compile! {
+                    if #[feature = "nightly"] {
+                        use std::collections::hash_map::RawEntryMut;
+                    } else if #[feature = "hashbrown-table"] {
+                        use hashbrown::hash_map::RawEntryMut;
+                    }
+                }
+
+                let mut hasher = self.map.hasher().build_hasher();
+                val.as_ref().hash(&mut hasher);
+                let hash = hasher.finish();
+
+                match self.map.raw_entry_mut().from_key_hashed_nocheck(hash, val.as_ref()) {
+                    RawEntryMut::Occupied(entry) => *entry.get(),
+                    RawEntryMut::Vacant(entry) => {
+                        let key = K::try_from_usize(self.strings.len()).expect("Failed to get or intern string");
+                        let string = Box::leak(val.into().into_boxed_str());
+
+                        entry.insert_hashed_nocheck(hash, string, key);
+                        self.strings.push(string);
+
+                        key
+                    }
+                }
+            } else {
+                if let Some(key) = self.get(val.as_ref()) {
+                    key
+                } else {
+                    let key = K::try_from_usize(self.strings.len()).expect("Failed to get or intern string");
+                    let string = Box::leak(val.into().into_boxed_str());
+
+                    self.map.insert(string, key);
+                    self.strings.push(string);
+
+                    key
+                }
+            }
         }
     }
 
@@ -202,10 +205,47 @@ where
     where
         T: Into<String> + AsRef<str>,
     {
-        if let Some(key) = self.get(val.as_ref()) {
-            Some(key)
-        } else {
-            self.try_intern(val.into())
+        // When the feature-set supports it, only hash the value once
+        compile_expr! {
+            if #[any(feature = "nightly", feature = "hashbrown-table")] {
+                use core::hash::{Hash, Hasher};
+                compile! {
+                    if #[feature = "nightly"] {
+                        use std::collections::hash_map::RawEntryMut;
+                    } else if #[feature = "hashbrown-table"] {
+                        use hashbrown::hash_map::RawEntryMut;
+                    }
+                }
+
+                let mut hasher = self.map.hasher().build_hasher();
+                val.as_ref().hash(&mut hasher);
+                let hash = hasher.finish();
+
+                match self.map.raw_entry_mut().from_key_hashed_nocheck(hash, val.as_ref()) {
+                    RawEntryMut::Occupied(entry) => Some(*entry.get()),
+                    RawEntryMut::Vacant(entry) => {
+                        let key = K::try_from_usize(self.strings.len())?;
+                        let string = Box::leak(val.into().into_boxed_str());
+
+                        entry.insert_hashed_nocheck(hash, string, key);
+                        self.strings.push(string);
+
+                        Some(key)
+                    }
+                }
+            } else {
+                if let Some(key) = self.get(val.as_ref()) {
+                    Some(key)
+                } else {
+                    let key = K::try_from_usize(self.strings.len())?;
+                    let string = Box::leak(val.into().into_boxed_str());
+
+                    self.map.insert(string, key);
+                    self.strings.push(string);
+
+                    Some(key)
+                }
+            }
         }
     }
 
@@ -597,20 +637,6 @@ mod tests {
         rodeo.get_or_intern("Test9");
 
         assert_eq!(rodeo.len(), rodeo.capacity());
-    }
-
-    #[test]
-    fn try_intern() {
-        let mut rodeo: Rodeo<MicroSpur> = Rodeo::new();
-
-        for i in 0..u8::max_value() as usize - 1 {
-            rodeo.get_or_intern(i.to_string());
-        }
-
-        let space = rodeo.try_intern("A").unwrap();
-        assert_eq!("A", rodeo.resolve(&space));
-
-        assert!(rodeo.try_intern("C").is_none());
     }
 
     #[test]

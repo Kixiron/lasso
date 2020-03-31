@@ -35,19 +35,15 @@ harness = false
 
 [features]
 default = ["multi-threaded"]
-multi-threaded = ["dashmap"]
-no_std = [
-    "ahasher",
-    "hashbrown-table",
-    "dashmap/no_std",
-]
+multi-threaded = ["dashmap", "hashbrown"]
+no_std = ["ahasher", "hashbrown-table"]
 hashbrown-table = ["hashbrown"]
 ahasher = ["ahash"]
-bench = []
+nightly = []
 
 [dependencies.dashmap]
 version = "3.9.1"
-features = ["raw-api"]
+features = ["raw-api", "no_std"]
 optional = true
 
 [dependencies.ahash]

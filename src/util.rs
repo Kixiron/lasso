@@ -139,11 +139,11 @@ macro_rules! compile {
 
             compile!{
                 @inner
-                ($meta,)
+                ( $meta, )
                 $(else if #[$else_if_meta] {
-                    $($else_if_item)*
+                    $( $else_if_item )*
                 })* $(else {
-                    $($else_item)*
+                    $( $else_item )*
                 })?
             }
         )+
@@ -153,13 +153,14 @@ macro_rules! compile {
         ($($prev_metas:tt)*)
         ($new_meta:meta)
         $($rem:tt)*
-    )=>{
+    ) => {
         compile!{
             @inner
-            ($($prev_metas)* $new_meta,)
-            $($rem)*
+            ($( $prev_metas )* $new_meta,)
+            $( $rem )*
         }
     };
+
     (@inner
         $prev_metas:tt
         else if #[$meta:meta] {
@@ -167,15 +168,15 @@ macro_rules! compile {
         }
         $($rem:tt)*
 
-    )=>{
+    ) => {
         $(
-            #[cfg(all(not(any $prev_metas),$meta))]
+            #[cfg(all(not(any $prev_metas), $meta))]
             $else_if_item
         )*
 
-        compile!{@recurse $prev_metas ($meta) $($rem)* }
-
-
+        compile! {
+            @recurse $prev_metas ($meta) $( $rem )*
+        }
     };
 
     (@inner
@@ -189,7 +190,74 @@ macro_rules! compile {
             $else_item
         )*
     };
+
     (@inner ($($prev_metas:tt)*))=>{};
+}
+macro_rules! compile_expr {
+    ($(
+        if #[$meta:meta] {
+            $( $stmt:tt )*
+        } $(else if #[$else_if_meta:meta] {
+            $( $else_if_stmt:tt )*
+        })* $(else {
+            $( $else_stmt:tt )*
+        })?
+    )+) => {
+        $(
+            #[cfg($meta)]
+            {
+                $( $stmt )*
+            }
+
+            compile_expr! {
+                @inner
+                ( $meta, )
+                $(else if #[$else_if_meta] {
+                    $( $else_if_stmt )*
+                })* $(else {
+                    $( $else_stmt )*
+                })?
+            }
+        )+
+    };
+
+    (@recurse ($( $prev_metas:tt)* ) ($new_meta:meta) $( $rem:tt )*) => {
+        compile_expr! {
+            @inner
+            ($( $prev_metas )* $new_meta,)
+            $( $rem )*
+        }
+    };
+
+    (@inner
+        $prev_metas:tt
+        else if #[$meta:meta] {
+            $( $else_if_stmt:tt )*
+        }
+        $( $rem:tt )*
+    ) => {
+        #[cfg(all(not(any $prev_metas), $meta))]
+        {
+            $( $else_if_stmt )*
+        }
+
+        compile_expr! {
+            @recurse $prev_metas ($meta) $( $rem )*
+        }
+    };
+
+    (@inner $prev_metas:tt
+        else {
+            $( $else_stmt:tt )*
+        }
+    ) => {
+        #[cfg(not(any $prev_metas))]
+        {
+            $( $else_stmt )*
+        }
+    };
+
+    (@inner ($($prev_metas:tt)*)) => {};
 }
 
 #[cfg(test)]
