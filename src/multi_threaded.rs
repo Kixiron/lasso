@@ -165,41 +165,26 @@ where
     where
         T: Into<String> + AsRef<str>,
     {
-        use core::hash::{Hash, Hasher};
-        use dashmap::SharedValue;
-        use hashbrown::hash_map::RawEntryMut;
+        if let Some(key) = self.map.get(val.as_ref()) {
+            *key
+        } else {
+            let shard = self.map.determine_map(val.as_ref());
+            // Safety: The indices provided by DashMap always refer to a shard in it's shards
+            let shard = unsafe { self.map.shards().get_unchecked(shard) };
 
-        let mut hasher = self.map.hasher().build_hasher();
-        val.as_ref().hash(&mut hasher);
-        let hash = hasher.finish();
-
-        let shard = unsafe {
-            self.map
-                .shards()
-                .get_unchecked(self.map.determine_shard(hash as usize))
-        };
-
-        let (string, key) = match shard
-            .write()
-            .raw_entry_mut()
-            .from_key_hashed_nocheck(hash, val.as_ref())
-        {
-            RawEntryMut::Occupied(entry) => return *entry.get().get(),
-            RawEntryMut::Vacant(entry) => {
-                let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
-                    .expect("Failed to get or intern string");
-
-                let string: &'static str = Box::leak(val.into().into_boxed_str());
-
-                entry.insert_hashed_nocheck(hash, string, SharedValue::new(key));
-
-                (string, key)
+            if let Some(key) = shard.read().get(val.as_ref()) {
+                return *key.get();
             }
-        };
 
-        self.strings.insert(key, string);
+            let string: &'static str = Box::leak(val.into().into_boxed_str());
+            let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
+                .expect("Failed to get or intern string");
 
-        key
+            self.map.insert(string, key);
+            self.strings.insert(key, string);
+
+            key
+        }
     }
 
     /// Get the key for a string, interning it if it does not yet exist
@@ -225,48 +210,25 @@ where
     where
         T: Into<String> + AsRef<str>,
     {
-        use core::hash::{Hash, Hasher};
-        use dashmap::SharedValue;
-        use hashbrown::hash_map::RawEntryMut;
+        if let Some(key) = self.map.get(val.as_ref()) {
+            Some(*key)
+        } else {
+            let shard = self.map.determine_map(val.as_ref());
+            // Safety: The indices provided by DashMap always refer to a shard in it's shards
+            let shard = unsafe { self.map.shards().get_unchecked(shard) };
 
-        let mut hasher = self.map.hasher().build_hasher();
-        val.as_ref().hash(&mut hasher);
-        let hash = hasher.finish();
-
-        let shard = unsafe {
-            self.map
-                .shards()
-                .get_unchecked(self.map.determine_shard(hash as usize))
-        };
-
-        if let Some((_, key)) = shard
-            .read()
-            .raw_entry()
-            .from_key_hashed_nocheck(hash, val.as_ref())
-        {
-            return Some(*key.get());
-        }
-
-        let (string, key) = match shard
-            .write()
-            .raw_entry_mut()
-            .from_key_hashed_nocheck(hash, val.as_ref())
-        {
-            RawEntryMut::Occupied(entry) => return Some(*entry.get().get()),
-            RawEntryMut::Vacant(entry) => {
-                let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))?;
-
-                let string: &'static str = Box::leak(val.into().into_boxed_str());
-
-                entry.insert_hashed_nocheck(hash, string, SharedValue::new(key));
-
-                (string, key)
+            if let Some(key) = shard.read().get(val.as_ref()) {
+                return Some(*key.get());
             }
-        };
 
-        self.strings.insert(key, string);
+            let string: &'static str = Box::leak(val.into().into_boxed_str());
+            let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))?;
 
-        Some(key)
+            self.map.insert(string, key);
+            self.strings.insert(key, string);
+
+            Some(key)
+        }
     }
 
     /// Get the key value of a string, returning `None` if it doesn't exist

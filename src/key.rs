@@ -59,6 +59,7 @@ unsafe impl Key for Spur {
 impl Default for Spur {
     fn default() -> Self {
         Self {
+            // Safety: 1 is not 0
             key: unsafe { NonZeroUsize::new_unchecked(1) },
         }
     }
@@ -102,6 +103,7 @@ unsafe impl Key for SmallSpur {
 impl Default for SmallSpur {
     fn default() -> Self {
         Self {
+            // Safety: 1 is not 0
             key: unsafe { NonZeroU32::new_unchecked(1) },
         }
     }
@@ -145,6 +147,7 @@ unsafe impl Key for MiniSpur {
 impl Default for MiniSpur {
     fn default() -> Self {
         Self {
+            // Safety: 1 is not 0
             key: unsafe { NonZeroU16::new_unchecked(1) },
         }
     }
@@ -188,6 +191,7 @@ unsafe impl Key for MicroSpur {
 impl Default for MicroSpur {
     fn default() -> Self {
         Self {
+            // Safety: 1 is not 0
             key: unsafe { NonZeroU8::new_unchecked(1) },
         }
     }
