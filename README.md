@@ -40,7 +40,7 @@ By default `lasso` has zero dependencies only the [`Rodeo`] is exposed. To make 
     * `dashmap/no_std` - Enables `no_std` compatibility for `DashMap`
     * `hashbrown-table` - Required for `no_std` `HashMap`
     * `ahasher` - Required for `no_std` hashing function
-* `nightly` - Allows the use of the nightly `hash_raw_entry` feature internally, giving better speed on interning where the key does not yet exist (Only affects `Rodeo`).
+* `nightly` - Allows the use of the nightly `hash_raw_entry` feature internally, giving better speed on interning where the key does not yet exist (Only affects `Rodeo`). See [Nightly Benches]
 
 ## Example: Using Rodeo
 
@@ -136,6 +136,7 @@ Benchmarks were gathered with [Criterion.rs](https://github.com/bheisler/criteri
 OS: Windows 10  
 CPU: Ryzen 9 3900X at 3800Mhz  
 RAM: 3200Mhz  
+Rustc: Stable 1.42.1
 
 ### Rodeo
 
@@ -143,12 +144,12 @@ RAM: 3200Mhz
 
 | Method                       |   Time    |  Throughput  |
 | :--------------------------- | :-------: | :----------: |
-| `get_or_intern (empty)`      | 210.53 μs | 124.40 MiB/s |
-| `get_or_intern (filled)`     | 58.449 μs | 448.06 MiB/s |
-| `try_get_or_intern (empty)`  | 240.77 μs | 108.77 MiB/s |
-| `try_get_or_intern (filled)` | 58.784 μs | 445.51 MiB/s |
-| `get (empty)`                | 37.763 μs | 693.51 MiB/s |
-| `get (filled)`               | 51.867 μs | 504.92 MiB/s |
+| `get_or_intern` (empty)      | 210.53 μs | 124.40 MiB/s |
+| `get_or_intern` (filled)     | 58.449 μs | 448.06 MiB/s |
+| `try_get_or_intern` (empty)  | 240.77 μs | 108.77 MiB/s |
+| `try_get_or_intern` (filled) | 58.784 μs | 445.51 MiB/s |
+| `get` (empty)                | 37.763 μs | 693.51 MiB/s |
+| `get` (filled)               | 51.867 μs | 504.92 MiB/s |
 | `resolve`                    | 1.8840 μs | 13.575 GiB/s |
 | `try_resolve`                | 1.8828 μs | 13.583 GiB/s |
 | `resolve_unchecked`          | 1.4116 μs | 18.117 GiB/s |
@@ -157,12 +158,12 @@ RAM: 3200Mhz
 
 | Method                       |   Time    |  Throughput  |
 | :--------------------------- | :-------: | :----------: |
-| `try_get_or_intern (empty)`  | 183.59 μs | 142.65 MiB/s |
-| `get_or_intern (empty)`      | 183.57 μs | 142.66 MiB/s |
-| `get_or_intern (filled)`     | 29.988 μs | 873.32 MiB/s |
-| `try_get_or_intern (filled)` | 30.916 μs | 847.09 MiB/s |
-| `get (empty)`                | 10.584 μs | 2.4164 GiB/s |
-| `get (filled)`               | 24.760 μs | 1.0329 GiB/s |
+| `try_get_or_intern` (empty)  | 183.59 μs | 142.65 MiB/s |
+| `get_or_intern` (empty)      | 183.57 μs | 142.66 MiB/s |
+| `get_or_intern` (filled)     | 29.988 μs | 873.32 MiB/s |
+| `try_get_or_intern` (filled) | 30.916 μs | 847.09 MiB/s |
+| `get` (empty)                | 10.584 μs | 2.4164 GiB/s |
+| `get` (filled)               | 24.760 μs | 1.0329 GiB/s |
 | `resolve`                    | 1.8839 μs | 13.576 GiB/s |
 | `try_resolve`                | 1.8792 μs | 13.609 GiB/s |
 | `resolve_unchecked`          | 1.4121 μs | 18.111 GiB/s |
@@ -171,12 +172,12 @@ RAM: 3200Mhz
 
 | Method                       |   Time    |  Throughput  |
 | :--------------------------- | :-------: | :----------: |
-| `get_or_intern (empty)`      | 177.51 μs | 147.53 MiB/s |
-| `get_or_intern (filled)`     | 32.416 μs | 807.89 MiB/s |
-| `try_get_or_intern (empty)`  | 184.99 μs | 141.57 MiB/s |
-| `try_get_or_intern (filled)` | 31.387 μs | 834.40 MiB/s |
-| `get (empty)`                | 9.3684 μs | 2.7299 GiB/s |
-| `get (filled)`               | 25.973 μs | 1008.3 MiB/s |
+| `get_or_intern` (empty)      | 177.51 μs | 147.53 MiB/s |
+| `get_or_intern` (filled)     | 32.416 μs | 807.89 MiB/s |
+| `try_get_or_intern` (empty)  | 184.99 μs | 141.57 MiB/s |
+| `try_get_or_intern` (filled) | 31.387 μs | 834.40 MiB/s |
+| `get` (empty)                | 9.3684 μs | 2.7299 GiB/s |
+| `get` (filled)               | 25.973 μs | 1008.3 MiB/s |
 | `resolve`                    | 1.8825 μs | 13.586 GiB/s |
 | `try_resolve`                | 1.8783 μs | 13.616 GiB/s |
 | `resolve_unchecked`          | 1.4106 μs | 18.130 GiB/s |
@@ -187,12 +188,12 @@ RAM: 3200Mhz
 
 | Method                       | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
 | :--------------------------- | :-------------: | :-------------------: | :---------------: | :---------------------: |
-| `get_or_intern (empty)`      |    471.21 μs    |     55.578 MiB/s      |        N\A        |           N\A           |
-| `get_or_intern (filled)`     |    106.87 μs    |     245.05 MiB/s      |     434.95 μs     |      60.211 MiB/s       |
-| `try_get_or_intern (empty)`  |    476.41 μs    |     54.971 MiB/s      |        N\A        |           N\A           |
-| `try_get_or_intern (filled)` |    107.65 μs    |     243.27 MiB/s      |     470.13 μs     |      55.705 MiB/s       |
-| `get (empty)`                |    87.846 μs    |     298.12 MiB/s      |        N\A        |           N\A           |
-| `get (filled)`               |    98.844 μs    |     264.95 MiB/s      |     453.81 μs     |      57.709 MiB/s       |
+| `get_or_intern` (empty)      |    471.21 μs    |     55.578 MiB/s      |        N\A        |           N\A           |
+| `get_or_intern` (filled)     |    106.87 μs    |     245.05 MiB/s      |     434.95 μs     |      60.211 MiB/s       |
+| `try_get_or_intern` (empty)  |    476.41 μs    |     54.971 MiB/s      |        N\A        |           N\A           |
+| `try_get_or_intern` (filled) |    107.65 μs    |     243.27 MiB/s      |     470.13 μs     |      55.705 MiB/s       |
+| `get` (empty)                |    87.846 μs    |     298.12 MiB/s      |        N\A        |           N\A           |
+| `get` (filled)               |    98.844 μs    |     264.95 MiB/s      |     453.81 μs     |      57.709 MiB/s       |
 | `resolve`                    |    66.654 μs    |     392.90 MiB/s      |     379.70 μs     |      68.973 MiB/s       |
 | `try_resolve`                |    67.401 μs    |     388.56 MiB/s      |     389.46 μs     |      67.244 MiB/s       |
 
@@ -200,12 +201,12 @@ RAM: 3200Mhz
 
 | Method                       | Time (1 Thread) | Throughput  (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
 | :--------------------------- | :-------------: | :--------------------: | :---------------: | :---------------------: |
-| `get_or_intern (empty)`      |    355.60 μs    |      73.647 MiB/s      |        N\A        |           N\A           |
-| `get_or_intern (filled)`     |    53.505 μs    |      489.47 MiB/s      |     350.98 μs     |      74.616 MiB/s       |
-| `try_get_or_intern (empty)`  |    358.33 μs    |      73.085 MiB/s      |        N\A        |           N\A           |
-| `try_get_or_intern (filled)` |    54.163 μs    |      483.52 MiB/s      |     375.22 μs     |      69.795 MiB/s       |
-| `get (empty)`                |    35.251 μs    |      742.93 MiB/s      |        N\A        |           N\A           |
-| `get (filled)`               |    46.591 μs    |      562.11 MiB/s      |     352.05 μs     |      74.390 MiB/s       |
+| `get_or_intern` (empty)      |    355.60 μs    |      73.647 MiB/s      |        N\A        |           N\A           |
+| `get_or_intern` (filled)     |    53.505 μs    |      489.47 MiB/s      |     350.98 μs     |      74.616 MiB/s       |
+| `try_get_or_intern` (empty)  |    358.33 μs    |      73.085 MiB/s      |        N\A        |           N\A           |
+| `try_get_or_intern` (filled) |    54.163 μs    |      483.52 MiB/s      |     375.22 μs     |      69.795 MiB/s       |
+| `get` (empty)                |    35.251 μs    |      742.93 MiB/s      |        N\A        |           N\A           |
+| `get` (filled)               |    46.591 μs    |      562.11 MiB/s      |     352.05 μs     |      74.390 MiB/s       |
 | `resolve`                    |    19.550 μs    |      1.3082 GiB/s      |     283.64 μs     |      92.333 MiB/s       |
 | `try_resolve`                |    16.892 μs    |      1.5140 GiB/s      |     239.45 μs     |      109.37 MiB/s       |
 
@@ -213,12 +214,12 @@ RAM: 3200Mhz
 
 | Method                       | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
 | :--------------------------- | :-------------: | :-------------------: | :---------------: | :---------------------: |
-| `get_or_intern (empty)`      |    343.93 μs    |     76.146 MiB/s      |        N\A        |           N\A           |
-| `get_or_intern (filled)`     |    45.682 μs    |     573.28 MiB/s      |     313.56 μs     |      83.522 MiB/s       |
-| `try_get_or_intern (empty)`  |    323.60 μs    |     80.930 MiB/s      |        N\A        |           N\A           |
-| `try_get_or_intern (filled)` |    46.621 μs    |     561.74 MiB/s      |     304.91 μs     |      85.890 MiB/s       |
-| `get (empty)`                |    32.313 μs    |     810.47 MiB/s      |        N\A        |           N\A           |
-| `get (filled)`               |    40.448 μs    |     647.47 MiB/s      |     318.43 μs     |      82.244 MiB/s       |
+| `get_or_intern` (empty)      |    343.93 μs    |     76.146 MiB/s      |        N\A        |           N\A           |
+| `get_or_intern` (filled)     |    45.682 μs    |     573.28 MiB/s      |     313.56 μs     |      83.522 MiB/s       |
+| `try_get_or_intern` (empty)  |    323.60 μs    |     80.930 MiB/s      |        N\A        |           N\A           |
+| `try_get_or_intern` (filled) |    46.621 μs    |     561.74 MiB/s      |     304.91 μs     |      85.890 MiB/s       |
+| `get` (empty)                |    32.313 μs    |     810.47 MiB/s      |        N\A        |           N\A           |
+| `get` (filled)               |    40.448 μs    |     647.47 MiB/s      |     318.43 μs     |      82.244 MiB/s       |
 | `resolve`                    |    23.790 μs    |     1.0750 GiB/s      |     262.68 μs     |      99.698 MiB/s       |
 | `try_resolve`                |    22.759 μs    |     1.1238 GiB/s      |     244.69 μs     |      107.03 MiB/s       |
 
@@ -228,8 +229,8 @@ RAM: 3200Mhz
 
 | Method              | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
 | :------------------ | :-------------: | :-------------------: | :---------------: | :---------------------: |
-| `get (empty)`       |    35.523 μs    |     737.24 MiB/s      |        N/A        |           N/A           |
-| `get (filled)`      |    47.964 μs    |     546.01 MiB/s      |     91.646 μs     |      285.76 MiB/s       |
+| `get` (empty)       |    35.523 μs    |     737.24 MiB/s      |        N/A        |           N/A           |
+| `get` (filled)      |    47.964 μs    |     546.01 MiB/s      |     91.646 μs     |      285.76 MiB/s       |
 | `resolve`           |    1.8889 μs    |     13.539 GiB/s      |     4.1066 μs     |      6.2278 GiB/s       |
 | `try_resolve`       |    1.8749 μs    |     13.641 GiB/s      |     4.1582 μs     |      6.1506 GiB/s       |
 | `resolve_unchecked` |    1.4135 μs    |     18.093 GiB/s      |     3.0388 μs     |      8.4163 GiB/s       |
@@ -238,8 +239,8 @@ RAM: 3200Mhz
 
 | Method              | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
 | :------------------ | :-------------: | :-------------------: | :---------------: | :---------------------: |
-| `get (empty)`       |    9.7012 μs    |     2.6363 GiB/s      |        N/A        |           N/A           |
-| `get (filled)`      |    23.678 μs    |     1.0801 GiB/s      |     49.281 μs     |      531.42 MiB/s       |
+| `get` (empty)       |    9.7012 μs    |     2.6363 GiB/s      |        N/A        |           N/A           |
+| `get` (filled)      |    23.678 μs    |     1.0801 GiB/s      |     49.281 μs     |      531.42 MiB/s       |
 | `resolve`           |    1.8859 μs    |     13.561 GiB/s      |     4.1415 μs     |      6.1753 GiB/s       |
 | `try_resolve`       |    1.8790 μs    |     13.611 GiB/s      |     4.4200 μs     |      5.7862 GiB/s       |
 | `resolve_unchecked` |    1.4104 μs    |     18.133 GiB/s      |     3.0900 μs     |      8.2766 GiB/s       |
@@ -248,8 +249,8 @@ RAM: 3200Mhz
 
 | Method              | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
 | :------------------ | :-------------: | :-------------------: | :---------------: | :---------------------: |
-| `get (empty)`       |    8.9661 μs    |     2.8524 GiB/s      |        N/A        |           N/A           |
-| `get (filled)`      |    21.608 μs    |     1.1836 GiB/s      |     46.744 μs     |      560.26 MiB/s       |
+| `get` (empty)       |    8.9661 μs    |     2.8524 GiB/s      |        N/A        |           N/A           |
+| `get` (filled)      |    21.608 μs    |     1.1836 GiB/s      |     46.744 μs     |      560.26 MiB/s       |
 | `resolve`           |    1.8769 μs    |     13.626 GiB/s      |     4.1747 μs     |      6.1261 GiB/s       |
 | `try_resolve`       |    1.8799 μs    |     13.604 GiB/s      |     4.1995 μs     |      6.0900 GiB/s       |
 | `resolve_unchecked` |    1.4092 μs    |     18.149 GiB/s      |     3.0744 μs     |      8.3188 GiB/s       |
@@ -266,12 +267,25 @@ RAM: 3200Mhz
 
 | [`string-interner`]      |   Time    |  Throughput  | Relative Perf vs `Rodeo` |
 | :----------------------- | :-------: | :----------: | :----------------------: |
-| `get_or_intern (empty)`  | 278.41 μs | 94.065 MiB/s |         -32.24%          |
-| `get_or_intern (filled)` | 58.421 μs | 448.28 MiB/s |          -0.04%          |
-| `get (empty)`            | 38.991 μs | 671.66 MiB/s |          -3.25%          |
-| `get (filled)`           | 58.708 μs | 446.09 MiB/s |         -13.18%          |
+| `get_or_intern` (empty)  | 278.41 μs | 94.065 MiB/s |         -32.24%          |
+| `get_or_intern` (filled) | 58.421 μs | 448.28 MiB/s |          -0.04%          |
+| `get` (empty)            | 38.991 μs | 671.66 MiB/s |          -3.25%          |
+| `get` (filled)           | 58.708 μs | 446.09 MiB/s |         -13.18%          |
 | `resolve`                | 2.7759 μs | 9.2133 GiB/s |         -47.34%          |
 | `resolve_unchecked`      | 2.3413 μs | 10.924 GiB/s |         -65.86%          |
+
+### Nightly Benches
+
+When the `nightly` feature is enabled, this is the performance you can expect from `Rodeo`.  
+The functions listed are the ones currently affected by the changes of the `nightly` feature, and the benchmarks were preformed with std's RandomState.  
+Testing was done on Rust Nightly v1.43.0
+
+| Method                       |   Time    |  Throughput  | Relative Perf vs Stable |
+| :--------------------------- | :-------: | :----------: | :---------------------: |
+| `get_or_intern` (empty)      | 182.60 μs | 143.42 MiB/s |         +13.26%         |
+| `get_or_intern` (filled)     | 54.864 μs | 477.34 MiB/s |         +6.53%          |
+| `try_get_or_intern` (empty)  | 206.10 μs | 127.07 MiB/s |         +16.82%         |
+| `try_get_or_intern` (filled) | 52.073 μs | 502.93 MiB/s |         +12.88%         |
 
 [0]: https://github.com/Kixiron/lasso
 [1]: https://github.com/Kixiron/lasso/workflows/Build/badge.svg
@@ -292,3 +306,4 @@ RAM: 3200Mhz
 [`ahash`]: https://crates.io/crates/ahash
 [`parking_lot`]: https://crates.io/crates/parking_lot
 [`string-interner`]: https://github.com/Robbepop/string-interner
+[Nightly Benches]: #nightly-benches
