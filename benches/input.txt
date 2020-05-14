@@ -1,4 +1,4 @@
-# Strings graciously stolen from https://github.com/Robbepop/string-interne
+# Strings graciously stolen from https://github.com/Robbepop/string-interner
 
 #	Reserved Strings
 #

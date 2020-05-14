@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed default impl of `Key::from_usize`
 - Added `Send` and `Sync` bounds for `ThreadedRodeo`, `RodeoResolver` and `RodeoReader`
 - Changed internals of `get_or_intern` to be `try_get_or_intern.expect()`
+- `multi-threaded` is now actually disabled by default
 
 ### Removed
 

@@ -13,6 +13,50 @@ readme = "README.md"
 categories = ["data-structures", "concurrency", "no-std"]
 edition = "2018"
 
+[features]
+default = []
+multi-threaded = ["dashmap", "hashbrown"]
+no-std = ["ahasher", "hashbrown-table", "dashmap/no_std"]
+hashbrown-table = ["hashbrown"]
+ahasher = ["ahash"]
+nightly = []
+
+# Provides a concurrent hashmap, enabled with the `multi-threaded` feature
+[dependencies.dashmap]
+version = "3.11.1"
+features = ["raw-api"]
+optional = true
+
+# Provides a no_std hasher, enabled with the `no-std` feature
+[dependencies.ahash]
+version = "0.3.4"
+optional = true
+
+# Provides a no_std hashmap, enabled with the `no-std` feature
+[dependencies.hashbrown]
+version = "0.7.2"
+optional = true
+
+# Benchmarking
+[dev-dependencies.criterion]
+version = "0.3.2"
+
+# Benchmarking
+[dev-dependencies.lazy_static]
+version = "1.4.0"
+
+# Cross-hash comparisons with benchmarking
+[dev-dependencies.ahash]
+version = "0.3.4"
+
+# Cross-hash comparisons with benchmarking
+[dev-dependencies.fxhash]
+version = "0.2.1"
+
+# Cross-interner comparsions with benchmarking
+[dev-dependencies.string-interner]
+version = "0.7.1"
+
 [[bench]]
 name = "single_threaded"
 harness = false
@@ -32,42 +76,6 @@ harness = false
 [[bench]]
 name = "string_interner"
 harness = false
-
-[features]
-default = ["multi-threaded"]
-multi-threaded = ["dashmap", "hashbrown"]
-no-std = ["ahasher", "hashbrown-table", "dashmap/no_std"]
-hashbrown-table = ["hashbrown"]
-ahasher = ["ahash"]
-nightly = []
-
-[dependencies.dashmap]
-version = "3.11.1"
-features = ["raw-api"]
-optional = true
-
-[dependencies.ahash]
-version = "0.3.4"
-optional = true
-
-[dependencies.hashbrown]
-version = "0.7.2"
-optional = true
-
-[dev-dependencies.criterion]
-version = "0.3.2"
-
-[dev-dependencies.lazy_static]
-version = "1.4.0"
-
-[dev-dependencies.ahash]
-version = "0.3.4"
-
-[dev-dependencies.fxhash]
-version = "0.2.1"
-
-[dev-dependencies.string-interner]
-version = "0.7.1"
 
 [package.metadata.docs.rs]
 features = ["multi-threaded"]
