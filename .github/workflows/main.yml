@@ -1,101 +1,180 @@
-name: Build
+name: CI
 
-on:
-  pull_request:
-    paths:
-      - "**.rs"
-      - "**.toml"
-      - ".github/workflows/main.yml"
-  push:
-    branches: [master]
-    paths:
-      - "**.rs"
-      - "**.toml"
-      - ".github/workflows/main.yml"
+on: [pull_request, push]
 
 jobs:
-  Checks:
+  check:
+    name: Check
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-
     steps:
       - uses: actions/checkout@v2
-
-      - uses: hecrj/setup-rust-action@v1
+      - uses: actions-rs/toolchain@v1
         with:
-          rust-version: nightly
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-hack
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: hack
+          args: check --each-feature --no-dev-deps
+      - uses: actions-rs/cargo@v1
+        with:
+          command: hack
+          args: check --feature-powerset --no-dev-deps
+
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
           components: rustfmt
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
 
-      # Check that formatting is valid
-      - name: Check Formatting
-        run: cargo fmt --all -- --check
+  doc:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --all --document-private-items --no-deps --locked
 
-      # Check that documentation is valid
-      - name: Check Documentation
-        run: cargo doc --no-deps --features multi-threaded
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: clippy
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --locked --all -- -D warnings
 
-  Tests:
+  test:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
-        target: [x86_64-pc-windows-msvc, i686-pc-windows-msvc, x86_64-unknown-linux-gnu, i686-unknown-linux-gnu, x86_64-apple-darwin]
         include:
-          # Windows MSVC 32 and 64bit
-          - os: windows-latest
+          # Windows
+          - name: x86_64-pc-windows-msvc
+            os: windows-latest
             target: x86_64-pc-windows-msvc
-            rust_version: nightly
-            name: x86_64-pc-windows-msvc-nightly
-          - os: windows-latest
+          - name: i686-pc-windows-msvc
+            os: windows-latest
             target: i686-pc-windows-msvc
-            rust_version: nightly
-            name: i686-pc-windows-msvc-nightly
 
-          # Linux 32 and 64bit
-          - os: ubuntu-latest
+          # Linux
+          - name: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            rust_version: nightly
-            name: x86_64-unknown-linux-gnu
-          - os: ubuntu-latest
+          - name: i686-unknown-linux-gnu
+            os: ubuntu-latest
             target: i686-unknown-linux-gnu
-            rust_version: nightly
-            name: i686-unknown-linux-gnu
 
-          # OSX 64bit
-          - os: macos-latest
+          # OSX
+          - name: x86_64-apple-darwin
+            os: macos-latest
             target: x86_64-apple-darwin
-            rust_version: nightly
-            name: x86_64-apple-darwin
 
     env:
       RUST_BACKTRACE: 1
       CARGO_INCREMENTAL: 0
-      RUSTFLAGS: "-C debuginfo=0"
 
     steps:
       - uses: actions/checkout@v2
-
-      - uses: hecrj/setup-rust-action@v1
-        with:
-          rust-version: ${{ matrix.rust_version }}${{ matrix.platform.host }}
-          targets: ${{ matrix.target }}
-          components: miri
-
-      - name: Install Dependences
+      - shell: bash
         if: matrix.target == 'i686-unknown-linux-gnu'
-        run: sudo apt install g++-multilib gcc-multilib
+        run: |
+          sudo apt update
+          sudo apt install -y gcc-multilib libc6-dev-i386
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-hack cargo-sweep
+      - name: Set rustc version
+        run: echo "::set-env name=CURRENT_RUSTC_VERSION::$(rustc -V)"
 
-      # Run tests in debug mode
-      - name: Run Tests Debug
-        run: cargo test --target ${{ matrix.target }} --features multi-threaded
+      - name: Cache Cargo Registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ matrix.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache Cargo Bin
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/bin
+          key: ${{ matrix.os }}-cargo-bin-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache Cargo Git
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ matrix.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache Cargo Build
+        uses: actions/cache@v1
+        with:
+          path: target
+          key: ${{ matrix.os }}-cargo-build-target-${{ env.CURRENT_RUSTC_VERSION }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Register Artifacts
+        uses: actions-rs/cargo@v1
+        with:
+          command: sweep
+          args: -s
 
-      # Run tests in release mode
-      - name: Run Tests Debug
-        run: cargo test --target ${{ matrix.target }} --features multi-threaded
+      - name: Test each feature
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: hack
+          args: test --target ${{ matrix.target }} --workspace --locked --each-feature
 
-      # Clean and run miri
-      - name: Run Miri
-        run: cargo clean && cargo +nightly miri test --target ${{ matrix.target }} --features multi-threaded --verbose
+      - name: Test all powersets
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: hack
+          args: test --target ${{ matrix.target }} --workspace --locked --feature-powerset
+
+      - name: Miri
+        uses: actions-rs/cargo@v1
+        with:
+          command: hack
+          args: miri test --target ${{ matrix.target }} --features multi-threaded --verbose
+
+      - name: Clean unused artifacts
+        uses: actions-rs/cargo@v1
+        with:
+          command: sweep
+          args: -f

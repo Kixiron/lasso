@@ -459,7 +459,7 @@ mod tests {
         }
 
         #[test]
-        #[cfg(not(feature = "no-std"))]
+        #[cfg(not(any(feature = "no-std", feature = "ahasher")))]
         fn debug() {
             let reader = Rodeo::default().into_reader();
             println!("{:?}", reader);
