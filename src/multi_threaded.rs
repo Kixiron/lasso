@@ -14,8 +14,8 @@ use core::{
 use dashmap::DashMap;
 
 compile! {
-    if #[feature = "no_std"] {
-        use alloc::{boxed::Box, string::{ToString, String}, vec::Vec};
+    if #[feature = "no-std"] {
+        use alloc::{boxed::Box, string::String, vec::Vec};
     }
 }
 
@@ -29,9 +29,9 @@ compile! {
 /// [`ahash::RandomState`]: https://docs.rs/ahash/0.3.2/ahash/struct.RandomState.html
 /// [`RandomState`]: index.html#cargo-features
 #[derive(Debug)]
-pub struct ThreadedRodeo<'unique, K = Spur, S = RandomState>
+pub struct ThreadedRodeo<'unique, K = Spur<'unique>, S = RandomState>
 where
-    K: Key + Hash,
+    K: Key<'unique> + Hash,
     S: BuildHasher + Clone,
 {
     /// Map that allows str to key resolution
@@ -46,7 +46,7 @@ where
 
 // TODO: More parity functions with std::HashMap
 
-impl<'unique, K: Key + Hash> ThreadedRodeo<'unique, K, RandomState> {
+impl<'unique, K: Key<'unique> + Hash> ThreadedRodeo<'unique, K, RandomState> {
     /// Create a new ThreadedRodeo
     ///
     /// # Example
@@ -103,7 +103,7 @@ impl<'unique, K: Key + Hash> ThreadedRodeo<'unique, K, RandomState> {
 
 impl<'unique, K, S> ThreadedRodeo<'unique, K, S>
 where
-    K: Key + Hash,
+    K: Key<'unique> + Hash,
     S: BuildHasher + Clone,
 {
     /// Creates an empty ThreadedRodeo which will use the given hasher for its internal hashmap
@@ -354,7 +354,7 @@ where
 }
 impl<'unique, K, S> ThreadedRodeo<'unique, K, S>
 where
-    K: Key + Hash + Default,
+    K: Key<'unique> + Hash + Default,
     S: BuildHasher + Clone,
 {
     /// Consumes the current ThreadedRodeo, returning a [`RodeoReader`] to allow contention-free access of the interner
@@ -454,7 +454,7 @@ where
 ///
 /// [`Spur`]: crate::Spur
 /// [`RandomState`]: index.html#cargo-features
-impl<'unique> Default for ThreadedRodeo<'unique, Spur, RandomState> {
+impl<'unique> Default for ThreadedRodeo<'unique, Spur<'unique>, RandomState> {
     #[inline]
     fn default() -> Self {
         Self::new()
@@ -502,7 +502,7 @@ impl<'unique> Default for ThreadedRodeo<'unique, Spur, RandomState> {
 /// Deallocate the leaked strings interned by ThreadedRodeo
 impl<'unique, K, S> Drop for ThreadedRodeo<'unique, K, S>
 where
-    K: Key + Hash,
+    K: Key<'unique> + Hash,
     S: BuildHasher + Clone,
 {
     #[inline]
@@ -527,11 +527,11 @@ where
     }
 }
 
-unsafe impl<'unique, K: Key + Hash + Sync, S: BuildHasher + Clone + Sync> Sync
+unsafe impl<'unique, K: Key<'unique> + Hash + Sync, S: BuildHasher + Clone + Sync> Sync
     for ThreadedRodeo<'unique, K, S>
 {
 }
-unsafe impl<'unique, K: Key + Hash + Send, S: BuildHasher + Clone + Send> Send
+unsafe impl<'unique, K: Key<'unique> + Hash + Send, S: BuildHasher + Clone + Send> Send
     for ThreadedRodeo<'unique, K, S>
 {
 }
@@ -541,8 +541,16 @@ mod tests {
     use super::*;
     use crate::{hasher::RandomState, MicroSpur};
 
-    #[cfg(not(any(miri, feature = "no_std")))]
+    #[cfg(not(any(miri, feature = "no-std")))]
     use std::{sync::Arc, thread};
+
+    compile! {
+        if #[feature = "no-std"] {
+            use alloc::string::ToString;
+        } else {
+            use std::string::ToString;
+        }
+    }
 
     #[test]
     fn new() {
@@ -589,7 +597,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(any(miri, feature = "no_std")))]
+    #[cfg(not(any(miri, feature = "no-std")))]
     fn get_or_intern_threaded() {
         let rodeo = Arc::new(ThreadedRodeo::default());
 
@@ -630,7 +638,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(any(miri, feature = "no_std")))]
+    #[cfg(not(any(miri, feature = "no-std")))]
     fn try_get_or_intern_threaded() {
         let rodeo: Arc<ThreadedRodeo<MicroSpur>> = Arc::new(ThreadedRodeo::new());
 
@@ -669,7 +677,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(any(miri, feature = "no_std")))]
+    #[cfg(not(any(miri, feature = "no-std")))]
     fn get_threaded() {
         let rodeo = Arc::new(ThreadedRodeo::default());
         let key = rodeo.get_or_intern("A");
@@ -699,7 +707,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(any(miri, feature = "no_std")))]
+    #[cfg(not(any(miri, feature = "no-std")))]
     fn resolve_threaded() {
         let rodeo = Arc::new(ThreadedRodeo::default());
         let key = rodeo.get_or_intern("A");
@@ -713,7 +721,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(any(miri, feature = "no_std", tarpaulin)))]
+    #[cfg(not(any(miri, feature = "no-std", tarpaulin)))]
     fn resolve_panics_threaded() {
         let rodeo = Arc::new(ThreadedRodeo::default());
         let key = rodeo.get_or_intern("A");
@@ -738,7 +746,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(any(miri, feature = "no_std")))]
+    #[cfg(not(any(miri, feature = "no-std")))]
     fn try_resolve_threaded() {
         let rodeo = Arc::new(ThreadedRodeo::default());
         let key = rodeo.get_or_intern("A");
@@ -791,7 +799,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(any(miri, feature = "no_std")))]
+    #[cfg(not(any(miri, feature = "no-std")))]
     fn drop_threaded() {
         let rodeo = Arc::new(ThreadedRodeo::default());
 
@@ -802,7 +810,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(any(miri, feature = "no_std")))]
+    #[cfg(not(any(miri, feature = "no-std")))]
     fn debug() {
         let rodeo = ThreadedRodeo::default();
         println!("{:?}", rodeo);

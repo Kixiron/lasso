@@ -10,7 +10,7 @@ use crate::{
 use core::{hash::BuildHasher, mem};
 
 compile! {
-    if #[feature = "no_std"] {
+    if #[feature = "no-std"] {
         use alloc::{vec::Vec, string::String, boxed::Box};
     }
 }
@@ -22,7 +22,7 @@ compile! {
 ///
 /// [`RandomState`]: index.html#cargo-features
 #[derive(Debug)]
-pub struct Rodeo<'unique, K: Key = Spur, S: BuildHasher + Clone = RandomState> {
+pub struct Rodeo<'unique, K: Key<'unique> = Spur<'unique>, S: BuildHasher + Clone = RandomState> {
     /// Map that allows `str` -> `key` resolution
     map: HashMap<&'static str, K, S>,
     /// Vec that allows `key` -> `str` resolution
@@ -31,7 +31,7 @@ pub struct Rodeo<'unique, K: Key = Spur, S: BuildHasher + Clone = RandomState> {
     unique: Unique<'unique>,
 }
 
-impl<'unique, K: Key> Rodeo<'unique, K, RandomState> {
+impl<'unique, K: Key<'unique>> Rodeo<'unique, K, RandomState> {
     /// Create a new Rodeo
     ///
     /// # Example
@@ -79,7 +79,7 @@ impl<'unique, K: Key> Rodeo<'unique, K, RandomState> {
 
 impl<'unique, K, S> Rodeo<'unique, K, S>
 where
-    K: Key,
+    K: Key<'unique>,
     S: BuildHasher + Clone,
 {
     /// Creates an empty Rodeo which will use the given hasher for its internal hashmap
@@ -150,9 +150,9 @@ where
             if #[any(feature = "nightly", feature = "hashbrown-table")] {
                 use core::hash::{Hash, Hasher};
                 compile! {
-                    if #[feature = "nightly"] {
+                    if #[all(feature = "nightly", not(feature = "no-std"))] {
                         use std::collections::hash_map::RawEntryMut;
-                    } else if #[feature = "hashbrown-table"] {
+                    } else if #[any(feature = "hashbrown-table", feature = "no-std")] {
                         use hashbrown::hash_map::RawEntryMut;
                     }
                 }
@@ -415,13 +415,13 @@ where
 
     /// Returns an iterator over the interned strings and their key values
     #[inline]
-    pub fn iter(&self) -> Iter<K> {
+    pub fn iter<'a>(&'a self) -> Iter<'a, 'unique, K> {
         Iter::from_rodeo(self)
     }
 
     /// Returns an iterator over the interned strings
     #[inline]
-    pub fn strings(&self) -> Strings<K> {
+    pub fn strings<'a>(&'a self) -> Strings<'a, 'unique, K> {
         Strings::from_rodeo(self)
     }
 
@@ -498,7 +498,7 @@ where
 ///
 /// [`Spur`]: crate::Spur
 /// [`RandomState`]: index.html#cargo-features
-impl<'unique> Default for Rodeo<'unique, Spur, RandomState> {
+impl<'unique> Default for Rodeo<'unique, Spur<'unique>, RandomState> {
     #[inline]
     fn default() -> Self {
         Self::new()
@@ -539,7 +539,7 @@ impl<'unique> Default for Rodeo<'unique, Spur, RandomState> {
 /// Deallocate the leaked strings interned by Rodeo
 impl<'unique, K, S> Drop for Rodeo<'unique, K, S>
 where
-    K: Key,
+    K: Key<'unique>,
     S: BuildHasher + Clone,
 {
     #[inline]
@@ -567,7 +567,7 @@ mod tests {
     use crate::{hasher::RandomState, Key, MicroSpur, Rodeo, Spur};
 
     compile! {
-        if #[feature = "no_std"] {
+        if #[feature = "no-std"] {
             use alloc::string::ToString;
         }
     }
@@ -783,7 +783,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "no_std"))]
+    #[cfg(not(feature = "no-std"))]
     fn debug() {
         let rodeo = Rodeo::default();
         println!("{:?}", rodeo);

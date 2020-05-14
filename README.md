@@ -35,7 +35,7 @@ By default `lasso` has zero dependencies only the [`Rodeo`] is exposed. To make 
 * `multi-threaded` - Enables [`ThreadedRodeo`], the interner for multi-threaded tasks
 * `hashbrown-table` - Uses [`hashbrown`] as the internal `HashMap`
 * `ahasher` - Use [`ahash`]'s `RandomState` as the default hasher
-* `no_std` - Enables `no_std` + `alloc` support for [`Rodeo`] and [`ThreadedRodeo`]
+* `no-std` - Enables `no_std` + `alloc` support for [`Rodeo`] and [`ThreadedRodeo`]
   * Automatically enables the following required features:
     * `dashmap/no_std` - Enables `no_std` compatibility for `DashMap`
     * `hashbrown-table` - Required for `no_std` `HashMap`

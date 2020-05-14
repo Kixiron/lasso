@@ -1,3 +1,5 @@
+use crate::unique::Unique;
+
 use core::num::{NonZeroU16, NonZeroU32, NonZeroU8, NonZeroUsize};
 
 /// Types implementing this trait can be used as keys for all Rodeos
@@ -7,7 +9,7 @@ use core::num::{NonZeroU16, NonZeroU32, NonZeroU8, NonZeroUsize};
 /// into/from must be perfectly symmetrical, any key that goes on must be perfectly reproduced with the other
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
-pub unsafe trait Key: Copy + Eq {
+pub unsafe trait Key<'unique>: Copy + Eq {
     /// Returns the `usize` that represents the current key
     ///
     /// # Safety
@@ -29,11 +31,12 @@ pub unsafe trait Key: Copy + Eq {
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct Spur {
+pub struct LargeSpur<'unique> {
     key: NonZeroUsize,
+    unique: Unique<'unique>,
 }
 
-unsafe impl Key for Spur {
+unsafe impl<'unique> Key<'unique> for LargeSpur<'unique> {
     #[inline]
     unsafe fn into_usize(self) -> usize {
         self.key.get() - 1
@@ -48,6 +51,7 @@ unsafe impl Key for Spur {
             unsafe {
                 Some(Self {
                     key: NonZeroUsize::new_unchecked(int + 1),
+                    unique: Default::default(),
                 })
             }
         } else {
@@ -56,16 +60,17 @@ unsafe impl Key for Spur {
     }
 }
 
-impl Default for Spur {
+impl<'unique> Default for LargeSpur<'unique> {
     fn default() -> Self {
         Self {
             // Safety: 1 is not 0
             key: unsafe { NonZeroUsize::new_unchecked(1) },
+            unique: Default::default(),
         }
     }
 }
 
-/// A small Key, utilizing only 32 bits of space
+/// The default key for every Rodeo, uses only 32bits of space
 ///
 /// Internally is a `NonZeroU32` to allow for space optimizations when stored inside of an [`Option`]
 ///
@@ -73,11 +78,12 @@ impl Default for Spur {
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct SmallSpur {
+pub struct Spur<'unique> {
     key: NonZeroU32,
+    unique: Unique<'unique>,
 }
 
-unsafe impl Key for SmallSpur {
+unsafe impl<'unique> Key<'unique> for Spur<'unique> {
     #[inline]
     unsafe fn into_usize(self) -> usize {
         self.key.get() as usize - 1
@@ -92,6 +98,7 @@ unsafe impl Key for SmallSpur {
             unsafe {
                 Some(Self {
                     key: NonZeroU32::new_unchecked(int as u32 + 1),
+                    unique: Default::default(),
                 })
             }
         } else {
@@ -100,11 +107,12 @@ unsafe impl Key for SmallSpur {
     }
 }
 
-impl Default for SmallSpur {
+impl<'unique> Default for Spur<'unique> {
     fn default() -> Self {
         Self {
             // Safety: 1 is not 0
             key: unsafe { NonZeroU32::new_unchecked(1) },
+            unique: Default::default(),
         }
     }
 }
@@ -117,11 +125,12 @@ impl Default for SmallSpur {
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct MiniSpur {
+pub struct MiniSpur<'unique> {
     key: NonZeroU16,
+    unique: Unique<'unique>,
 }
 
-unsafe impl Key for MiniSpur {
+unsafe impl<'unique> Key<'unique> for MiniSpur<'unique> {
     #[inline]
     unsafe fn into_usize(self) -> usize {
         self.key.get() as usize - 1
@@ -136,6 +145,7 @@ unsafe impl Key for MiniSpur {
             unsafe {
                 Some(Self {
                     key: NonZeroU16::new_unchecked(int as u16 + 1),
+                    unique: Default::default(),
                 })
             }
         } else {
@@ -144,11 +154,12 @@ unsafe impl Key for MiniSpur {
     }
 }
 
-impl Default for MiniSpur {
+impl<'unique> Default for MiniSpur<'unique> {
     fn default() -> Self {
         Self {
             // Safety: 1 is not 0
             key: unsafe { NonZeroU16::new_unchecked(1) },
+            unique: Default::default(),
         }
     }
 }
@@ -161,11 +172,12 @@ impl Default for MiniSpur {
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct MicroSpur {
+pub struct MicroSpur<'unique> {
     key: NonZeroU8,
+    unique: Unique<'unique>,
 }
 
-unsafe impl Key for MicroSpur {
+unsafe impl<'unique> Key<'unique> for MicroSpur<'unique> {
     #[inline]
     unsafe fn into_usize(self) -> usize {
         self.key.get() as usize - 1
@@ -180,6 +192,7 @@ unsafe impl Key for MicroSpur {
             unsafe {
                 Some(Self {
                     key: NonZeroU8::new_unchecked(int as u8 + 1),
+                    unique: Default::default(),
                 })
             }
         } else {
@@ -188,11 +201,12 @@ unsafe impl Key for MicroSpur {
     }
 }
 
-impl Default for MicroSpur {
+impl<'unique> Default for MicroSpur<'unique> {
     fn default() -> Self {
         Self {
             // Safety: 1 is not 0
             key: unsafe { NonZeroU8::new_unchecked(1) },
+            unique: Default::default(),
         }
     }
 }
@@ -202,9 +216,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cord() {
-        let zero = Spur::try_from_usize(0).unwrap();
-        let max = Spur::try_from_usize(usize::max_value() - 1).unwrap();
+    fn large() {
+        let zero = LargeSpur::try_from_usize(0).unwrap();
+        let max = LargeSpur::try_from_usize(usize::max_value() - 1).unwrap();
 
         unsafe {
             assert_eq!(zero.into_usize(), 0);
@@ -213,21 +227,21 @@ mod tests {
     }
 
     #[test]
-    fn cord_max_returns_none() {
-        assert_eq!(None, Spur::try_from_usize(usize::max_value()));
+    fn large_max_returns_none() {
+        assert_eq!(None, LargeSpur::try_from_usize(usize::max_value()));
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
-    fn cord_max_panics() {
-        Spur::try_from_usize(usize::max_value()).unwrap();
+    fn large_max_panics() {
+        LargeSpur::try_from_usize(usize::max_value()).unwrap();
     }
 
     #[test]
-    fn small_cord() {
-        let zero = SmallSpur::try_from_usize(0).unwrap();
-        let max = SmallSpur::try_from_usize(u32::max_value() as usize - 1).unwrap();
+    fn spur() {
+        let zero = Spur::try_from_usize(0).unwrap();
+        let max = Spur::try_from_usize(u32::max_value() as usize - 1).unwrap();
         unsafe {
             assert_eq!(zero.into_usize(), 0);
             assert_eq!(max.into_usize(), u32::max_value() as usize - 1);
@@ -235,19 +249,19 @@ mod tests {
     }
 
     #[test]
-    fn small_cord_returns_none() {
-        assert_eq!(None, SmallSpur::try_from_usize(u32::max_value() as usize));
+    fn spur_returns_none() {
+        assert_eq!(None, Spur::try_from_usize(u32::max_value() as usize));
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
-    fn small_cord_panics() {
-        SmallSpur::try_from_usize(u32::max_value() as usize).unwrap();
+    fn spur_panics() {
+        Spur::try_from_usize(u32::max_value() as usize).unwrap();
     }
 
     #[test]
-    fn mini_cord() {
+    fn mini() {
         let zero = MiniSpur::try_from_usize(0).unwrap();
         let max = MiniSpur::try_from_usize(u16::max_value() as usize - 1).unwrap();
         unsafe {
@@ -257,19 +271,19 @@ mod tests {
     }
 
     #[test]
-    fn mini_cord_returns_none() {
+    fn mini_returns_none() {
         assert_eq!(None, MiniSpur::try_from_usize(u16::max_value() as usize));
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
-    fn mini_cord_panics() {
+    fn mini_panics() {
         MiniSpur::try_from_usize(u16::max_value() as usize).unwrap();
     }
 
     #[test]
-    fn micro_cord() {
+    fn micro() {
         let zero = MicroSpur::try_from_usize(0).unwrap();
         let max = MicroSpur::try_from_usize(u8::max_value() as usize - 1).unwrap();
         unsafe {
@@ -279,14 +293,14 @@ mod tests {
     }
 
     #[test]
-    fn micro_cord_returns_none() {
+    fn micro_returns_none() {
         assert_eq!(None, MicroSpur::try_from_usize(u8::max_value() as usize));
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
-    fn micro_cord_panics() {
+    fn micro_panics() {
         MicroSpur::try_from_usize(u8::max_value() as usize).unwrap();
     }
 }

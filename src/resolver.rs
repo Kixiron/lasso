@@ -7,7 +7,7 @@ use crate::{
 use core::marker::PhantomData;
 
 compile! {
-    if #[feature = "no_std"] {
+    if #[feature = "no-std"] {
         use alloc::{vec::Vec, string::ToString, boxed::Box};
     }
 }
@@ -20,7 +20,7 @@ compile! {
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoResolver<'unique, K: Key = Spur> {
+pub struct RodeoResolver<'unique, K: Key<'unique> = Spur<'unique>> {
     /// Vector of strings mapped to key indexes that allows key to string resolution
     pub(crate) strings: Vec<&'static str>,
     /// The type of the key
@@ -29,7 +29,7 @@ pub struct RodeoResolver<'unique, K: Key = Spur> {
     unique: Unique<'unique>,
 }
 
-impl<'unique, K: Key> RodeoResolver<'unique, K> {
+impl<'unique, K: Key<'unique>> RodeoResolver<'unique, K> {
     /// Creates a new RodeoResolver
     ///
     /// # Safety
@@ -179,18 +179,18 @@ impl<'unique, K: Key> RodeoResolver<'unique, K> {
 
     /// Returns an iterator over the interned strings and their key values
     #[inline]
-    pub fn iter(&self) -> Iter<K> {
+    pub fn iter<'a>(&'a self) -> Iter<'a, 'unique, K> {
         Iter::from_resolver(self)
     }
 
     /// Returns an iterator over the interned strings
     #[inline]
-    pub fn strings(&self) -> Strings<K> {
+    pub fn strings<'a>(&'a self) -> Strings<'a, 'unique, K> {
         Strings::from_resolver(self)
     }
 }
 
-impl<'unique, K: Key> Clone for RodeoResolver<'unique, K> {
+impl<'unique, K: Key<'unique>> Clone for RodeoResolver<'unique, K> {
     #[inline]
     fn clone(&self) -> Self {
         // Safety: The strings of the current Rodeo **cannot** be used in the new one,
@@ -220,7 +220,7 @@ impl<'unique, K: Key> Clone for RodeoResolver<'unique, K> {
 }
 
 /// Deallocate the leaked strings interned by RodeoResolver
-impl<'unique, K: Key> Drop for RodeoResolver<'unique, K> {
+impl<'unique, K: Key<'unique>> Drop for RodeoResolver<'unique, K> {
     #[inline]
     fn drop(&mut self) {
         // Drain self.strings while deallocating the strings it holds
@@ -237,8 +237,8 @@ impl<'unique, K: Key> Drop for RodeoResolver<'unique, K> {
     }
 }
 
-unsafe impl<'unique, K: Key + Send> Send for RodeoResolver<'unique, K> {}
-unsafe impl<'unique, K: Key + Sync> Sync for RodeoResolver<'unique, K> {}
+unsafe impl<'unique, K: Key<'unique> + Send> Send for RodeoResolver<'unique, K> {}
+unsafe impl<'unique, K: Key<'unique> + Sync> Sync for RodeoResolver<'unique, K> {}
 
 #[cfg(test)]
 mod tests {
@@ -360,14 +360,14 @@ mod tests {
         }
 
         #[test]
-        #[cfg(not(feature = "no_std"))]
+        #[cfg(not(feature = "no-std"))]
         fn debug() {
             let resolver = Rodeo::default().into_resolver();
             println!("{:?}", resolver);
         }
     }
 
-    #[cfg(all(not(any(miri, feature = "no_std")), features = "multi-threaded"))]
+    #[cfg(all(not(any(miri, feature = "no-std")), features = "multi-threaded"))]
     mod multi_threaded {
         use crate::{locks::Arc, multi_threaded::ThreadedRodeo};
         use std::thread;
@@ -549,7 +549,7 @@ mod tests {
         }
 
         #[test]
-        #[cfg(not(feature = "no_std"))]
+        #[cfg(not(feature = "no-std"))]
         fn debug() {
             let resolver = ThreadedRodeo::default().into_resolver();
             println!("{:?}", resolver);

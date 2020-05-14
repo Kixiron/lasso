@@ -1,4 +1,4 @@
-#![cfg_attr(feature = "no_std", no_std)]
+#![cfg_attr(feature = "no-std", no_std)]
 #![cfg_attr(feature = "nightly", feature(hash_raw_entry))]
 #![warn(clippy::missing_inline_in_public_items)]
 #![deny(
@@ -45,7 +45,7 @@
 //! * `parking_locks` - Uses [`parking_lot`] for the internal concurrent locks
 //! * `hashbrown-table` - Uses [`hashbrown`] as the internal `HashMap`
 //! * `ahasher` - Use [`ahash`]'s `RandomState` as the default hasher
-//! * `no_std` - Enables `no_std` + `alloc` support for [`Rodeo`] and [`ThreadedRodeo`]
+//! * `no-std` - Enables `no_std` + `alloc` support for [`Rodeo`] and [`ThreadedRodeo`]
 //!   * Automatically enables the following required features:
 //!     * `dashmap/no_std` - `no_std` compatibility for `DashMap`
 //!     * `parking_locks` - `no_std` locks
@@ -73,6 +73,41 @@
 //! ## Example: Using ThreadedRodeo
 //!
 //! ```rust
+//! # // This is hacky to the extreme, but it prevents failure of this doc test when
+//! # // run with `--no-default-features`
+//! #
+//! # #[cfg(not(feature = "multi-threaded"))]
+//! # #[derive(Default)]
+//! # struct ThreadedRodeo;
+//! #
+//! # #[cfg(not(feature = "multi-threaded"))]
+//! # impl ThreadedRodeo {
+//! #     fn get_or_intern(&self, string: &'static str) -> i32 {
+//! #         match string {
+//! #             "Hello, world!" => 0,
+//! #             "Hello from the thread!" => 1,
+//! #             _ => unreachable!("Update the docs, dude"),
+//! #         }
+//! #     }
+//! #
+//! #     fn get(&self, string: &'static str) -> Option<i32> {
+//! #         match string {
+//! #             "Hello, world!" => Some(0),
+//! #             "Hello from the thread!" => Some(1),
+//! #             _ => unreachable!("Update the docs, dude"),
+//! #         }
+//! #     }
+//! #
+//! #     fn resolve(&self, id: &i32) -> &'static str {
+//! #         match *id {
+//! #             0 => "Hello, world!",
+//! #             1 => "Hello from the thread!",
+//! #             _ => unreachable!("Update the docs, dude"),
+//! #         }
+//! #     }
+//! # }
+//! #
+//! # #[cfg(feature = "multi-threaded")]
 //! use lasso::ThreadedRodeo;
 //! use std::{thread, sync::Arc};
 //!
@@ -168,13 +203,13 @@ mod resolver;
 mod single_threaded;
 mod unique;
 
-pub use key::{Key, MicroSpur, MiniSpur, SmallSpur, Spur};
+pub use key::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
 pub use reader::RodeoReader;
 pub use resolver::RodeoResolver;
 pub use single_threaded::Rodeo;
 
 compile! {
-    if #[feature = "no_std"] {
+    if #[feature = "no-std"] {
         extern crate alloc;
     }
 
@@ -204,7 +239,7 @@ mod hasher {
 #[doc(hidden)]
 mod locks {
     compile! {
-        if #[feature = "no_std"] {
+        if #[feature = "no-std"] {
             pub use alloc::sync::Arc;
         } else {
             pub use std::sync::Arc;

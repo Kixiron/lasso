@@ -9,7 +9,7 @@ use crate::{
 use core::{hash::BuildHasher, mem};
 
 compile! {
-    if #[feature = "no_std"] {
+    if #[feature = "no-std"] {
         use alloc::{vec::Vec, string::ToString, boxed::Box};
     }
 }
@@ -23,14 +23,18 @@ compile! {
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoReader<'unique, K: Key = Spur, S: BuildHasher + Clone = RandomState> {
+pub struct RodeoReader<
+    'unique,
+    K: Key<'unique> = Spur<'unique>,
+    S: BuildHasher + Clone = RandomState,
+> {
     map: HashMap<&'static str, K, S>,
     pub(crate) strings: Vec<&'static str>,
     /// Makes keys only usable with the current instance
     unique: Unique<'unique>,
 }
 
-impl<'unique, K: Key, S: BuildHasher + Clone> RodeoReader<'unique, K, S> {
+impl<'unique, K: Key<'unique>, S: BuildHasher + Clone> RodeoReader<'unique, K, S> {
     /// Creates a new RodeoReader
     ///
     /// # Safety
@@ -208,13 +212,13 @@ impl<'unique, K: Key, S: BuildHasher + Clone> RodeoReader<'unique, K, S> {
 
     /// Returns an iterator over the interned strings and their key values
     #[inline]
-    pub fn iter(&self) -> Iter<K> {
+    pub fn iter<'a>(&'a self) -> Iter<'a, 'unique, K> {
         Iter::from_reader(self)
     }
 
     /// Returns an iterator over the interned strings
     #[inline]
-    pub fn strings(&self) -> Strings<K> {
+    pub fn strings<'a>(&'a self) -> Strings<'a, 'unique, K> {
         Strings::from_reader(self)
     }
 
@@ -252,7 +256,7 @@ impl<'unique, K: Key, S: BuildHasher + Clone> RodeoReader<'unique, K, S> {
 
 impl<'unique, K, S> Clone for RodeoReader<'unique, K, S>
 where
-    K: Key,
+    K: Key<'unique>,
     S: BuildHasher + Clone,
 {
     #[inline]
@@ -285,7 +289,7 @@ where
 }
 
 /// Deallocate the leaked strings interned by RodeoReader
-impl<'unique, K: Key, S: BuildHasher + Clone> Drop for RodeoReader<'unique, K, S> {
+impl<'unique, K: Key<'unique>, S: BuildHasher + Clone> Drop for RodeoReader<'unique, K, S> {
     #[inline]
     fn drop(&mut self) {
         // Clear the map to remove all other references to the strings in self.strings
@@ -306,11 +310,11 @@ impl<'unique, K: Key, S: BuildHasher + Clone> Drop for RodeoReader<'unique, K, S
     }
 }
 
-unsafe impl<'unique, K: Key + Sync, S: BuildHasher + Clone + Sync> Sync
+unsafe impl<'unique, K: Key<'unique> + Sync, S: BuildHasher + Clone + Sync> Sync
     for RodeoReader<'unique, K, S>
 {
 }
-unsafe impl<'unique, K: Key + Send, S: BuildHasher + Clone + Send> Send
+unsafe impl<'unique, K: Key<'unique> + Send, S: BuildHasher + Clone + Send> Send
     for RodeoReader<'unique, K, S>
 {
 }
@@ -455,14 +459,14 @@ mod tests {
         }
 
         #[test]
-        #[cfg(not(feature = "no_std"))]
+        #[cfg(not(feature = "no-std"))]
         fn debug() {
             let reader = Rodeo::default().into_reader();
             println!("{:?}", reader);
         }
     }
 
-    #[cfg(all(not(any(miri, feature = "no_std")), features = "multi-threaded"))]
+    #[cfg(all(not(any(miri, feature = "no-std")), features = "multi-threaded"))]
     mod multi_threaded {
         use crate::{locks::Arc, multi_threaded::ThreadedRodeo};
 
@@ -617,7 +621,7 @@ mod tests {
         }
 
         #[test]
-        #[cfg(not(feature = "no_std"))]
+        #[cfg(not(feature = "no-std"))]
         fn debug() {
             let reader = ThreadedRodeo::default().into_reader();
             println!("{:?}", reader);
