@@ -149,11 +149,12 @@ where
         compile_expr! {
             if #[any(feature = "nightly", feature = "hashbrown-table")] {
                 use core::hash::{Hash, Hasher};
+
                 compile! {
-                    if #[all(feature = "nightly", not(feature = "no-std"))] {
-                        use std::collections::hash_map::RawEntryMut;
-                    } else if #[any(feature = "hashbrown-table", feature = "no-std")] {
+                    if #[feature = "hashbrown-table"] {
                         use hashbrown::hash_map::RawEntryMut;
+                    } else if #[feature = "nightly"] {
+                        use std::collections::hash_map::RawEntryMut;
                     }
                 }
 
@@ -216,11 +217,12 @@ where
         compile_expr! {
             if #[any(feature = "nightly", feature = "hashbrown-table")] {
                 use core::hash::{Hash, Hasher};
+
                 compile! {
-                    if #[all(feature = "nightly", not(feature = "no-std"))] {
-                        use std::collections::hash_map::RawEntryMut;
-                    } else if #[any(feature = "hashbrown-table", feature = "no-std")] {
+                    if #[feature = "hashbrown-table"] {
                         use hashbrown::hash_map::RawEntryMut;
+                    } else if #[feature = "nightly"] {
+                        use std::collections::hash_map::RawEntryMut;
                     }
                 }
 

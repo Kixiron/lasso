@@ -61,6 +61,7 @@ unsafe impl<'unique> Key<'unique> for LargeSpur<'unique> {
 }
 
 impl<'unique> Default for LargeSpur<'unique> {
+    #[inline]
     fn default() -> Self {
         Self {
             // Safety: 1 is not 0
@@ -108,6 +109,7 @@ unsafe impl<'unique> Key<'unique> for Spur<'unique> {
 }
 
 impl<'unique> Default for Spur<'unique> {
+    #[inline]
     fn default() -> Self {
         Self {
             // Safety: 1 is not 0
@@ -155,6 +157,7 @@ unsafe impl<'unique> Key<'unique> for MiniSpur<'unique> {
 }
 
 impl<'unique> Default for MiniSpur<'unique> {
+    #[inline]
     fn default() -> Self {
         Self {
             // Safety: 1 is not 0
@@ -202,6 +205,7 @@ unsafe impl<'unique> Key<'unique> for MicroSpur<'unique> {
 }
 
 impl<'unique> Default for MicroSpur<'unique> {
+    #[inline]
     fn default() -> Self {
         Self {
             // Safety: 1 is not 0
