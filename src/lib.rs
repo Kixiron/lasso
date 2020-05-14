@@ -42,13 +42,11 @@
 //! By default `lasso` has zero dependencies and only [`Rodeo`] is exposed. To make use of [`ThreadedRodeo`], you must enable the `multi-threaded` feature.
 //!
 //! * `multi-threaded` - Enables [`ThreadedRodeo`], the interner for multi-threaded tasks
-//! * `parking_locks` - Uses [`parking_lot`] for the internal concurrent locks
 //! * `hashbrown-table` - Uses [`hashbrown`] as the internal `HashMap`
 //! * `ahasher` - Use [`ahash`]'s `RandomState` as the default hasher
 //! * `no-std` - Enables `no_std` + `alloc` support for [`Rodeo`] and [`ThreadedRodeo`]
 //!   * Automatically enables the following required features:
 //!     * `dashmap/no_std` - `no_std` compatibility for `DashMap`
-//!     * `parking_locks` - `no_std` locks
 //!     * `hashbrown-table` - `no_std` `HashMap`
 //!     * `ahasher` - `no_std` hashing function
 //!
@@ -176,7 +174,7 @@
 //! ```
 //!
 //! [0]: https://github.com/Kixiron/lasso
-//! [1]: https://github.com/Kixiron/lasso/workflows/Build/badge.svg
+//! [1]: https://github.com/Kixiron/lasso/workflows/CI/badge.svg
 //! [2]: https://github.com/Kixiron/lasso/workflows/Security%20Audit/badge.svg
 //! [3]: https://coveralls.io/repos/github/Kixiron/lasso/badge.svg?branch=master
 //! [4]: https://coveralls.io/github/Kixiron/lasso?branch=master

@@ -1,4 +1,3 @@
-
 [![CI][1]][0]
 [![Security Audit][2]][0]
 [![Coverage][3]][4]
@@ -30,17 +29,17 @@ minimum possible memory usage. Note that to gain access to [`ThreadedRodeo`] the
 
 ## Cargo Features
 
-By default `lasso` has zero dependencies only the [`Rodeo`] is exposed. To make use of [`ThreadedRodeo`], you must enable the `multi-threaded` feature
+
+By default `lasso` has zero dependencies and only [`Rodeo`] is exposed. To make use of [`ThreadedRodeo`], you must enable the `multi-threaded` feature.
 
 * `multi-threaded` - Enables [`ThreadedRodeo`], the interner for multi-threaded tasks
 * `hashbrown-table` - Uses [`hashbrown`] as the internal `HashMap`
 * `ahasher` - Use [`ahash`]'s `RandomState` as the default hasher
 * `no-std` - Enables `no_std` + `alloc` support for [`Rodeo`] and [`ThreadedRodeo`]
   * Automatically enables the following required features:
-    * `dashmap/no_std` - Enables `no_std` compatibility for `DashMap`
-    * `hashbrown-table` - Required for `no_std` `HashMap`
-    * `ahasher` - Required for `no_std` hashing function
-* `nightly` - Allows the use of the nightly `hash_raw_entry` feature internally, giving better speed on interning where the key does not yet exist (Only affects `Rodeo`). See [Nightly Benches]
+    * `dashmap/no_std` - `no_std` compatibility for `DashMap`
+    * `hashbrown-table` - `no_std` `HashMap`
+    * `ahasher` - `no_std` hashing function
 
 ## Example: Using Rodeo
 
@@ -288,7 +287,7 @@ Testing was done on Rust Nightly v1.43.0
 | `try_get_or_intern` (filled) | 52.073 μs | 502.93 MiB/s |         +12.88%         |
 
 [0]: https://github.com/Kixiron/lasso
-[1]: https://github.com/Kixiron/lasso/workflows/Build/badge.svg
+[1]: https://github.com/Kixiron/lasso/workflows/CI/badge.svg
 [2]: https://github.com/Kixiron/lasso/workflows/Security%20Audit/badge.svg
 [3]: https://coveralls.io/repos/github/Kixiron/lasso/badge.svg?branch=master
 [4]: https://coveralls.io/github/Kixiron/lasso?branch=master
@@ -304,6 +303,5 @@ Testing was done on Rust Nightly v1.43.0
 [`RodeoReader`]: crate::RodeoReader
 [`hashbrown`]: https://crates.io/crates/hashbrown
 [`ahash`]: https://crates.io/crates/ahash
-[`parking_lot`]: https://crates.io/crates/parking_lot
 [`string-interner`]: https://github.com/Robbepop/string-interner
 [Nightly Benches]: #nightly-benches
