@@ -13,19 +13,34 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-hack
 
-      - uses: actions-rs/cargo@v1
+      - name: No default features
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
         with:
-          command: hack
-          args: check --each-feature --no-dev-deps
-      - uses: actions-rs/cargo@v1
+          command: check
+          args: --target ${{ matrix.target }} --no-default-features
+
+      - name: Single threaded
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
         with:
-          command: hack
-          args: check --feature-powerset --no-dev-deps
+          command: check
+          args: --target ${{ matrix.target }}
+
+      - name: Multi threaded
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --target ${{ matrix.target }} --features multi-threaded
+
+      - name: No std
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --target ${{ matrix.target }} --features no-std
 
   fmt:
     name: Rustfmt
@@ -117,13 +132,13 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: stable
           target: ${{ matrix.target }}
           override: true
       - uses: actions-rs/cargo@v1
         with:
           command: install
-          args: cargo-hack cargo-sweep
+          args: cargo-sweep
       - name: Set rustc version
         run: echo "::set-env name=CURRENT_RUSTC_VERSION::$(rustc -V)"
 
@@ -153,25 +168,61 @@ jobs:
           command: sweep
           args: -s
 
-      - name: Test each feature
+      - name: Test no default features
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
-          command: hack
-          args: test --target ${{ matrix.target }} --workspace --each-feature
+          command: test
+          args: --target ${{ matrix.target }} --no-default-features
 
-      - name: Test all powersets
+      - name: Test single threaded
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
-          command: hack
-          args: test --target ${{ matrix.target }} --workspace --feature-powerset
+          command: test
+          args: --target ${{ matrix.target }}
 
-      - name: Miri
+      - name: Test multi threaded
+        if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
-          command: hack
-          args: miri test --target ${{ matrix.target }} --features multi-threaded --verbose
+          command: test
+          args: --target ${{ matrix.target }} --features multi-threaded
+
+      - name: Test no std
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --target ${{ matrix.target }} --features no-std
+
+      - name: Miri no default features
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: miri
+          args: --target ${{ matrix.target }} --no-default-features
+
+      - name: Miri single threaded
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: miri
+          args: --target ${{ matrix.target }}
+
+      - name: Miri multi threaded
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: miri
+          args: --target ${{ matrix.target }} --features multi-threaded
+
+      - name: Miri no std
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: miri
+          args: --target ${{ matrix.target }} --features no-std
 
       - name: Clean unused artifacts
         uses: actions-rs/cargo@v1
