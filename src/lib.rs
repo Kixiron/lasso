@@ -198,6 +198,7 @@
 mod util;
 
 // mod unique; // Experimental, doesn't currently work
+mod arena;
 mod key;
 mod reader;
 mod resolver;

@@ -56,6 +56,12 @@ unsafe impl Key for LargeSpur {
     }
 }
 
+impl Default for LargeSpur {
+    fn default() -> Self {
+        Self::try_from_usize(1).unwrap()
+    }
+}
+
 /// The default key for every Rodeo, uses only 32bits of space
 ///
 /// Internally is a `NonZeroU32` to allow for space optimizations when stored inside of an [`Option`]
@@ -88,6 +94,12 @@ unsafe impl Key for Spur {
         } else {
             None
         }
+    }
+}
+
+impl Default for Spur {
+    fn default() -> Self {
+        Self::try_from_usize(1).unwrap()
     }
 }
 
@@ -126,6 +138,12 @@ unsafe impl Key for MiniSpur {
     }
 }
 
+impl Default for MiniSpur {
+    fn default() -> Self {
+        Self::try_from_usize(1).unwrap()
+    }
+}
+
 /// A miniature Key utilizing only 8 bits of space
 ///
 /// Internally is a `NonZeroU8` to allow for space optimizations when stored inside of an [`Option`]
@@ -158,6 +176,12 @@ unsafe impl Key for MicroSpur {
         } else {
             None
         }
+    }
+}
+
+impl Default for MicroSpur {
+    fn default() -> Self {
+        Self::try_from_usize(1).unwrap()
     }
 }
 

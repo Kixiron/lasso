@@ -1,4 +1,5 @@
 use crate::{
+    arena::Arena,
     hasher::{HashMap, RandomState},
     key::{Key, Spur},
     reader::RodeoReader,
@@ -10,7 +11,7 @@ use core::{hash::BuildHasher, mem};
 
 compile! {
     if #[feature = "no-std"] {
-        use alloc::{vec::Vec, string::String, boxed::Box};
+        use alloc::vec::Vec;
     }
 }
 
@@ -26,6 +27,8 @@ pub struct Rodeo<K: Key = Spur, S: BuildHasher + Clone = RandomState> {
     map: HashMap<&'static str, K, S>,
     /// Vec that allows `key` -> `str` resolution
     pub(crate) strings: Vec<&'static str>,
+    /// The arena that holds all allocated strings
+    arena: Arena<u8>,
 }
 
 impl<K: Key> Rodeo<K, RandomState> {
@@ -49,6 +52,7 @@ impl<K: Key> Rodeo<K, RandomState> {
         Self {
             map: HashMap::with_hasher(RandomState::new()),
             strings: Vec::new(),
+            arena: Arena::default(),
         }
     }
 
@@ -68,6 +72,7 @@ impl<K: Key> Rodeo<K, RandomState> {
         Self {
             map: HashMap::with_capacity_and_hasher(capacity, RandomState::new()),
             strings: Vec::with_capacity(capacity),
+            arena: Arena::default(),
         }
     }
 }
@@ -93,6 +98,7 @@ where
         Self {
             map: HashMap::with_hasher(hash_builder),
             strings: Vec::new(),
+            arena: Arena::default(),
         }
     }
 
@@ -112,6 +118,7 @@ where
         Self {
             map: HashMap::with_capacity_and_hasher(capacity, hash_builder),
             strings: Vec::with_capacity(capacity),
+            arena: Arena::default(),
         }
     }
 
@@ -136,7 +143,7 @@ where
     #[inline]
     pub fn get_or_intern<T>(&mut self, val: T) -> K
     where
-        T: Into<String> + AsRef<str>,
+        T: AsRef<str>,
     {
         // When the feature-set supports it, only hash the value once
         compile_expr! {
@@ -159,7 +166,9 @@ where
                     RawEntryMut::Occupied(entry) => *entry.get(),
                     RawEntryMut::Vacant(entry) => {
                         let key = K::try_from_usize(self.strings.len()).expect("Failed to get or intern string");
-                        let string = Box::leak(val.into().into_boxed_str());
+
+                        // Safety: The drop impl removes all references before the arena is dropped
+                        let string = unsafe { self.arena.store_str(val.as_ref()) };
 
                         entry.insert_hashed_nocheck(hash, string, key);
                         self.strings.push(string);
@@ -172,7 +181,9 @@ where
                     key
                 } else {
                     let key = K::try_from_usize(self.strings.len()).expect("Failed to get or intern string");
-                    let string = Box::leak(val.into().into_boxed_str());
+
+                    // Safety: The drop impl removes all references before the arena is dropped
+                    let string = unsafe { self.arena.store_str(val.as_ref()) };
 
                     self.map.insert(string, key);
                     self.strings.push(string);
@@ -204,7 +215,7 @@ where
     #[inline]
     pub fn try_get_or_intern<T>(&mut self, val: T) -> Option<K>
     where
-        T: Into<String> + AsRef<str>,
+        T: AsRef<str>,
     {
         // When the feature-set supports it, only hash the value once
         compile_expr! {
@@ -227,7 +238,9 @@ where
                     RawEntryMut::Occupied(entry) => Some(*entry.get()),
                     RawEntryMut::Vacant(entry) => {
                         let key = K::try_from_usize(self.strings.len())?;
-                        let string = Box::leak(val.into().into_boxed_str());
+
+                        // Safety: The drop impl removes all references before the arena is dropped
+                        let string = unsafe { self.arena.store_str(val.as_ref()) };
 
                         entry.insert_hashed_nocheck(hash, string, key);
                         self.strings.push(string);
@@ -240,7 +253,9 @@ where
                     Some(key)
                 } else {
                     let key = K::try_from_usize(self.strings.len())?;
-                    let string = Box::leak(val.into().into_boxed_str());
+
+                    // Safety: The drop impl removes all references before the arena is dropped
+                    let string = unsafe { self.arena.store_str(val.as_ref()) };
 
                     self.map.insert(string, key);
                     self.strings.push(string);
@@ -419,7 +434,13 @@ where
     pub fn strings<'a>(&'a self) -> Strings<'a, K> {
         Strings::from_rodeo(self)
     }
+}
 
+impl<K, S> Rodeo<K, S>
+where
+    K: Key + Default,
+    S: BuildHasher + Clone + Default,
+{
     /// Consumes the current Rodeo, returning a [`RodeoReader`] to allow contention-free access of the interner
     /// from multiple threads
     ///
@@ -442,16 +463,14 @@ where
     #[inline]
     #[must_use]
     pub fn into_reader(mut self) -> RodeoReader<K, S> {
-        // Take the strings vec from the old rodeo
-        let strings = mem::replace(&mut self.strings, Vec::new());
-
-        // Drain the DashMap by draining each of its buckets and creating a new hashmap to store their values
-        let mut map: HashMap<&'static str, K, S> =
-            HashMap::with_capacity_and_hasher(strings.len(), self.map.hasher().clone());
-        map.extend(self.map.drain());
-
         // Safety: No other references outside of `map` and `strings` to the interned strings exist
-        unsafe { RodeoReader::new(map, strings) }
+        unsafe {
+            RodeoReader::new(
+                mem::take(&mut self.map),
+                mem::take(&mut self.strings),
+                mem::take(&mut self.arena),
+            )
+        }
     }
 
     /// Consumes the current Rodeo, returning a [`RodeoResolver`] to allow contention-free access of the interner
@@ -476,16 +495,10 @@ where
     #[inline]
     #[must_use]
     pub fn into_resolver(mut self) -> RodeoResolver<K> {
-        self.map.clear();
-
-        let mut strings = Vec::with_capacity(self.strings.len());
-
-        for string in self.strings.drain(..) {
-            strings.push(string);
-        }
+        self.map.drain().for_each(drop);
 
         // Safety: No other references to the strings exist
-        unsafe { RodeoResolver::new(strings) }
+        unsafe { RodeoResolver::new(mem::take(&mut self.strings), mem::take(&mut self.arena)) }
     }
 }
 
@@ -500,37 +513,6 @@ impl Default for Rodeo<Spur, RandomState> {
     }
 }
 
-// impl< K, S> Clone for Rodeo< K, S>
-// where
-//     K: Key,
-//     S: BuildHasher + Clone,
-// {
-//     #[inline]
-//     fn clone(&self) -> Self {
-//         // Safety: The strings of the current Rodeo **cannot** be used in the new one,
-//         // otherwise it will cause double-frees
-//
-//         // Create the new map/vec that will fill the new Rodeo, pre-allocating their capacity
-//         let mut map =
-//             HashMap::with_capacity_and_hasher(self.strings.len(), self.map.hasher().clone());
-//         let mut strings = Vec::with_capacity(self.strings.len());
-//
-//         // For each string in the to-be-cloned Reader, take ownership of each string by calling to_string,
-//         // therefore cloning it onto the heap, calling into_boxed_str and leaking that
-//         for (i, string) in self.strings.iter().enumerate() {
-//             // Clone the static string from self.strings, box and leak it
-//             let new: &'static str = Box::leak((*string).to_string().into_boxed_str());
-//
-//             // Store the new string, which we have ownership of, in the new map and vec
-//             strings.push(new);
-//             // The indices of the vector correspond with the keys
-//             map.insert(new, K::try_from_usize(i).unwrap_or_else(|| unreachable!()));
-//         }
-//
-//         Self { map, strings }
-//     }
-// }
-
 /// Deallocate the leaked strings interned by Rodeo
 impl<K, S> Drop for Rodeo<K, S>
 where
@@ -542,18 +524,9 @@ where
         // Clear the map to remove all other references to the strings in self.strings
         self.map.clear();
 
-        // Drain self.strings while deallocating the strings it holds
-        for string in self.strings.drain(..) {
-            // Safety: There must not be any other references to the strings being re-boxed, so the
-            // map containing all other references is first drained, leaving the sole reference to
-            // the strings vector, which allows the safe dropping of the string. This also relies on the
-            // implemented functions for Rodeo not giving out any references to the strings it holds
-            // that live beyond itself. It also relies on the Clone implementation of Rodeo to clone and
-            // take ownership of all the interned strings as to not have a double free when one is dropped
-            unsafe {
-                let _ = Box::from_raw(string as *const str as *mut str);
-            }
-        }
+        // Safety: There must not be any other references to the strings in the arena, so
+        // all strings are drained before the arena can drop
+        self.strings.drain(..).for_each(drop);
     }
 }
 

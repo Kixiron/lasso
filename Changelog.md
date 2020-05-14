@@ -23,9 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the ID requirement to `Key`
 - Added `try_resolve`s and `resolve_unchecked`s
 - Added `strings()` and `iter()` methods to `Rodeo`, `RodeoResolver` and `RodeoReader`
-- All `Rodeo`s now have the `'unique` lifetime which makes it so that keys can only be used with the instance that created them
-  - All `Rodeo` structs now have a lifetimes
-  - All `Key` types have a lifetime
 
 ### Changed
 

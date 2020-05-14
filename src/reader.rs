@@ -1,4 +1,5 @@
 use crate::{
+    arena::Arena,
     hasher::{HashMap, RandomState},
     key::{Key, Spur},
     resolver::RodeoResolver,
@@ -9,7 +10,7 @@ use core::{hash::BuildHasher, mem};
 
 compile! {
     if #[feature = "no-std"] {
-        use alloc::{vec::Vec, string::ToString, boxed::Box};
+        use alloc::vec::Vec;
     }
 }
 
@@ -25,6 +26,7 @@ compile! {
 pub struct RodeoReader<K: Key = Spur, S: BuildHasher + Clone = RandomState> {
     map: HashMap<&'static str, K, S>,
     pub(crate) strings: Vec<&'static str>,
+    arena: Arena<u8>,
 }
 
 impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
@@ -35,8 +37,16 @@ impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
     /// The references inside of `strings` must be absolutely unique, meaning
     /// that no other references to those strings exist
     ///
-    pub(crate) unsafe fn new(map: HashMap<&'static str, K, S>, strings: Vec<&'static str>) -> Self {
-        Self { map, strings }
+    pub(crate) unsafe fn new(
+        map: HashMap<&'static str, K, S>,
+        strings: Vec<&'static str>,
+        arena: Arena<u8>,
+    ) -> Self {
+        Self {
+            map,
+            strings,
+            arena,
+        }
     }
 
     /// Get the key value of a string, returning `None` if it doesn't exist
@@ -231,41 +241,11 @@ impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
     #[inline]
     #[must_use]
     pub fn into_resolver(mut self) -> RodeoResolver<K> {
-        let strings = mem::take(&mut self.strings);
+        self.map.drain().for_each(drop);
 
         // Safety: The current reader no longer contains references to the strings
         // in the vec given to RodeoResolver
-        unsafe { RodeoResolver::new(strings) }
-    }
-}
-
-impl<K, S> Clone for RodeoReader<K, S>
-where
-    K: Key,
-    S: BuildHasher + Clone,
-{
-    #[inline]
-    fn clone(&self) -> Self {
-        // Safety: The strings of the current Reader **cannot** be used in the new Reader
-
-        // Create the new map/vec that will fill the new Reader, pre-allocating their capacity
-        let mut map =
-            HashMap::with_capacity_and_hasher(self.strings.len(), self.map.hasher().clone());
-        let mut strings = Vec::with_capacity(self.strings.len());
-
-        // For each string in the to-be-cloned Reader, take ownership of each string by calling to_string,
-        // therefore cloning it onto the heap, calling into_boxed_str and leaking that
-        for (i, string) in self.strings.iter().enumerate() {
-            // Clone the static string from self.strings onto the heap, box and leak it
-            let new: &'static str = Box::leak((*string).to_string().into_boxed_str());
-
-            // Store the new string, which we have ownership of, in the new map and vec
-            strings.push(new);
-            // The indices of the vector correspond with the keys
-            map.insert(new, K::try_from_usize(i).unwrap_or_else(|| unreachable!()));
-        }
-
-        Self { map, strings }
+        unsafe { RodeoResolver::new(mem::take(&mut self.strings), mem::take(&mut self.arena)) }
     }
 }
 
@@ -273,21 +253,9 @@ where
 impl<K: Key, S: BuildHasher + Clone> Drop for RodeoReader<K, S> {
     #[inline]
     fn drop(&mut self) {
-        // Clear the map to remove all other references to the strings in self.strings
-        self.map.clear();
-
-        // Drain self.strings while deallocating the strings it holds
-        for string in self.strings.drain(..) {
-            // Safety: There must not be any other references to the strings being re-boxed, so the
-            // map containing all other references is first drained, leaving the sole reference to
-            // the strings vector, which allows the safe dropping of the string. This also relies on the
-            // implemented functions for RodeoReader not giving out any references to the strings it holds
-            // that live beyond itself. It also relies on the Clone implementation of RodeoReader to clone and
-            // take ownership of all the interned strings as to not have a double free when one is dropped
-            unsafe {
-                let _ = Box::from_raw(string as *const str as *mut str);
-            }
-        }
+        // Safety: There must not be any other references to the strings in the arena, so
+        // all strings are drained before the arena can drop
+        self.strings.drain(..).for_each(drop);
     }
 }
 
@@ -368,22 +336,6 @@ mod tests {
             let reader = rodeo.into_reader();
 
             assert!(reader.is_empty());
-        }
-
-        #[test]
-        fn clone() {
-            let mut rodeo = Rodeo::default();
-            let key = rodeo.get_or_intern("Test");
-
-            let reader_rodeo = rodeo.into_reader();
-            assert_eq!("Test", reader_rodeo.resolve(&key));
-
-            let cloned = reader_rodeo.clone();
-            assert_eq!("Test", cloned.resolve(&key));
-
-            drop(reader_rodeo);
-
-            assert_eq!("Test", cloned.resolve(&key));
         }
 
         #[test]

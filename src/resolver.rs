@@ -1,4 +1,5 @@
 use crate::{
+    arena::Arena,
     key::{Key, Spur},
     util::{Iter, Strings},
 };
@@ -7,7 +8,7 @@ use core::marker::PhantomData;
 
 compile! {
     if #[feature = "no-std"] {
-        use alloc::{vec::Vec, string::ToString, boxed::Box};
+        use alloc::vec::Vec;
     }
 }
 
@@ -22,6 +23,8 @@ compile! {
 pub struct RodeoResolver<K: Key = Spur> {
     /// Vector of strings mapped to key indexes that allows key to string resolution
     pub(crate) strings: Vec<&'static str>,
+    /// The arena that contains all the strings
+    arena: Arena<u8>,
     /// The type of the key
     __key: PhantomData<K>,
 }
@@ -34,9 +37,10 @@ impl<K: Key> RodeoResolver<K> {
     /// The references inside of `strings` must be absolutely unique, meaning
     /// that no other references to those strings exist
     ///
-    pub(crate) unsafe fn new(strings: Vec<&'static str>) -> Self {
+    pub(crate) unsafe fn new(strings: Vec<&'static str>, arena: Arena<u8>) -> Self {
         Self {
             strings,
+            arena,
             __key: PhantomData,
         }
     }
@@ -186,49 +190,13 @@ impl<K: Key> RodeoResolver<K> {
     }
 }
 
-impl<K: Key> Clone for RodeoResolver<K> {
-    #[inline]
-    fn clone(&self) -> Self {
-        // Safety: The strings of the current Rodeo **cannot** be used in the new one,
-        // otherwise it will cause double-frees
-
-        // Create the new vec that will fill the new Resolver, pre-allocating its capacity
-        let mut strings = Vec::with_capacity(self.strings.len());
-
-        // For each string in the to-be-cloned Reader, take ownership of each string by calling to_string,
-        // therefore cloning it onto the heap, calling into_boxed_str and leaking that
-        for string in self.strings.iter() {
-            // Clone the static string from self.strings onto the heap, box and leak it
-            let new: &'static str = Box::leak((*string).to_string().into_boxed_str());
-
-            // Store the new string, which we have ownership of, in the new vec
-            // The indexes of items are preserved through iter(), so pushing allows us to keep the indices
-            // the same
-            strings.push(new);
-        }
-
-        Self {
-            strings,
-            __key: PhantomData,
-        }
-    }
-}
-
 /// Deallocate the leaked strings interned by RodeoResolver
 impl<K: Key> Drop for RodeoResolver<K> {
     #[inline]
     fn drop(&mut self) {
-        // Drain self.strings while deallocating the strings it holds
-        for string in self.strings.drain(..) {
-            // Safety: There must not be any other references to the strings being re-boxed, which lies in the
-            // the strings vector, which in turn allows the safe dropping of the string. This also relies on the
-            // implemented functions for RodeoResolver not giving out any references to the strings it holds
-            // that live beyond itself. It also relies on the Clone implementation of RodeoResolver to clone and
-            // take ownership of all the interned strings as to not have a double free when one is dropped
-            unsafe {
-                let _ = Box::from_raw(string as *const str as *mut str);
-            }
-        }
+        // Safety: There must not be any other references to the strings in the arena, so
+        // all strings are drained before the arena can drop
+        self.strings.drain(..).for_each(drop);
     }
 }
 
@@ -298,22 +266,6 @@ mod tests {
             let read_only = rodeo.into_resolver();
 
             assert!(read_only.is_empty());
-        }
-
-        #[test]
-        fn clone() {
-            let mut rodeo = Rodeo::default();
-            let key = rodeo.get_or_intern("Test");
-
-            let resolver_rodeo = rodeo.into_resolver();
-            assert_eq!("Test", resolver_rodeo.resolve(&key));
-
-            let cloned = resolver_rodeo.clone();
-            assert_eq!("Test", cloned.resolve(&key));
-
-            drop(resolver_rodeo);
-
-            assert_eq!("Test", cloned.resolve(&key));
         }
 
         #[test]

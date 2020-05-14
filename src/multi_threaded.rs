@@ -1,4 +1,5 @@
 use crate::{
+    arena::Arena,
     hasher::{HashMap, RandomState},
     key::{Key, Spur},
     reader::RodeoReader,
@@ -7,7 +8,7 @@ use crate::{
 
 use core::{
     hash::{BuildHasher, Hash},
-    iter,
+    iter, mem,
     sync::atomic::{AtomicUsize, Ordering},
 };
 use dashmap::DashMap;
@@ -15,6 +16,9 @@ use dashmap::DashMap;
 compile! {
     if #[feature = "no-std"] {
         use alloc::{boxed::Box, string::String, vec::Vec};
+        compile_error!("ThreadedRodeo is not compatible with no_std!");
+    } else {
+        use std::sync::Mutex;
     }
 }
 
@@ -39,6 +43,8 @@ where
     strings: DashMap<K, &'static str, S>,
     /// The current key value
     key: AtomicUsize,
+    /// The arena where all strings are stored
+    arena: Mutex<Arena<u8>>,
 }
 
 // TODO: More parity functions with std::HashMap
@@ -72,6 +78,7 @@ impl<K: Key + Hash> ThreadedRodeo<K, RandomState> {
             map: DashMap::with_hasher(RandomState::new()),
             strings: DashMap::with_hasher(RandomState::new()),
             key: AtomicUsize::new(0),
+            arena: Mutex::new(Arena::new()),
         }
     }
 
@@ -92,6 +99,7 @@ impl<K: Key + Hash> ThreadedRodeo<K, RandomState> {
             map: DashMap::with_capacity_and_hasher(capacity, RandomState::new()),
             strings: DashMap::with_capacity_and_hasher(capacity, RandomState::new()),
             key: AtomicUsize::new(0),
+            arena: Mutex::new(Arena::new()),
         }
     }
 }
@@ -118,6 +126,7 @@ where
             map: DashMap::with_hasher(hash_builder.clone()),
             strings: DashMap::with_hasher(hash_builder),
             key: AtomicUsize::new(0),
+            arena: Mutex::new(Arena::new()),
         }
     }
 
@@ -138,6 +147,7 @@ where
             map: DashMap::with_capacity_and_hasher(capacity, hash_builder.clone()),
             strings: DashMap::with_capacity_and_hasher(capacity, hash_builder),
             key: AtomicUsize::new(0),
+            arena: Mutex::new(Arena::new()),
         }
     }
 
@@ -162,7 +172,7 @@ where
     #[inline]
     pub fn get_or_intern<T>(&self, val: T) -> K
     where
-        T: Into<String> + AsRef<str>,
+        T: AsRef<str>,
     {
         if let Some(key) = self.map.get(val.as_ref()) {
             *key
@@ -175,7 +185,9 @@ where
                 return *key.get();
             }
 
-            let string: &'static str = Box::leak(val.into().into_boxed_str());
+            // Safety: The drop impl removes all references before the arena is dropped
+            let string: &'static str =
+                unsafe { self.arena.lock().unwrap().store_str(val.as_ref()) };
             let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
                 .expect("Failed to get or intern string");
 
@@ -207,7 +219,7 @@ where
     #[inline]
     pub fn try_get_or_intern<T>(&self, val: T) -> Option<K>
     where
-        T: Into<String> + AsRef<str>,
+        T: AsRef<str>,
     {
         if let Some(key) = self.map.get(val.as_ref()) {
             Some(*key)
@@ -220,7 +232,9 @@ where
                 return Some(*key.get());
             }
 
-            let string: &'static str = Box::leak(val.into().into_boxed_str());
+            // Safety: The drop impl removes all references before the arena is dropped
+            let string: &'static str =
+                unsafe { self.arena.lock().unwrap().store_str(val.as_ref()) };
             let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))?;
 
             self.map.insert(string, key);
@@ -392,7 +406,7 @@ where
         }
 
         // Safety: No other references outside of `map` and `strings` to the interned strings exist
-        unsafe { RodeoReader::new(map, strings) }
+        unsafe { RodeoReader::new(map, strings, mem::take(&mut *self.arena.lock().unwrap())) }
     }
 
     /// Consumes the current ThreadedRodeo, returning a [`RodeoResolver`] to allow contention-free access of the interner
@@ -434,7 +448,7 @@ where
         }
 
         // Safety: No other references to the strings exist
-        unsafe { RodeoResolver::new(strings) }
+        unsafe { RodeoResolver::new(strings, mem::take(&mut *self.arena.lock().unwrap())) }
     }
 }
 
@@ -449,44 +463,6 @@ impl Default for ThreadedRodeo<Spur, RandomState> {
     }
 }
 
-// impl<K, S> Clone for ThreadedRodeo<K, S>
-// where
-//     K: Key + Hash,
-//     S: BuildHasher + Clone,
-// {
-//     #[inline]
-//     fn clone(&self) -> Self {
-//         // Safety: The strings of the current Rodeo **cannot** be used in the new one,
-//         // otherwise it will cause double-frees
-//
-//         // Create the new maps that will fill the new ThreadedRodeo, pre-allocating their capacity
-//         let len = self.strings.len();
-//         let map: DashMap<&'static str, K, S> =
-//             DashMap::with_capacity_and_hasher(len, self.map.hasher().clone());
-//         let strings: DashMap<K, &'static str, S> =
-//             DashMap::with_capacity_and_hasher(len, self.map.hasher().clone());
-//
-//         // For each string in the to-be-cloned Rodeo, take ownership of each string by calling to_string,
-//         // therefore cloning it onto the heap, calling into_boxed_str and leaking that
-//         for pair in self.map.iter() {
-//             let (string, key) = pair.pair();
-//
-//             // Clone the static string from old_strings, box and leak it
-//             let new: &'static str = Box::leak((*string).to_string().into_boxed_str());
-//
-//             // Store the new string, which we have ownership of, in the new maps
-//             strings.insert(*key, new);
-//             map.insert(new, *key);
-//         }
-//
-//         Self {
-//             map,
-//             strings,
-//             key: AtomicUsize::new(self.key.load(Ordering::SeqCst)),
-//         }
-//     }
-// }
-
 /// Deallocate the leaked strings interned by ThreadedRodeo
 impl<K, S> Drop for ThreadedRodeo<K, S>
 where
@@ -500,17 +476,7 @@ where
 
         // Drain self.strings while deallocating the strings it holds
         for shard in self.strings.shards() {
-            for (_, string) in shard.write().drain() {
-                // Safety: There must not be any other references to the strings being re-boxed, so the
-                // map containing all other references is first drained, leaving the sole reference to
-                // the strings vector, which allows the safe dropping of the string. This also relies on the
-                // implemented functions for ThreadedRodeo not giving out any references to the strings it holds
-                // that live beyond itself. It also relies on the Clone implementation of ThreadedRodeo to clone and
-                // take ownership of all the interned strings as to not have a double free when one is dropped
-                unsafe {
-                    let _ = Box::from_raw(string.into_inner() as *const str as *mut str);
-                }
-            }
+            shard.write().drain().for_each(drop);
         }
     }
 }
