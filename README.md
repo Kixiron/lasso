@@ -135,51 +135,51 @@ Benchmarks were gathered with [Criterion.rs](https://github.com/bheisler/criteri
 OS: Windows 10  
 CPU: Ryzen 9 3900X at 3800Mhz  
 RAM: 3200Mhz  
-Rustc: Stable 1.42.1
+Rustc: Stable 1.43.1
 
 ### Rodeo
 
-#### Std's RandomState
+### Std's RandomState
 
 | Method                       |   Time    |  Throughput  |
 | :--------------------------- | :-------: | :----------: |
-| `get_or_intern` (empty)      | 210.53 μs | 124.40 MiB/s |
-| `get_or_intern` (filled)     | 58.449 μs | 448.06 MiB/s |
-| `try_get_or_intern` (empty)  | 240.77 μs | 108.77 MiB/s |
-| `try_get_or_intern` (filled) | 58.784 μs | 445.51 MiB/s |
-| `get` (empty)                | 37.763 μs | 693.51 MiB/s |
-| `get` (filled)               | 51.867 μs | 504.92 MiB/s |
-| `resolve`                    | 1.8840 μs | 13.575 GiB/s |
-| `try_resolve`                | 1.8828 μs | 13.583 GiB/s |
-| `resolve_unchecked`          | 1.4116 μs | 18.117 GiB/s |
+| `resolve`                    | 1.9356 μs | 13.214 GiB/s |
+| `try_resolve`                | 1.9389 μs | 13.191 GiB/s |
+| `resolve_unchecked`          | 1.4643 μs | 17.467 GiB/s |
+| `get_or_intern` (empty)      | 95.214 μs | 275.06 MiB/s |
+| `get_or_intern` (filled)     | 57.163 μs | 458.16 MiB/s |
+| `try_get_or_intern` (empty)  | 93.504 μs | 280.09 MiB/s |
+| `try_get_or_intern` (filled) | 57.030 μs | 459.23 MiB/s |
+| `get` (empty)                | 36.120 μs | 725.08 MiB/s |
+| `get` (filled)               | 50.915 μs | 514.38 MiB/s |
 
 #### AHash's RandomState
 
 | Method                       |   Time    |  Throughput  |
 | :--------------------------- | :-------: | :----------: |
-| `try_get_or_intern` (empty)  | 183.59 μs | 142.65 MiB/s |
-| `get_or_intern` (empty)      | 183.57 μs | 142.66 MiB/s |
-| `get_or_intern` (filled)     | 29.988 μs | 873.32 MiB/s |
-| `try_get_or_intern` (filled) | 30.916 μs | 847.09 MiB/s |
-| `get` (empty)                | 10.584 μs | 2.4164 GiB/s |
-| `get` (filled)               | 24.760 μs | 1.0329 GiB/s |
-| `resolve`                    | 1.8839 μs | 13.576 GiB/s |
-| `try_resolve`                | 1.8792 μs | 13.609 GiB/s |
-| `resolve_unchecked`          | 1.4121 μs | 18.111 GiB/s |
+| `resolve`                    | 1.9338 μs | 13.226 GiB/s |
+| `try_resolve`                | 1.9468 μs | 13.137 GiB/s |
+| `resolve_unchecked`          | 1.4503 μs | 17.635 GiB/s |
+| `get_or_intern` (empty)      | 56.413 μs | 464.25 MiB/s |
+| `get_or_intern` (filled)     | 29.770 μs | 879.73 MiB/s |
+| `try_get_or_intern` (empty)  | 59.106 μs | 443.10 MiB/s |
+| `try_get_or_intern` (filled) | 31.195 μs | 839.54 MiB/s |
+| `get` (empty)                | 9.8542 μs | 2.5954 GiB/s |
+| `get` (filled)               | 23.113 μs | 1.1065 GiB/s |
 
-#### FxHash's FxBuildHasher
+### FxHash's FxBuildHasher
 
 | Method                       |   Time    |  Throughput  |
 | :--------------------------- | :-------: | :----------: |
-| `get_or_intern` (empty)      | 177.51 μs | 147.53 MiB/s |
-| `get_or_intern` (filled)     | 32.416 μs | 807.89 MiB/s |
-| `try_get_or_intern` (empty)  | 184.99 μs | 141.57 MiB/s |
-| `try_get_or_intern` (filled) | 31.387 μs | 834.40 MiB/s |
-| `get` (empty)                | 9.3684 μs | 2.7299 GiB/s |
-| `get` (filled)               | 25.973 μs | 1008.3 MiB/s |
-| `resolve`                    | 1.8825 μs | 13.586 GiB/s |
-| `try_resolve`                | 1.8783 μs | 13.616 GiB/s |
-| `resolve_unchecked`          | 1.4106 μs | 18.130 GiB/s |
+| `resolve`                    | 2.0569 μs | 12.434 GiB/s |
+| `try_resolve`                | 1.9505 μs | 13.113 GiB/s |
+| `resolve_unchecked`          | 1.4477 μs | 17.666 GiB/s |
+| `get_or_intern` (empty)      | 44.392 μs | 589.97 MiB/s |
+| `get_or_intern` (filled)     | 27.645 μs | 947.36 MiB/s |
+| `try_get_or_intern` (empty)  | 43.947 μs | 595.95 MiB/s |
+| `try_get_or_intern` (filled) | 27.085 μs | 966.95 MiB/s |
+| `get` (empty)                | 9.4772 μs | 2.6987 GiB/s |
+| `get` (filled)               | 27.332 μs | 958.20 MiB/s |
 
 ### ThreadedRodeo
 
@@ -187,40 +187,40 @@ Rustc: Stable 1.42.1
 
 | Method                       | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
 | :--------------------------- | :-------------: | :-------------------: | :---------------: | :---------------------: |
-| `get_or_intern` (empty)      |    471.21 μs    |     55.578 MiB/s      |        N\A        |           N\A           |
-| `get_or_intern` (filled)     |    106.87 μs    |     245.05 MiB/s      |     434.95 μs     |      60.211 MiB/s       |
-| `try_get_or_intern` (empty)  |    476.41 μs    |     54.971 MiB/s      |        N\A        |           N\A           |
-| `try_get_or_intern` (filled) |    107.65 μs    |     243.27 MiB/s      |     470.13 μs     |      55.705 MiB/s       |
-| `get` (empty)                |    87.846 μs    |     298.12 MiB/s      |        N\A        |           N\A           |
-| `get` (filled)               |    98.844 μs    |     264.95 MiB/s      |     453.81 μs     |      57.709 MiB/s       |
-| `resolve`                    |    66.654 μs    |     392.90 MiB/s      |     379.70 μs     |      68.973 MiB/s       |
-| `try_resolve`                |    67.401 μs    |     388.56 MiB/s      |     389.46 μs     |      67.244 MiB/s       |
+| `resolve`                    |    55.715 μs    |     470.07 MiB/s      |     354.01 μs     |      73.981 MiB/s       |
+| `try_resolve`                |    55.117 μs    |     475.17 MiB/s      |     380.16 μs     |      68.892 MiB/s       |
+| `get_or_intern` (empty)      |    282.62 μs    |     92.666 MiB/s      |        N\A        |           N\A           |
+| `get_or_intern` (filled)     |    103.41 μs    |     253.26 MiB/s      |     433.80 μs     |      60.373 MiB/s       |
+| `try_get_or_intern` (empty)  |    287.55 μs    |     91.079 MiB/s      |        N\A        |           N\A           |
+| `try_get_or_intern` (filled) |    105.35 μs    |     248.59 MiB/s      |     447.55 μs     |      58.518 MiB/s       |
+| `get` (empty)                |    86.328 μs    |     303.37 MiB/s      |        N\A        |           N\A           |
+| `get` (filled)               |    95.673 μs    |     273.74 MiB/s      |     465.93 μs     |      56.210 MiB/s       |
 
 #### AHash's RandomState
 
-| Method                       | Time (1 Thread) | Throughput  (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
-| :--------------------------- | :-------------: | :--------------------: | :---------------: | :---------------------: |
-| `get_or_intern` (empty)      |    355.60 μs    |      73.647 MiB/s      |        N\A        |           N\A           |
-| `get_or_intern` (filled)     |    53.505 μs    |      489.47 MiB/s      |     350.98 μs     |      74.616 MiB/s       |
-| `try_get_or_intern` (empty)  |    358.33 μs    |      73.085 MiB/s      |        N\A        |           N\A           |
-| `try_get_or_intern` (filled) |    54.163 μs    |      483.52 MiB/s      |     375.22 μs     |      69.795 MiB/s       |
-| `get` (empty)                |    35.251 μs    |      742.93 MiB/s      |        N\A        |           N\A           |
-| `get` (filled)               |    46.591 μs    |      562.11 MiB/s      |     352.05 μs     |      74.390 MiB/s       |
-| `resolve`                    |    19.550 μs    |      1.3082 GiB/s      |     283.64 μs     |      92.333 MiB/s       |
-| `try_resolve`                |    16.892 μs    |      1.5140 GiB/s      |     239.45 μs     |      109.37 MiB/s       |
+| Method                       | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
+| :--------------------------- | :-------------: | :-------------------: | :---------------: | :---------------------: |
+| `resolve`                    |    20.103 μs    |     1.2722 GiB/s      |     258.78 μs     |      101.20 MiB/s       |
+| `try_resolve`                |    17.328 μs    |     1.4760 GiB/s      |     239.13 μs     |      109.52 MiB/s       |
+| `get_or_intern` (empty)      |    161.98 μs    |     161.68 MiB/s      |        N\A        |           N\A           |
+| `get_or_intern` (filled)     |    50.065 μs    |     523.11 MiB/s      |     346.60 μs     |      75.563 MiB/s       |
+| `try_get_or_intern` (empty)  |    159.84 μs    |     163.85 MiB/s      |        N\A        |           N\A           |
+| `try_get_or_intern` (filled) |    51.366 μs    |     509.86 MiB/s      |     331.92 μs     |      78.904 MiB/s       |
+| `get` (empty)                |    36.637 μs    |     714.84 MiB/s      |        N\A        |           N\A           |
+| `get` (filled)               |    44.606 μs    |     587.13 MiB/s      |     341.70 μs     |      76.645 MiB/s       |
 
 #### FxHash's FxBuildHasher
 
 | Method                       | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
 | :--------------------------- | :-------------: | :-------------------: | :---------------: | :---------------------: |
-| `get_or_intern` (empty)      |    343.93 μs    |     76.146 MiB/s      |        N\A        |           N\A           |
-| `get_or_intern` (filled)     |    45.682 μs    |     573.28 MiB/s      |     313.56 μs     |      83.522 MiB/s       |
-| `try_get_or_intern` (empty)  |    323.60 μs    |     80.930 MiB/s      |        N\A        |           N\A           |
-| `try_get_or_intern` (filled) |    46.621 μs    |     561.74 MiB/s      |     304.91 μs     |      85.890 MiB/s       |
-| `get` (empty)                |    32.313 μs    |     810.47 MiB/s      |        N\A        |           N\A           |
-| `get` (filled)               |    40.448 μs    |     647.47 MiB/s      |     318.43 μs     |      82.244 MiB/s       |
-| `resolve`                    |    23.790 μs    |     1.0750 GiB/s      |     262.68 μs     |      99.698 MiB/s       |
-| `try_resolve`                |    22.759 μs    |     1.1238 GiB/s      |     244.69 μs     |      107.03 MiB/s       |
+| `resolve`                    |    20.475 μs    |     1.2491 GiB/s      |     230.52 μs     |      113.61 MiB/s       |
+| `try_resolve`                |    17.479 μs    |     1.4632 GiB/s      |     231.18 μs     |      113.29 MiB/s       |
+| `get_or_intern` (empty)      |    153.62 μs    |     170.48 MiB/s      |        N\A        |           N\A           |
+| `get_or_intern` (filled)     |    44.232 μs    |     592.10 MiB/s      |     297.39 μs     |      88.065 MiB/s       |
+| `try_get_or_intern` (empty)  |    151.58 μs    |     172.78 MiB/s      |        N\A        |           N\A           |
+| `try_get_or_intern` (filled) |    45.125 μs    |     580.39 MiB/s      |     298.54 μs     |      87.726 MiB/s       |
+| `get` (empty)                |    33.043 μs    |     792.61 MiB/s      |        N\A        |           N\A           |
+| `get` (filled)               |    39.044 μs    |     670.78 MiB/s      |     297.38 μs     |      88.068 MiB/s       |
 
 ### RodeoReader
 
@@ -228,63 +228,63 @@ Rustc: Stable 1.42.1
 
 | Method              | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
 | :------------------ | :-------------: | :-------------------: | :---------------: | :---------------------: |
-| `get` (empty)       |    35.523 μs    |     737.24 MiB/s      |        N/A        |           N/A           |
-| `get` (filled)      |    47.964 μs    |     546.01 MiB/s      |     91.646 μs     |      285.76 MiB/s       |
-| `resolve`           |    1.8889 μs    |     13.539 GiB/s      |     4.1066 μs     |      6.2278 GiB/s       |
-| `try_resolve`       |    1.8749 μs    |     13.641 GiB/s      |     4.1582 μs     |      6.1506 GiB/s       |
-| `resolve_unchecked` |    1.4135 μs    |     18.093 GiB/s      |     3.0388 μs     |      8.4163 GiB/s       |
+| `resolve`           |    1.9425 μs    |     13.167 GiB/s      |     4.4657 μs     |      5.7272 GiB/s       |
+| `resolve_unchecked` |    1.4826 μs    |     17.251 GiB/s      |     3.1239 μs     |      8.1872 GiB/s       |
+| `try_resolve`       |    1.9535 μs    |     13.092 GiB/s      |     4.1641 μs     |      6.1420 GiB/s       |
+| `get` (empty)       |    35.895 μs    |     729.62 MiB/s      |     97.991 μs     |      267.27 MiB/s       |
+| `get` (filled)      |    51.805 μs    |     505.54 MiB/s      |        N\A        |           N\A           |
 
 #### AHash's RandomState
 
 | Method              | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
 | :------------------ | :-------------: | :-------------------: | :---------------: | :---------------------: |
-| `get` (empty)       |    9.7012 μs    |     2.6363 GiB/s      |        N/A        |           N/A           |
-| `get` (filled)      |    23.678 μs    |     1.0801 GiB/s      |     49.281 μs     |      531.42 MiB/s       |
-| `resolve`           |    1.8859 μs    |     13.561 GiB/s      |     4.1415 μs     |      6.1753 GiB/s       |
-| `try_resolve`       |    1.8790 μs    |     13.611 GiB/s      |     4.4200 μs     |      5.7862 GiB/s       |
-| `resolve_unchecked` |    1.4104 μs    |     18.133 GiB/s      |     3.0900 μs     |      8.2766 GiB/s       |
+| `resolve`           |    1.9478 μs    |     13.131 GiB/s      |     4.1532 μs     |      6.1582 GiB/s       |
+| `resolve_unchecked` |    1.4713 μs    |     17.384 GiB/s      |     3.0922 μs     |      8.2710 GiB/s       |
+| `try_resolve`       |    1.9584 μs    |     13.059 GiB/s      |     4.2616 μs     |      6.0015 GiB/s       |
+| `get` (empty)       |    9.9847 μs    |     2.5615 GiB/s      |     48.875 μs     |      535.86 MiB/s       |
+| `get` (filled)      |    22.848 μs    |     1.1194 GiB/s      |        N\A        |           N\A           |
 
 #### FxHash's FxBuildHasher
 
 | Method              | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
 | :------------------ | :-------------: | :-------------------: | :---------------: | :---------------------: |
-| `get` (empty)       |    8.9661 μs    |     2.8524 GiB/s      |        N/A        |           N/A           |
-| `get` (filled)      |    21.608 μs    |     1.1836 GiB/s      |     46.744 μs     |      560.26 MiB/s       |
-| `resolve`           |    1.8769 μs    |     13.626 GiB/s      |     4.1747 μs     |      6.1261 GiB/s       |
-| `try_resolve`       |    1.8799 μs    |     13.604 GiB/s      |     4.1995 μs     |      6.0900 GiB/s       |
-| `resolve_unchecked` |    1.4092 μs    |     18.149 GiB/s      |     3.0744 μs     |      8.3188 GiB/s       |
+| `resolve`           |    1.9588 μs    |     13.057 GiB/s      |     4.2030 μs     |      6.0852 GiB/s       |
+| `resolve_unchecked` |    1.4866 μs    |     17.204 GiB/s      |     3.2421 μs     |      7.8886 GiB/s       |
+| `try_resolve`       |    1.9464 μs    |     13.140 GiB/s      |     4.2429 μs     |      6.0279 GiB/s       |
+| `get` (empty)       |    9.5245 μs    |     2.6853 GiB/s      |     48.011 μs     |      545.49 MiB/s       |
+| `get` (filled)      |    27.486 μs    |     952.84 MiB/s      |        N\A        |           N\A           |
 
 ### RodeoResolver
 
 | Method              | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
 | :------------------ | :-------------: | :-------------------: | :---------------: | :---------------------: |
-| `resolve`           |    1.9122 μs    |     13.375 GiB/s      |     3.9084 μs     |      6.5436 GiB/s       |
-| `try_resolve`       |    1.9077 μs    |     13.406 GiB/s      |     3.8922 μs     |      6.5709 GiB/s       |
-| `resolve_unchecked` |    1.6634 μs    |     15.375 GiB/s      |     3.1002 μs     |      8.2494 GiB/s       |
+| `resolve`           |    1.9561 μs    |     13.075 GiB/s      |     4.1818 μs     |      6.1160 GiB/s       |
+| `resolve_unchecked` |    1.7038 μs    |     15.011 GiB/s      |     3.1031 μs     |      8.2420 GiB/s       |
+| `try_resolve`       |    1.9490 μs    |     13.123 GiB/s      |     4.3075 μs     |      5.9376 GiB/s       |
 
 ### Other Interners (with std's RandomState)
 
 | [`string-interner`]      |   Time    |  Throughput  | Relative Perf vs `Rodeo` |
 | :----------------------- | :-------: | :----------: | :----------------------: |
-| `get_or_intern` (empty)  | 278.41 μs | 94.065 MiB/s |         -32.24%          |
-| `get_or_intern` (filled) | 58.421 μs | 448.28 MiB/s |          -0.04%          |
-| `get` (empty)            | 38.991 μs | 671.66 MiB/s |          -3.25%          |
-| `get` (filled)           | 58.708 μs | 446.09 MiB/s |         -13.18%          |
-| `resolve`                | 2.7759 μs | 9.2133 GiB/s |         -47.34%          |
-| `resolve_unchecked`      | 2.3413 μs | 10.924 GiB/s |         -65.86%          |
+| `resolve`                | 3.8132 μs | 6.7072 GiB/s |         -49.23%          |
+| `resolve_unchecked`      | 2.3976 μs | 10.667 GiB/s |         -38.92%          |
+| `get_or_intern` (empty)  | 288.12 μs | 90.899 MiB/s |         -66.95%          |
+| `get_or_intern` (filled) | 60.104 μs | 435.74 MiB/s |         -5.114%          |
+| `get` (empty)            | 40.496 μs | 646.72 MiB/s |         -10.80%          |
+| `get` (filled)           | 63.797 μs | 410.52 MiB/s |         -20.19%          |
 
 ### Nightly Benches
 
 When the `nightly` feature is enabled, this is the performance you can expect from `Rodeo`.  
 The functions listed are the ones currently affected by the changes of the `nightly` feature, and the benchmarks were preformed with std's RandomState.  
-Testing was done on Rust Nightly v1.43.0
+Testing was done on Rust Nightly 1.45.0
 
 | Method                       |   Time    |  Throughput  | Relative Perf vs Stable |
 | :--------------------------- | :-------: | :----------: | :---------------------: |
-| `get_or_intern` (empty)      | 182.60 μs | 143.42 MiB/s |         +13.26%         |
-| `get_or_intern` (filled)     | 54.864 μs | 477.34 MiB/s |         +6.53%          |
-| `try_get_or_intern` (empty)  | 206.10 μs | 127.07 MiB/s |         +16.82%         |
-| `try_get_or_intern` (filled) | 52.073 μs | 502.93 MiB/s |         +12.88%         |
+| `get_or_intern` (empty)      | 94.516 μs | 277.09 MiB/s |         +0.73%          |
+| `get_or_intern` (filled)     | 56.716 μs | 461.77 MiB/s |         +0.78%          |
+| `try_get_or_intern` (empty)  | 94.629 μs | 276.76 MiB/s |         -1.188%         |
+| `try_get_or_intern` (filled) | 56.839 μs | 460.77 MiB/s |         +0.336%         |
 
 [0]: https://github.com/Kixiron/lasso
 [1]: https://github.com/Kixiron/lasso/workflows/CI/badge.svg

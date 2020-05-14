@@ -26,7 +26,7 @@ pub struct Arena<T: Sized> {
 }
 
 impl<T: Sized> Arena<T> {
-    /// Create a new Arena with the default bucket size of 1024 items
+    /// Create a new Arena with the default bucket size of 4096 items
     ///
     /// Note: When used with ZSTs, the bucket size will always be 1
     ///
@@ -36,7 +36,7 @@ impl<T: Sized> Arena<T> {
             // Only make buckets of size 1 for zsts
             unsafe { NonZeroUsize::new_unchecked(1) }
         } else {
-            unsafe { NonZeroUsize::new_unchecked(1024) }
+            unsafe { NonZeroUsize::new_unchecked(4096) }
         };
 
         Self {
