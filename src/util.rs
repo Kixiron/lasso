@@ -3,14 +3,14 @@ use crate::{Key, Rodeo, RodeoReader, RodeoResolver};
 use core::{hash::BuildHasher, iter, marker::PhantomData, slice};
 
 #[derive(Debug)]
-pub struct Iter<'a, 'unique, K: Key<'unique>> {
+pub struct Iter<'a, K: Key> {
     iter: iter::Enumerate<slice::Iter<'a, &'a str>>,
-    __key: PhantomData<&'unique K>,
+    __key: PhantomData<K>,
 }
 
-impl<'a, 'unique, K: Key<'unique>> Iter<'a, 'unique, K> {
+impl<'a, K: Key> Iter<'a, K> {
     #[inline]
-    pub(crate) fn from_rodeo<H: BuildHasher + Clone>(rodeo: &'a Rodeo<'unique, K, H>) -> Self {
+    pub(crate) fn from_rodeo<H: BuildHasher + Clone>(rodeo: &'a Rodeo<K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -18,9 +18,7 @@ impl<'a, 'unique, K: Key<'unique>> Iter<'a, 'unique, K> {
     }
 
     #[inline]
-    pub(crate) fn from_reader<H: BuildHasher + Clone>(
-        rodeo: &'a RodeoReader<'unique, K, H>,
-    ) -> Self {
+    pub(crate) fn from_reader<H: BuildHasher + Clone>(rodeo: &'a RodeoReader<K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -28,7 +26,7 @@ impl<'a, 'unique, K: Key<'unique>> Iter<'a, 'unique, K> {
     }
 
     #[inline]
-    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<'unique, K>) -> Self {
+    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<K>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -36,7 +34,7 @@ impl<'a, 'unique, K: Key<'unique>> Iter<'a, 'unique, K> {
     }
 }
 
-impl<'a, 'unique, K: Key<'unique>> Iterator for Iter<'a, 'unique, K> {
+impl<'a, K: Key> Iterator for Iter<'a, K> {
     type Item = (K, &'a str);
 
     #[inline]
@@ -78,14 +76,14 @@ impl<'a, 'unique, K: Key<'unique>> Iterator for Iter<'a, 'unique, K> {
 // }
 
 #[derive(Debug)]
-pub struct Strings<'a, 'unique, K: Key<'unique>> {
+pub struct Strings<'a, K: Key> {
     iter: slice::Iter<'a, &'a str>,
-    __key: PhantomData<&'unique K>,
+    __key: PhantomData<K>,
 }
 
-impl<'a, 'unique, K: Key<'unique>> Strings<'a, 'unique, K> {
+impl<'a, K: Key> Strings<'a, K> {
     #[inline]
-    pub(crate) fn from_rodeo<H: BuildHasher + Clone>(rodeo: &'a Rodeo<'unique, K, H>) -> Self {
+    pub(crate) fn from_rodeo<H: BuildHasher + Clone>(rodeo: &'a Rodeo<K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -93,9 +91,7 @@ impl<'a, 'unique, K: Key<'unique>> Strings<'a, 'unique, K> {
     }
 
     #[inline]
-    pub(crate) fn from_reader<H: BuildHasher + Clone>(
-        rodeo: &'a RodeoReader<'unique, K, H>,
-    ) -> Self {
+    pub(crate) fn from_reader<H: BuildHasher + Clone>(rodeo: &'a RodeoReader<K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -103,7 +99,7 @@ impl<'a, 'unique, K: Key<'unique>> Strings<'a, 'unique, K> {
     }
 
     #[inline]
-    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<'unique, K>) -> Self {
+    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<K>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -111,7 +107,7 @@ impl<'a, 'unique, K: Key<'unique>> Strings<'a, 'unique, K> {
     }
 }
 
-impl<'a, 'unique, K: Key<'unique>> Iterator for Strings<'a, 'unique, K> {
+impl<'a, K: Key> Iterator for Strings<'a, K> {
     type Item = &'a str;
 
     #[inline]

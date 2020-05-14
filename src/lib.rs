@@ -197,11 +197,11 @@
 #[macro_use]
 mod util;
 
+// mod unique; // Experimental, doesn't currently work
 mod key;
 mod reader;
 mod resolver;
 mod single_threaded;
-mod unique;
 
 pub use key::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
 pub use reader::RodeoReader;

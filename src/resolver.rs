@@ -1,6 +1,5 @@
 use crate::{
     key::{Key, Spur},
-    unique::Unique,
     util::{Iter, Strings},
 };
 
@@ -20,16 +19,14 @@ compile! {
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoResolver<'unique, K: Key<'unique> = Spur<'unique>> {
+pub struct RodeoResolver<K: Key = Spur> {
     /// Vector of strings mapped to key indexes that allows key to string resolution
     pub(crate) strings: Vec<&'static str>,
     /// The type of the key
     __key: PhantomData<K>,
-    /// Makes keys only usable with the current instance
-    unique: Unique<'unique>,
 }
 
-impl<'unique, K: Key<'unique>> RodeoResolver<'unique, K> {
+impl<K: Key> RodeoResolver<K> {
     /// Creates a new RodeoResolver
     ///
     /// # Safety
@@ -37,11 +34,10 @@ impl<'unique, K: Key<'unique>> RodeoResolver<'unique, K> {
     /// The references inside of `strings` must be absolutely unique, meaning
     /// that no other references to those strings exist
     ///
-    pub(crate) unsafe fn new(strings: Vec<&'static str>, unique: Unique<'unique>) -> Self {
+    pub(crate) unsafe fn new(strings: Vec<&'static str>) -> Self {
         Self {
             strings,
             __key: PhantomData,
-            unique,
         }
     }
 
@@ -179,18 +175,18 @@ impl<'unique, K: Key<'unique>> RodeoResolver<'unique, K> {
 
     /// Returns an iterator over the interned strings and their key values
     #[inline]
-    pub fn iter<'a>(&'a self) -> Iter<'a, 'unique, K> {
+    pub fn iter<'a>(&'a self) -> Iter<'a, K> {
         Iter::from_resolver(self)
     }
 
     /// Returns an iterator over the interned strings
     #[inline]
-    pub fn strings<'a>(&'a self) -> Strings<'a, 'unique, K> {
+    pub fn strings<'a>(&'a self) -> Strings<'a, K> {
         Strings::from_resolver(self)
     }
 }
 
-impl<'unique, K: Key<'unique>> Clone for RodeoResolver<'unique, K> {
+impl<K: Key> Clone for RodeoResolver<K> {
     #[inline]
     fn clone(&self) -> Self {
         // Safety: The strings of the current Rodeo **cannot** be used in the new one,
@@ -214,13 +210,12 @@ impl<'unique, K: Key<'unique>> Clone for RodeoResolver<'unique, K> {
         Self {
             strings,
             __key: PhantomData,
-            unique: self.unique,
         }
     }
 }
 
 /// Deallocate the leaked strings interned by RodeoResolver
-impl<'unique, K: Key<'unique>> Drop for RodeoResolver<'unique, K> {
+impl<K: Key> Drop for RodeoResolver<K> {
     #[inline]
     fn drop(&mut self) {
         // Drain self.strings while deallocating the strings it holds
@@ -237,8 +232,8 @@ impl<'unique, K: Key<'unique>> Drop for RodeoResolver<'unique, K> {
     }
 }
 
-unsafe impl<'unique, K: Key<'unique> + Send> Send for RodeoResolver<'unique, K> {}
-unsafe impl<'unique, K: Key<'unique> + Sync> Sync for RodeoResolver<'unique, K> {}
+unsafe impl<K: Key + Send> Send for RodeoResolver<K> {}
+unsafe impl<K: Key + Sync> Sync for RodeoResolver<K> {}
 
 #[cfg(test)]
 mod tests {

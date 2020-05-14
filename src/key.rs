@@ -1,5 +1,3 @@
-use crate::unique::Unique;
-
 use core::num::{NonZeroU16, NonZeroU32, NonZeroU8, NonZeroUsize};
 
 /// Types implementing this trait can be used as keys for all Rodeos
@@ -9,7 +7,7 @@ use core::num::{NonZeroU16, NonZeroU32, NonZeroU8, NonZeroUsize};
 /// into/from must be perfectly symmetrical, any key that goes on must be perfectly reproduced with the other
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
-pub unsafe trait Key<'unique>: Copy + Eq {
+pub unsafe trait Key: Copy + Eq {
     /// Returns the `usize` that represents the current key
     ///
     /// # Safety
@@ -31,12 +29,11 @@ pub unsafe trait Key<'unique>: Copy + Eq {
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct LargeSpur<'unique> {
+pub struct LargeSpur {
     key: NonZeroUsize,
-    unique: Unique<'unique>,
 }
 
-unsafe impl<'unique> Key<'unique> for LargeSpur<'unique> {
+unsafe impl Key for LargeSpur {
     #[inline]
     unsafe fn into_usize(self) -> usize {
         self.key.get() - 1
@@ -51,22 +48,10 @@ unsafe impl<'unique> Key<'unique> for LargeSpur<'unique> {
             unsafe {
                 Some(Self {
                     key: NonZeroUsize::new_unchecked(int + 1),
-                    unique: Default::default(),
                 })
             }
         } else {
             None
-        }
-    }
-}
-
-impl<'unique> Default for LargeSpur<'unique> {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            // Safety: 1 is not 0
-            key: unsafe { NonZeroUsize::new_unchecked(1) },
-            unique: Default::default(),
         }
     }
 }
@@ -79,12 +64,11 @@ impl<'unique> Default for LargeSpur<'unique> {
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct Spur<'unique> {
+pub struct Spur {
     key: NonZeroU32,
-    unique: Unique<'unique>,
 }
 
-unsafe impl<'unique> Key<'unique> for Spur<'unique> {
+unsafe impl Key for Spur {
     #[inline]
     unsafe fn into_usize(self) -> usize {
         self.key.get() as usize - 1
@@ -99,22 +83,10 @@ unsafe impl<'unique> Key<'unique> for Spur<'unique> {
             unsafe {
                 Some(Self {
                     key: NonZeroU32::new_unchecked(int as u32 + 1),
-                    unique: Default::default(),
                 })
             }
         } else {
             None
-        }
-    }
-}
-
-impl<'unique> Default for Spur<'unique> {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            // Safety: 1 is not 0
-            key: unsafe { NonZeroU32::new_unchecked(1) },
-            unique: Default::default(),
         }
     }
 }
@@ -127,12 +99,11 @@ impl<'unique> Default for Spur<'unique> {
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct MiniSpur<'unique> {
+pub struct MiniSpur {
     key: NonZeroU16,
-    unique: Unique<'unique>,
 }
 
-unsafe impl<'unique> Key<'unique> for MiniSpur<'unique> {
+unsafe impl Key for MiniSpur {
     #[inline]
     unsafe fn into_usize(self) -> usize {
         self.key.get() as usize - 1
@@ -147,22 +118,10 @@ unsafe impl<'unique> Key<'unique> for MiniSpur<'unique> {
             unsafe {
                 Some(Self {
                     key: NonZeroU16::new_unchecked(int as u16 + 1),
-                    unique: Default::default(),
                 })
             }
         } else {
             None
-        }
-    }
-}
-
-impl<'unique> Default for MiniSpur<'unique> {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            // Safety: 1 is not 0
-            key: unsafe { NonZeroU16::new_unchecked(1) },
-            unique: Default::default(),
         }
     }
 }
@@ -175,12 +134,11 @@ impl<'unique> Default for MiniSpur<'unique> {
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct MicroSpur<'unique> {
+pub struct MicroSpur {
     key: NonZeroU8,
-    unique: Unique<'unique>,
 }
 
-unsafe impl<'unique> Key<'unique> for MicroSpur<'unique> {
+unsafe impl Key for MicroSpur {
     #[inline]
     unsafe fn into_usize(self) -> usize {
         self.key.get() as usize - 1
@@ -195,22 +153,10 @@ unsafe impl<'unique> Key<'unique> for MicroSpur<'unique> {
             unsafe {
                 Some(Self {
                     key: NonZeroU8::new_unchecked(int as u8 + 1),
-                    unique: Default::default(),
                 })
             }
         } else {
             None
-        }
-    }
-}
-
-impl<'unique> Default for MicroSpur<'unique> {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            // Safety: 1 is not 0
-            key: unsafe { NonZeroU8::new_unchecked(1) },
-            unique: Default::default(),
         }
     }
 }
@@ -246,6 +192,7 @@ mod tests {
     fn spur() {
         let zero = Spur::try_from_usize(0).unwrap();
         let max = Spur::try_from_usize(u32::max_value() as usize - 1).unwrap();
+
         unsafe {
             assert_eq!(zero.into_usize(), 0);
             assert_eq!(max.into_usize(), u32::max_value() as usize - 1);
@@ -268,6 +215,7 @@ mod tests {
     fn mini() {
         let zero = MiniSpur::try_from_usize(0).unwrap();
         let max = MiniSpur::try_from_usize(u16::max_value() as usize - 1).unwrap();
+
         unsafe {
             assert_eq!(zero.into_usize(), 0);
             assert_eq!(max.into_usize(), u16::max_value() as usize - 1);
@@ -290,6 +238,7 @@ mod tests {
     fn micro() {
         let zero = MicroSpur::try_from_usize(0).unwrap();
         let max = MicroSpur::try_from_usize(u8::max_value() as usize - 1).unwrap();
+
         unsafe {
             assert_eq!(zero.into_usize(), 0);
             assert_eq!(max.into_usize(), u8::max_value() as usize - 1);
