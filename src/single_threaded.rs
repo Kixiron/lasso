@@ -439,7 +439,7 @@ where
 impl<K, S> Rodeo<K, S>
 where
     K: Key + Default,
-    S: BuildHasher + Clone + Default,
+    S: BuildHasher + Clone,
 {
     /// Consumes the current Rodeo, returning a [`RodeoReader`] to allow contention-free access of the interner
     /// from multiple threads
@@ -463,10 +463,13 @@ where
     #[inline]
     #[must_use]
     pub fn into_reader(mut self) -> RodeoReader<K, S> {
+        let mut map = HashMap::with_capacity_and_hasher(self.map.len(), self.map.hasher().clone());
+        map.extend(self.map.drain());
+
         // Safety: No other references outside of `map` and `strings` to the interned strings exist
         unsafe {
             RodeoReader::new(
-                mem::take(&mut self.map),
+                map,
                 mem::take(&mut self.strings),
                 mem::take(&mut self.arena),
             )

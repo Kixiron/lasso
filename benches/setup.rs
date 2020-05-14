@@ -374,7 +374,7 @@ where
 
     for _ in 0..num_threads - 1 {
         let barrier = barrier.clone();
-        let reader = reader.clone();
+        let reader = Arc::clone(&reader);
         let func = func.clone();
         let running = running.clone();
         let keys = keys.clone();

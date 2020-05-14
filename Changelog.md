@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the ID requirement to `Key`
 - Added `try_resolve`s and `resolve_unchecked`s
 - Added `strings()` and `iter()` methods to `Rodeo`, `RodeoResolver` and `RodeoReader`
+- Strings are now allocated via an arena allocator
 
 ### Changed
 
@@ -43,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed memory leaks and possible unsoundness
 - Fixed data races on `ThreadedRodeo`
+- Fixed memory leaks in `ThreadedRodeo`, for real this time
 
 ## 0.1.2
 ## 0.1.1
