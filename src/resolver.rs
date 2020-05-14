@@ -1,5 +1,6 @@
 use crate::{
     key::{Key, Spur},
+    unique::Unique,
     util::{Iter, Strings},
 };
 
@@ -19,13 +20,16 @@ compile! {
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoResolver<K: Key = Spur> {
+pub struct RodeoResolver<'unique, K: Key = Spur> {
     /// Vector of strings mapped to key indexes that allows key to string resolution
     pub(crate) strings: Vec<&'static str>,
+    /// The type of the key
     __key: PhantomData<K>,
+    /// Makes keys only usable with the current instance
+    unique: Unique<'unique>,
 }
 
-impl<K: Key> RodeoResolver<K> {
+impl<'unique, K: Key> RodeoResolver<'unique, K> {
     /// Creates a new RodeoResolver
     ///
     /// # Safety
@@ -33,10 +37,11 @@ impl<K: Key> RodeoResolver<K> {
     /// The references inside of `strings` must be absolutely unique, meaning
     /// that no other references to those strings exist
     ///
-    pub(crate) unsafe fn new(strings: Vec<&'static str>) -> Self {
+    pub(crate) unsafe fn new(strings: Vec<&'static str>, unique: Unique<'unique>) -> Self {
         Self {
             strings,
             __key: PhantomData,
+            unique,
         }
     }
 
@@ -185,7 +190,7 @@ impl<K: Key> RodeoResolver<K> {
     }
 }
 
-impl<K: Key> Clone for RodeoResolver<K> {
+impl<'unique, K: Key> Clone for RodeoResolver<'unique, K> {
     #[inline]
     fn clone(&self) -> Self {
         // Safety: The strings of the current Rodeo **cannot** be used in the new one,
@@ -209,12 +214,13 @@ impl<K: Key> Clone for RodeoResolver<K> {
         Self {
             strings,
             __key: PhantomData,
+            unique: self.unique,
         }
     }
 }
 
 /// Deallocate the leaked strings interned by RodeoResolver
-impl<K: Key> Drop for RodeoResolver<K> {
+impl<'unique, K: Key> Drop for RodeoResolver<'unique, K> {
     #[inline]
     fn drop(&mut self) {
         // Drain self.strings while deallocating the strings it holds
@@ -231,8 +237,8 @@ impl<K: Key> Drop for RodeoResolver<K> {
     }
 }
 
-unsafe impl<K: Key + Send> Send for RodeoResolver<K> {}
-unsafe impl<K: Key + Sync> Sync for RodeoResolver<K> {}
+unsafe impl<'unique, K: Key + Send> Send for RodeoResolver<'unique, K> {}
+unsafe impl<'unique, K: Key + Sync> Sync for RodeoResolver<'unique, K> {}
 
 #[cfg(test)]
 mod tests {

@@ -1,7 +1,8 @@
-use super::RodeoResolver;
 use crate::{
     hasher::{HashMap, RandomState},
     key::{Key, Spur},
+    resolver::RodeoResolver,
+    unique::Unique,
     util::{Iter, Strings},
 };
 
@@ -22,12 +23,14 @@ compile! {
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoReader<K: Key = Spur, S: BuildHasher + Clone = RandomState> {
+pub struct RodeoReader<'unique, K: Key = Spur, S: BuildHasher + Clone = RandomState> {
     map: HashMap<&'static str, K, S>,
     pub(crate) strings: Vec<&'static str>,
+    /// Makes keys only usable with the current instance
+    unique: Unique<'unique>,
 }
 
-impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
+impl<'unique, K: Key, S: BuildHasher + Clone> RodeoReader<'unique, K, S> {
     /// Creates a new RodeoReader
     ///
     /// # Safety
@@ -35,8 +38,16 @@ impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
     /// The references inside of `strings` must be absolutely unique, meaning
     /// that no other references to those strings exist
     ///
-    pub(crate) unsafe fn new(map: HashMap<&'static str, K, S>, strings: Vec<&'static str>) -> Self {
-        Self { map, strings }
+    pub(crate) unsafe fn new(
+        map: HashMap<&'static str, K, S>,
+        strings: Vec<&'static str>,
+        unique: Unique<'unique>,
+    ) -> Self {
+        Self {
+            map,
+            strings,
+            unique,
+        }
     }
 
     /// Get the key value of a string, returning `None` if it doesn't exist
@@ -230,16 +241,16 @@ impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
     /// [`RodeoResolver`]: crate::RodeoResolver
     #[inline]
     #[must_use]
-    pub fn into_resolver(mut self) -> RodeoResolver<K> {
+    pub fn into_resolver(mut self) -> RodeoResolver<'unique, K> {
         let strings = mem::take(&mut self.strings);
 
         // Safety: The current reader no longer contains references to the strings
         // in the vec given to RodeoResolver
-        unsafe { RodeoResolver::new(strings) }
+        unsafe { RodeoResolver::new(strings, self.unique) }
     }
 }
 
-impl<K, S> Clone for RodeoReader<K, S>
+impl<'unique, K, S> Clone for RodeoReader<'unique, K, S>
 where
     K: Key,
     S: BuildHasher + Clone,
@@ -265,12 +276,16 @@ where
             map.insert(new, K::try_from_usize(i).unwrap_or_else(|| unreachable!()));
         }
 
-        Self { map, strings }
+        Self {
+            map,
+            strings,
+            unique: self.unique,
+        }
     }
 }
 
 /// Deallocate the leaked strings interned by RodeoReader
-impl<K: Key, S: BuildHasher + Clone> Drop for RodeoReader<K, S> {
+impl<'unique, K: Key, S: BuildHasher + Clone> Drop for RodeoReader<'unique, K, S> {
     #[inline]
     fn drop(&mut self) {
         // Clear the map to remove all other references to the strings in self.strings
@@ -291,8 +306,14 @@ impl<K: Key, S: BuildHasher + Clone> Drop for RodeoReader<K, S> {
     }
 }
 
-unsafe impl<K: Key + Sync, S: BuildHasher + Clone + Sync> Sync for RodeoReader<K, S> {}
-unsafe impl<K: Key + Send, S: BuildHasher + Clone + Send> Send for RodeoReader<K, S> {}
+unsafe impl<'unique, K: Key + Sync, S: BuildHasher + Clone + Sync> Sync
+    for RodeoReader<'unique, K, S>
+{
+}
+unsafe impl<'unique, K: Key + Send, S: BuildHasher + Clone + Send> Send
+    for RodeoReader<'unique, K, S>
+{
+}
 
 #[cfg(test)]
 mod tests {

@@ -166,6 +166,7 @@ mod key;
 mod reader;
 mod resolver;
 mod single_threaded;
+mod unique;
 
 pub use key::{Key, MicroSpur, MiniSpur, SmallSpur, Spur};
 pub use reader::RodeoReader;
