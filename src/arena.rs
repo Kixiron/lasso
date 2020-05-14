@@ -139,7 +139,7 @@ impl<T: Sized> Bucket<T> {
 
             Self {
                 index: 0,
-                capacity: capacity.clone(),
+                capacity,
                 items: NonNull::new(alloc(layout))
                     .expect("Failed to allocate a new bucket, process out of memory")
                     .cast(),
@@ -169,7 +169,7 @@ impl Bucket<u8> {
     /// the caller promises to forget the reference before the arena is dropped
     ///
     #[inline]
-    pub(crate) unsafe fn push_str<'a>(&mut self, string: &str) -> &'static str {
+    pub(crate) unsafe fn push_str(&mut self, string: &str) -> &'static str {
         debug_assert!(!self.is_full());
 
         let bytes = string.as_bytes();

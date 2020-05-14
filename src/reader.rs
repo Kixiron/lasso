@@ -207,13 +207,13 @@ impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
 
     /// Returns an iterator over the interned strings and their key values
     #[inline]
-    pub fn iter<'a>(&'a self) -> Iter<'a, K> {
+    pub fn iter(&self) -> Iter<'_, K> {
         Iter::from_reader(self)
     }
 
     /// Returns an iterator over the interned strings
     #[inline]
-    pub fn strings<'a>(&'a self) -> Strings<'a, K> {
+    pub fn strings(&self) -> Strings<'_, K> {
         Strings::from_reader(self)
     }
 

@@ -57,6 +57,7 @@ unsafe impl Key for LargeSpur {
 }
 
 impl Default for LargeSpur {
+    #[inline]
     fn default() -> Self {
         Self::try_from_usize(1).unwrap()
     }
@@ -98,6 +99,7 @@ unsafe impl Key for Spur {
 }
 
 impl Default for Spur {
+    #[inline]
     fn default() -> Self {
         Self::try_from_usize(1).unwrap()
     }
@@ -139,6 +141,7 @@ unsafe impl Key for MiniSpur {
 }
 
 impl Default for MiniSpur {
+    #[inline]
     fn default() -> Self {
         Self::try_from_usize(1).unwrap()
     }
@@ -180,6 +183,7 @@ unsafe impl Key for MicroSpur {
 }
 
 impl Default for MicroSpur {
+    #[inline]
     fn default() -> Self {
         Self::try_from_usize(1).unwrap()
     }

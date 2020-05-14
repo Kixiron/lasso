@@ -19,28 +19,27 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --target ${{ matrix.target }} --no-default-features
+          args: --no-default-features
 
       - name: Single threaded
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --target ${{ matrix.target }}
 
       - name: Multi threaded
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --target ${{ matrix.target }} --features multi-threaded
+          args: --features multi-threaded
 
       - name: No std
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --target ${{ matrix.target }} --features no-std
+          args: --features no-std
 
   fmt:
     name: Rustfmt
