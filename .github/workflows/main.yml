@@ -90,7 +90,7 @@ jobs:
           args: --all -- -D warnings
 
   test:
-    name: ${{ matrix.name }}
+    name: Test ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -168,56 +168,149 @@ jobs:
           command: sweep
           args: -s
 
-      - name: Test no default features
+      - name: No default features
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --target ${{ matrix.target }} --no-default-features
 
-      - name: Test single threaded
+      - name: Single threaded
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --target ${{ matrix.target }}
 
-      - name: Test multi threaded
+      - name: Multi threaded
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --target ${{ matrix.target }} --features multi-threaded
 
-      - name: Test no std
+      - name: No std
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --target ${{ matrix.target }} --features no-std
 
-      - name: Miri no default features
+      - name: Clean unused artifacts
+        uses: actions-rs/cargo@v1
+        with:
+          command: sweep
+          args: -f
+
+  miri:
+    name: Miri ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows
+          - name: x86_64-pc-windows-msvc
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - name: i686-pc-windows-msvc
+            os: windows-latest
+            target: i686-pc-windows-msvc
+
+          # Linux
+          - name: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - name: i686-unknown-linux-gnu
+            os: ubuntu-latest
+            target: i686-unknown-linux-gnu
+
+          # OSX
+          - name: x86_64-apple-darwin
+            os: macos-latest
+            target: x86_64-apple-darwin
+
+    env:
+      RUST_BACKTRACE: 1
+      CARGO_INCREMENTAL: 0
+
+    steps:
+      - uses: actions/checkout@v2
+      - shell: bash
+        if: matrix.target == 'i686-unknown-linux-gnu'
+        run: |
+          sudo apt update
+          sudo apt install -y gcc-multilib libc6-dev-i386
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          target: ${{ matrix.target }}
+          override: true
+          components: miri
+      - uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-sweep
+      - name: Set rustc version
+        run: echo "::set-env name=CURRENT_RUSTC_VERSION::$(rustc -V)"
+
+      - name: Cache Cargo Registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ matrix.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+      - name: Cache Cargo Bin
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/bin
+          key: ${{ matrix.os }}-cargo-bin-${{ hashFiles('**/Cargo.toml') }}
+      - name: Cache Cargo Git
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ matrix.os }}-cargo-git-${{ hashFiles('**/Cargo.toml') }}
+      - name: Cache Cargo Build
+        uses: actions/cache@v1
+        with:
+          path: target
+          key: ${{ matrix.os }}-cargo-build-target-${{ env.CURRENT_RUSTC_VERSION }}-${{ hashFiles('**/Cargo.toml') }}
+      - name: Register Artifacts
+        uses: actions-rs/cargo@v1
+        with:
+          command: sweep
+          args: -s
+
+      - name: No default features
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --target ${{ matrix.target }} --no-default-features
+
+      - name: No default features
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: miri
           args: --target ${{ matrix.target }} --no-default-features
 
-      - name: Miri single threaded
+      - name: Single threaded
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: miri
           args: --target ${{ matrix.target }}
 
-      - name: Miri multi threaded
+      - name: Multi threaded
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: miri
           args: --target ${{ matrix.target }} --features multi-threaded
 
-      - name: Miri no std
+      - name: No std
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
