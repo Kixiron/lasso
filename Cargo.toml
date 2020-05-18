@@ -1,6 +1,6 @@
 [package]
 name = "lasso"
-version = "0.2.1"
+version = "0.2.2"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Kixiron/lasso"
 documentation = "https://docs.rs/lasso"
@@ -29,7 +29,7 @@ optional = true
 
 # Provides a no_std hasher, enabled with the `no-std` feature
 [dependencies.ahash]
-version = "0.3.4"
+version = "0.3.5"
 optional = true
 
 # Provides a no_std hashmap, enabled with the `no-std` feature
@@ -47,7 +47,7 @@ version = "1.4.0"
 
 # Cross-hash comparisons with benchmarking
 [dev-dependencies.ahash]
-version = "0.3.4"
+version = "0.3.5"
 
 # Cross-hash comparisons with benchmarking
 [dev-dependencies.fxhash]

@@ -187,6 +187,9 @@ impl Bucket<u8> {
     }
 }
 
+unsafe impl<T: Send> Send for Bucket<T> {}
+unsafe impl<T: Sync> Sync for Bucket<T> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
