@@ -533,6 +533,8 @@ where
     }
 }
 
+unsafe impl<K: Key, S: BuildHasher + Clone> Send for Rodeo<K, S> {}
+
 #[cfg(test)]
 mod tests {
     use crate::{hasher::RandomState, Key, MicroSpur, Rodeo, Spur};
