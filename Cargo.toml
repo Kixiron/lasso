@@ -1,6 +1,6 @@
 [package]
 name = "lasso"
-version = "0.2.2"
+version = "0.2.3"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Kixiron/lasso"
 documentation = "https://docs.rs/lasso"
@@ -20,6 +20,7 @@ no-std = ["ahasher", "hashbrown-table", "dashmap/no_std"]
 hashbrown-table = ["hashbrown"]
 ahasher = ["ahash"]
 nightly = []
+serialize = ["serde"]
 
 # Provides a concurrent hashmap, enabled with the `multi-threaded` feature
 [dependencies.dashmap]
@@ -35,6 +36,11 @@ optional = true
 # Provides a no_std hashmap, enabled with the `no-std` feature
 [dependencies.hashbrown]
 version = "0.7.2"
+optional = true
+
+# Allows {de}serialization of Spurs
+[dependencies.serde]
+version = "1.0.110"
 optional = true
 
 # Benchmarking

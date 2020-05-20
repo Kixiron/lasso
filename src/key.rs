@@ -1,4 +1,6 @@
 use core::num::{NonZeroU16, NonZeroU32, NonZeroU8, NonZeroUsize};
+#[cfg(features = "serialize")]
+use serde::{Deserialize, Serialize};
 
 /// Types implementing this trait can be used as keys for all Rodeos
 ///
@@ -26,7 +28,8 @@ pub unsafe trait Key: Copy + Eq {
 /// Internally is a `NonZeroUsize` to allow for space optimizations when stored inside of an [`Option`]
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
-/// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
+/// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
+#[cfg_attr(features = "serialize", derive(Deserialize, Serialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct LargeSpur {
@@ -68,7 +71,8 @@ impl Default for LargeSpur {
 /// Internally is a `NonZeroU32` to allow for space optimizations when stored inside of an [`Option`]
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
-/// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
+/// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
+#[cfg_attr(features = "serialize", derive(Deserialize, Serialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Spur {
@@ -110,7 +114,8 @@ impl Default for Spur {
 /// Internally is a `NonZeroU16` to allow for space optimizations when stored inside of an [`Option`]
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
-/// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
+/// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
+#[cfg_attr(features = "serialize", derive(Deserialize, Serialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct MiniSpur {
@@ -152,7 +157,8 @@ impl Default for MiniSpur {
 /// Internally is a `NonZeroU8` to allow for space optimizations when stored inside of an [`Option`]
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
-/// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html   
+/// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
+#[cfg_attr(features = "serialize", derive(Deserialize, Serialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct MicroSpur {

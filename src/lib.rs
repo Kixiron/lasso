@@ -49,6 +49,7 @@
 //!     * `dashmap/no_std` - `no_std` compatibility for `DashMap`
 //!     * `hashbrown-table` - `no_std` `HashMap`
 //!     * `ahasher` - `no_std` hashing function
+//! * `serialize` - Implements `Serialize` and `Deserialize` for all `Spur` types
 //!
 //! ## Example: Using Rodeo
 //!
