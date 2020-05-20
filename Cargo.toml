@@ -40,7 +40,8 @@ optional = true
 
 # Allows {de}serialization of Spurs
 [dependencies.serde]
-version = "1.0.110"
+version = "1.0.105"
+features = ["derive"]
 optional = true
 
 # Benchmarking
@@ -62,6 +63,10 @@ version = "0.2.1"
 # Cross-interner comparsions with benchmarking
 [dev-dependencies.string-interner]
 version = "0.7.1"
+
+# Testing serialization
+[dev-dependencies.serde_json]
+version = "1.0.53"
 
 [[bench]]
 name = "single_threaded"

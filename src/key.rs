@@ -1,5 +1,5 @@
 use core::num::{NonZeroU16, NonZeroU32, NonZeroU8, NonZeroUsize};
-#[cfg(features = "serialize")]
+#[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
 /// Types implementing this trait can be used as keys for all Rodeos
@@ -29,7 +29,7 @@ pub unsafe trait Key: Copy + Eq {
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[cfg_attr(features = "serialize", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct LargeSpur {
@@ -72,7 +72,7 @@ impl Default for LargeSpur {
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[cfg_attr(features = "serialize", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Spur {
@@ -115,7 +115,7 @@ impl Default for Spur {
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[cfg_attr(features = "serialize", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct MiniSpur {
@@ -158,7 +158,7 @@ impl Default for MiniSpur {
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[cfg_attr(features = "serialize", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct MicroSpur {
@@ -198,6 +198,21 @@ impl Default for MicroSpur {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn all_serialize() {
+        let large = LargeSpur::try_from_usize(0).unwrap();
+        let _ = serde_json::to_string(&large).unwrap();
+
+        let normal = Spur::try_from_usize(0).unwrap();
+        let _ = serde_json::to_string(&normal).unwrap();
+
+        let mini = MiniSpur::try_from_usize(0).unwrap();
+        let _ = serde_json::to_string(&mini).unwrap();
+
+        let micro = MicroSpur::try_from_usize(0).unwrap();
+        let _ = serde_json::to_string(&micro).unwrap();
+    }
 
     #[test]
     fn large() {
