@@ -18,14 +18,14 @@ use core::{
 };
 
 /// An arena allocator that dynamically grows in size when needed, allocating memory in large chunks
-pub struct Arena<T: Sized> {
+pub struct Arena<T: Sized + Clone> {
     /// All the internal buckets, storing all allocated and unallocated items
     buckets: Vec<Bucket<T>>,
     /// The default capacity of each bucket
     capacity: NonZeroUsize,
 }
 
-impl<T: Sized> Arena<T> {
+impl<T: Sized + Clone> Arena<T> {
     /// Create a new Arena with the default bucket size of 4096 items
     ///
     /// Note: When used with ZSTs, the bucket size will always be 1
@@ -77,13 +77,13 @@ impl<T: Sized> Arena<T> {
     }
 }
 
-impl<T> Default for Arena<T> {
+impl<T: Clone> Default for Arena<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T> fmt::Debug for Arena<T> {
+impl<T: Clone> fmt::Debug for Arena<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Arena")
             .field("buckets", &format!("... {} buckets", self.buckets.len()))
@@ -92,7 +92,7 @@ impl<T> fmt::Debug for Arena<T> {
 }
 
 /// A bucket to hold a number of stored items
-struct Bucket<T: Sized> {
+struct Bucket<T: Sized + Clone> {
     /// The start of uninitialized memory within `items`
     index: usize,
     /// A pointer to the start of the data
@@ -101,7 +101,7 @@ struct Bucket<T: Sized> {
     capacity: NonZeroUsize,
 }
 
-impl<T: Sized> Drop for Bucket<T> {
+impl<T: Sized + Clone> Drop for Bucket<T> {
     fn drop(&mut self) {
         // Safety: Only valid items are dropped, and then all memory is deallocated.
         // All pointers are valid.
@@ -125,7 +125,7 @@ impl<T: Sized> Drop for Bucket<T> {
     }
 }
 
-impl<T: Sized> Bucket<T> {
+impl<T: Sized + Clone> Bucket<T> {
     /// Allocates a bucket with space for `capacity` items
     #[inline]
     pub(crate) fn with_capacity(capacity: NonZeroUsize) -> Self {
@@ -147,13 +147,13 @@ impl<T: Sized> Bucket<T> {
 
     /// Get the number of avaliable slots for the current bucket
     #[inline]
-    pub(crate) const fn free_elements(&self) -> usize {
+    pub(crate) fn free_elements(&self) -> usize {
         self.capacity.get() - self.index
     }
 
     /// Returns whether the current bucket is full
     #[inline]
-    pub(crate) const fn is_full(&self) -> bool {
+    pub(crate) fn is_full(&self) -> bool {
         self.index == self.capacity.get()
     }
 
@@ -170,19 +170,17 @@ impl<T: Sized> Bucket<T> {
         debug_assert!(slice.len() <= self.capacity.get() - self.index);
 
         let ptr = self.items.as_ptr().add(self.index);
-        ptr::copy_nonoverlapping(slice.as_ptr(), ptr, slice.len());
-
+        let target = slice::from_raw_parts_mut(ptr, slice.len());
+        target.clone_from_slice(slice);
         self.index += slice.len();
 
-        let slice_ptr = slice::from_raw_parts_mut(ptr, slice.len()) as *mut [T];
-
         // Safety: The caller promises to forget the reference before the arena is dropped
-        &*slice_ptr
+        &*ptr::slice_from_raw_parts(ptr, slice.len())
     }
 }
 
-unsafe impl<T: Send> Send for Bucket<T> {}
-unsafe impl<T: Sync> Sync for Bucket<T> {}
+unsafe impl<T: Send + Clone> Send for Bucket<T> {}
+unsafe impl<T: Sync + Clone> Sync for Bucket<T> {}
 
 #[cfg(test)]
 mod tests {

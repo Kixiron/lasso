@@ -188,7 +188,7 @@ where
                     }
                 }
             } else {
-                if let Some(key) = self.get(val.as_ref()) {
+                if let Some(key) = self.get(&val) {
                     key
                 } else {
                     let key = K::try_from_usize(self.strings.len()).expect("Failed to get or intern string");
@@ -260,7 +260,7 @@ where
                     }
                 }
             } else {
-                if let Some(key) = self.get(val.as_ref()) {
+                if let Some(key) = self.get(&val) {
                     Some(key)
                 } else {
                     let key = K::try_from_usize(self.strings.len())?;

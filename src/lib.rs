@@ -362,7 +362,6 @@ mod reader;
 mod resolver;
 mod single_threaded;
 
-pub use internable::Internable;
 pub use key::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
 pub use reader::RodeoReader;
 pub use resolver::RodeoResolver;
