@@ -1,5 +1,3 @@
-#![cfg(not(feature = "no-std"))]
-
 use crate::{
     arena::Arena,
     hasher::{HashMap, RandomState},

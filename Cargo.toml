@@ -14,7 +14,7 @@ categories = ["data-structures", "concurrency", "no-std"]
 edition = "2018"
 
 [features]
-default = ["multi-threaded"]
+default = []
 multi-threaded = ["dashmap", "hashbrown"]
 no-std = ["ahasher", "hashbrown-table", "dashmap/no_std"]
 hashbrown-table = ["hashbrown"]
