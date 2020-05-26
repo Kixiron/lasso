@@ -1,3 +1,5 @@
+#![cfg(not(feature = "no-std"))]
+
 use crate::{
     arena::Arena,
     hasher::{HashMap, RandomState},
@@ -6,21 +8,14 @@ use crate::{
     resolver::RodeoResolver,
 };
 
+use alloc::vec::Vec;
 use core::{
     hash::{BuildHasher, Hash},
     iter, mem,
     sync::atomic::{AtomicUsize, Ordering},
 };
 use dashmap::DashMap;
-
-compile! {
-    if #[feature = "no-std"] {
-        use alloc::{boxed::Box, string::String, vec::Vec};
-        compile_error!("ThreadedRodeo is not compatible with no_std!");
-    } else {
-        use std::sync::Mutex;
-    }
-}
+use std::sync::Mutex;
 
 /// A concurrent string interner that caches strings quickly with a minimal memory footprint,
 /// returning a unique key to re-access it with `O(1)` internment and resolution.

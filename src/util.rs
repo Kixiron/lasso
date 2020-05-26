@@ -1,16 +1,30 @@
-use crate::{Key, Rodeo, RodeoReader, RodeoResolver};
+use crate::{
+    internable::Internable, key::Key, reader::RodeoReader, resolver::RodeoResolver,
+    single_threaded::Rodeo,
+};
 
 use core::{hash::BuildHasher, iter, marker::PhantomData, slice};
 
 #[derive(Debug)]
-pub struct Iter<'a, K: Key> {
-    iter: iter::Enumerate<slice::Iter<'a, &'a str>>,
+pub struct Iter<'a, V, K>
+where
+    V: Internable + ?Sized,
+    K: Key,
+{
+    iter: iter::Enumerate<slice::Iter<'a, &'a V>>,
     __key: PhantomData<K>,
 }
 
-impl<'a, K: Key> Iter<'a, K> {
+impl<'a, V, K> Iter<'a, V, K>
+where
+    V: Internable + ?Sized,
+    K: Key,
+{
     #[inline]
-    pub(crate) fn from_rodeo<H: BuildHasher + Clone>(rodeo: &'a Rodeo<K, H>) -> Self {
+    pub(crate) fn from_rodeo<H>(rodeo: &'a Rodeo<V, K, H>) -> Self
+    where
+        H: BuildHasher + Clone,
+    {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -18,7 +32,7 @@ impl<'a, K: Key> Iter<'a, K> {
     }
 
     #[inline]
-    pub(crate) fn from_reader<H: BuildHasher + Clone>(rodeo: &'a RodeoReader<K, H>) -> Self {
+    pub(crate) fn from_reader<H: BuildHasher + Clone>(rodeo: &'a RodeoReader<V, K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -26,7 +40,7 @@ impl<'a, K: Key> Iter<'a, K> {
     }
 
     #[inline]
-    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<K>) -> Self {
+    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<V, K>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -34,8 +48,12 @@ impl<'a, K: Key> Iter<'a, K> {
     }
 }
 
-impl<'a, K: Key> Iterator for Iter<'a, K> {
-    type Item = (K, &'a str);
+impl<'a, V, K> Iterator for Iter<'a, V, K>
+where
+    V: Internable + ?Sized,
+    K: Key,
+{
+    type Item = (K, &'a V);
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -76,14 +94,25 @@ impl<'a, K: Key> Iterator for Iter<'a, K> {
 // }
 
 #[derive(Debug)]
-pub struct Strings<'a, K: Key> {
-    iter: slice::Iter<'a, &'a str>,
+pub struct Strings<'a, V, K>
+where
+    V: Internable + ?Sized,
+    K: Key,
+{
+    iter: slice::Iter<'a, &'a V>,
     __key: PhantomData<K>,
 }
 
-impl<'a, K: Key> Strings<'a, K> {
+impl<'a, V, K> Strings<'a, V, K>
+where
+    V: Internable + ?Sized,
+    K: Key,
+{
     #[inline]
-    pub(crate) fn from_rodeo<H: BuildHasher + Clone>(rodeo: &'a Rodeo<K, H>) -> Self {
+    pub(crate) fn from_rodeo<H: BuildHasher + Clone>(rodeo: &'a Rodeo<V, K, H>) -> Self
+    where
+        H: BuildHasher + Clone,
+    {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -91,7 +120,7 @@ impl<'a, K: Key> Strings<'a, K> {
     }
 
     #[inline]
-    pub(crate) fn from_reader<H: BuildHasher + Clone>(rodeo: &'a RodeoReader<K, H>) -> Self {
+    pub(crate) fn from_reader<H: BuildHasher + Clone>(rodeo: &'a RodeoReader<V, K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -99,7 +128,7 @@ impl<'a, K: Key> Strings<'a, K> {
     }
 
     #[inline]
-    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<K>) -> Self {
+    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<V, K>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -107,8 +136,12 @@ impl<'a, K: Key> Strings<'a, K> {
     }
 }
 
-impl<'a, K: Key> Iterator for Strings<'a, K> {
-    type Item = &'a str;
+impl<'a, V, K> Iterator for Strings<'a, V, K>
+where
+    V: Internable + ?Sized,
+    K: Key,
+{
+    type Item = &'a V;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {

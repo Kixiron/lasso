@@ -1,5 +1,6 @@
 use crate::{
     arena::Arena,
+    internable::Internable,
     key::{Key, Spur},
     util::{Iter, Strings},
 };
@@ -20,16 +21,24 @@ compile! {
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoResolver<K: Key = Spur> {
+pub struct RodeoResolver<V = str, K = Spur>
+where
+    V: Internable + ?Sized,
+    K: Key,
+{
     /// Vector of strings mapped to key indexes that allows key to string resolution
-    pub(crate) strings: Vec<&'static str>,
+    pub(crate) strings: Vec<&'static V>,
     /// The arena that contains all the strings
-    arena: Arena<u8>,
+    arena: Arena<V::Raw>,
     /// The type of the key
     __key: PhantomData<K>,
 }
 
-impl<K: Key> RodeoResolver<K> {
+impl<V, K> RodeoResolver<V, K>
+where
+    V: Internable + ?Sized,
+    K: Key,
+{
     /// Creates a new RodeoResolver
     ///
     /// # Safety
@@ -37,7 +46,7 @@ impl<K: Key> RodeoResolver<K> {
     /// The references inside of `strings` must be absolutely unique, meaning
     /// that no other references to those strings exist
     ///
-    pub(crate) unsafe fn new(strings: Vec<&'static str>, arena: Arena<u8>) -> Self {
+    pub(crate) unsafe fn new(strings: Vec<&'static V>, arena: Arena<V::Raw>) -> Self {
         Self {
             strings,
             arena,
@@ -67,7 +76,7 @@ impl<K: Key> RodeoResolver<K> {
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub fn resolve<'a>(&'a self, key: &K) -> &'a str {
+    pub fn resolve<'a>(&'a self, key: &K) -> &'a V {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid
@@ -97,7 +106,7 @@ impl<K: Key> RodeoResolver<K> {
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
+    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a V> {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid
@@ -134,7 +143,7 @@ impl<K: Key> RodeoResolver<K> {
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
+    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a V {
         self.strings.get_unchecked(key.into_usize())
     }
 
@@ -179,19 +188,23 @@ impl<K: Key> RodeoResolver<K> {
 
     /// Returns an iterator over the interned strings and their key values
     #[inline]
-    pub fn iter(&self) -> Iter<'_, K> {
+    pub fn iter(&self) -> Iter<'_, V, K> {
         Iter::from_resolver(self)
     }
 
     /// Returns an iterator over the interned strings
     #[inline]
-    pub fn strings(&self) -> Strings<'_, K> {
+    pub fn strings(&self) -> Strings<'_, V, K> {
         Strings::from_resolver(self)
     }
 }
 
 /// Deallocate the leaked strings interned by RodeoResolver
-impl<K: Key> Drop for RodeoResolver<K> {
+impl<V, K> Drop for RodeoResolver<V, K>
+where
+    V: Internable + ?Sized,
+    K: Key,
+{
     #[inline]
     fn drop(&mut self) {
         // Safety: There must not be any other references to the strings in the arena, so
@@ -200,8 +213,19 @@ impl<K: Key> Drop for RodeoResolver<K> {
     }
 }
 
-unsafe impl<K: Key + Send> Send for RodeoResolver<K> {}
-unsafe impl<K: Key + Sync> Sync for RodeoResolver<K> {}
+unsafe impl<V, K> Send for RodeoResolver<V, K>
+where
+    V: Internable + ?Sized + Send,
+    K: Key + Send,
+{
+}
+
+unsafe impl<V, K> Sync for RodeoResolver<V, K>
+where
+    V: Internable + ?Sized + Sync,
+    K: Key + Sync,
+{
+}
 
 #[cfg(test)]
 mod tests {

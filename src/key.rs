@@ -200,21 +200,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn all_serialize() {
-        let large = LargeSpur::try_from_usize(0).unwrap();
-        let _ = serde_json::to_string(&large).unwrap();
-
-        let normal = Spur::try_from_usize(0).unwrap();
-        let _ = serde_json::to_string(&normal).unwrap();
-
-        let mini = MiniSpur::try_from_usize(0).unwrap();
-        let _ = serde_json::to_string(&mini).unwrap();
-
-        let micro = MicroSpur::try_from_usize(0).unwrap();
-        let _ = serde_json::to_string(&micro).unwrap();
-    }
-
-    #[test]
     fn large() {
         let zero = LargeSpur::try_from_usize(0).unwrap();
         let max = LargeSpur::try_from_usize(usize::max_value() - 1).unwrap();
@@ -304,5 +289,21 @@ mod tests {
     #[cfg(not(miri))]
     fn micro_panics() {
         MicroSpur::try_from_usize(u8::max_value() as usize).unwrap();
+    }
+
+    #[test]
+    #[cfg(feature = "serialize")]
+    fn all_serialize() {
+        let large = LargeSpur::try_from_usize(0).unwrap();
+        let _ = serde_json::to_string(&large).unwrap();
+
+        let normal = Spur::try_from_usize(0).unwrap();
+        let _ = serde_json::to_string(&normal).unwrap();
+
+        let mini = MiniSpur::try_from_usize(0).unwrap();
+        let _ = serde_json::to_string(&mini).unwrap();
+
+        let micro = MicroSpur::try_from_usize(0).unwrap();
+        let _ = serde_json::to_string(&micro).unwrap();
     }
 }

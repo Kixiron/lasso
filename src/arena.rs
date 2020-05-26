@@ -45,37 +45,35 @@ impl<T: Sized> Arena<T> {
             capacity,
         }
     }
-}
 
-impl<'a> Arena<u8> {
-    /// Store a string in the Arena
+    /// Store a slice in the Arena
     ///
     /// # Safety
     ///
     /// The caller promises to forget the reference before the arena is dropped
     ///
     #[inline]
-    pub unsafe fn store_str(&mut self, string: &str) -> &'static str {
-        let len = cmp::max(string.as_bytes().len(), 1);
+    pub unsafe fn store_slice(&mut self, slice: &[T]) -> &'static [T] {
+        let len = cmp::max(slice.len(), 1);
 
         if let Some(bucket) = self
             .buckets
             .last_mut()
             .filter(|bucket| bucket.free_elements() >= len)
         {
-            // Safety: The bucket found has enough room for the string
-            return bucket.push_str(string);
+            // Safety: The bucket found has enough room for the slice
+            return bucket.push_slice(slice);
         }
 
         // Safety: Length is >= 1
         let mut bucket =
             Bucket::with_capacity(cmp::max(self.capacity, NonZeroUsize::new_unchecked(len)));
 
-        // Safety: The new bucket will have enough room for the string
-        let ticket = bucket.push_str(string);
+        // Safety: The new bucket will have enough room for the slice
+        let static_slice = bucket.push_slice(slice);
         self.buckets.push(bucket);
 
-        ticket
+        static_slice
     }
 }
 
@@ -158,32 +156,28 @@ impl<T: Sized> Bucket<T> {
     pub(crate) const fn is_full(&self) -> bool {
         self.index == self.capacity.get()
     }
-}
 
-impl Bucket<u8> {
-    /// Push a string to the current bucket, returning a pointer to it
+    /// Push a slice to the current bucket, returning a pointer to it
     ///
     /// # Safety
     ///
-    /// The current bucket must have room for all bytes of the string and
+    /// The current bucket must have room for all bytes of the slice and
     /// the caller promises to forget the reference before the arena is dropped
     ///
     #[inline]
-    pub(crate) unsafe fn push_str(&mut self, string: &str) -> &'static str {
+    pub(crate) unsafe fn push_slice(&mut self, slice: &[T]) -> &'static [T] {
         debug_assert!(!self.is_full());
-
-        let bytes = string.as_bytes();
-        debug_assert!(bytes.len() <= self.capacity.get() - self.index);
+        debug_assert!(slice.len() <= self.capacity.get() - self.index);
 
         let ptr = self.items.as_ptr().add(self.index);
-        ptr::copy_nonoverlapping(bytes.as_ptr(), ptr, bytes.len());
+        ptr::copy_nonoverlapping(slice.as_ptr(), ptr, slice.len());
 
-        self.index += bytes.len();
+        self.index += slice.len();
 
-        let str_ptr = slice::from_raw_parts_mut(ptr, bytes.len()) as *mut [u8] as *mut str;
+        let slice_ptr = slice::from_raw_parts_mut(ptr, slice.len()) as *mut [T];
 
         // Safety: The caller promises to forget the reference before the arena is dropped
-        &*str_ptr
+        &*slice_ptr
     }
 }
 
@@ -198,9 +192,9 @@ mod tests {
     fn string() {
         let mut arena = Arena::new();
 
-        let slice = unsafe { arena.store_str("test") };
+        let slice = unsafe { arena.store_slice("test".as_bytes()) };
 
-        assert_eq!(slice, "test");
+        assert_eq!(slice, b"test");
     }
 
     #[test]
@@ -208,13 +202,13 @@ mod tests {
         let mut arena = Arena::new();
 
         unsafe {
-            let zst = arena.store_str("");
-            let zst1 = arena.store_str("");
-            let zst2 = arena.store_str("");
+            let zst = arena.store_slice("".as_bytes());
+            let zst1 = arena.store_slice("".as_bytes());
+            let zst2 = arena.store_slice("".as_bytes());
 
-            assert_eq!(zst, "");
-            assert_eq!(zst1, "");
-            assert_eq!(zst2, "");
+            assert_eq!(zst, b"");
+            assert_eq!(zst1, b"");
+            assert_eq!(zst2, b"");
         }
     }
 }

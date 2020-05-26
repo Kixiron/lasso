@@ -1,6 +1,7 @@
 use crate::{
     arena::Arena,
     hasher::{HashMap, RandomState},
+    internable::Internable,
     key::{Key, Spur},
     resolver::RodeoResolver,
     util::{Iter, Strings},
@@ -23,13 +24,23 @@ compile! {
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoReader<K: Key = Spur, S: BuildHasher + Clone = RandomState> {
-    map: HashMap<&'static str, K, S>,
-    pub(crate) strings: Vec<&'static str>,
-    arena: Arena<u8>,
+pub struct RodeoReader<V = str, K = Spur, S = RandomState>
+where
+    V: Internable + ?Sized,
+    K: Key,
+    S: BuildHasher + Clone,
+{
+    map: HashMap<&'static V, K, S>,
+    pub(crate) strings: Vec<&'static V>,
+    arena: Arena<V::Raw>,
 }
 
-impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
+impl<V, K, S> RodeoReader<V, K, S>
+where
+    V: Internable + ?Sized,
+    K: Key,
+    S: BuildHasher + Clone,
+{
     /// Creates a new RodeoReader
     ///
     /// # Safety
@@ -38,9 +49,9 @@ impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
     /// that no other references to those strings exist
     ///
     pub(crate) unsafe fn new(
-        map: HashMap<&'static str, K, S>,
-        strings: Vec<&'static str>,
-        arena: Arena<u8>,
+        map: HashMap<&'static V, K, S>,
+        strings: Vec<&'static V>,
+        arena: Arena<V::Raw>,
     ) -> Self {
         Self {
             map,
@@ -69,7 +80,7 @@ impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
     #[inline]
     pub fn get<T>(&self, val: T) -> Option<K>
     where
-        T: AsRef<str>,
+        T: AsRef<V>,
     {
         self.map.get(val.as_ref()).copied()
     }
@@ -96,7 +107,7 @@ impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub fn resolve<'a>(&'a self, key: &K) -> &'a str {
+    pub fn resolve<'a>(&'a self, key: &K) -> &'a V {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid
@@ -125,7 +136,7 @@ impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
+    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a V> {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid
@@ -162,7 +173,7 @@ impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
+    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a V {
         self.strings.get_unchecked(key.into_usize())
     }
 
@@ -207,13 +218,13 @@ impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
 
     /// Returns an iterator over the interned strings and their key values
     #[inline]
-    pub fn iter(&self) -> Iter<'_, K> {
+    pub fn iter(&self) -> Iter<'_, V, K> {
         Iter::from_reader(self)
     }
 
     /// Returns an iterator over the interned strings
     #[inline]
-    pub fn strings(&self) -> Strings<'_, K> {
+    pub fn strings(&self) -> Strings<'_, V, K> {
         Strings::from_reader(self)
     }
 
@@ -240,7 +251,7 @@ impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
     /// [`RodeoResolver`]: crate::RodeoResolver
     #[inline]
     #[must_use]
-    pub fn into_resolver(mut self) -> RodeoResolver<K> {
+    pub fn into_resolver(mut self) -> RodeoResolver<V, K> {
         self.map.drain().for_each(drop);
 
         // Safety: The current reader no longer contains references to the strings
@@ -250,7 +261,12 @@ impl<K: Key, S: BuildHasher + Clone> RodeoReader<K, S> {
 }
 
 /// Deallocate the leaked strings interned by RodeoReader
-impl<K: Key, S: BuildHasher + Clone> Drop for RodeoReader<K, S> {
+impl<V, K, S> Drop for RodeoReader<V, K, S>
+where
+    V: Internable + ?Sized,
+    K: Key,
+    S: BuildHasher + Clone,
+{
     #[inline]
     fn drop(&mut self) {
         // Safety: There must not be any other references to the strings in the arena, so
@@ -259,8 +275,21 @@ impl<K: Key, S: BuildHasher + Clone> Drop for RodeoReader<K, S> {
     }
 }
 
-unsafe impl<K: Key + Sync, S: BuildHasher + Clone + Sync> Sync for RodeoReader<K, S> {}
-unsafe impl<K: Key + Send, S: BuildHasher + Clone + Send> Send for RodeoReader<K, S> {}
+unsafe impl<V, K, S> Sync for RodeoReader<V, K, S>
+where
+    V: Internable + ?Sized + Sync,
+    K: Key + Sync,
+    S: BuildHasher + Clone + Sync,
+{
+}
+
+unsafe impl<V, K, S> Send for RodeoReader<V, K, S>
+where
+    V: Internable + ?Sized + Send,
+    K: Key + Send,
+    S: BuildHasher + Clone + Send,
+{
+}
 
 #[cfg(test)]
 mod tests {

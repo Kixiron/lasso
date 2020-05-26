@@ -356,11 +356,13 @@ mod util;
 
 // mod unique; // Experimental, doesn't currently work
 mod arena;
+mod internable;
 mod key;
 mod reader;
 mod resolver;
 mod single_threaded;
 
+pub use internable::Internable;
 pub use key::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
 pub use reader::RodeoReader;
 pub use resolver::RodeoResolver;
@@ -371,7 +373,7 @@ compile! {
         extern crate alloc;
     }
 
-    if #[feature = "multi-threaded"] {
+    if #[all(feature = "multi-threaded", not(feature = "no-std"))] {
         mod multi_threaded;
         pub use multi_threaded::ThreadedRodeo;
     }
