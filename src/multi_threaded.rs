@@ -3,12 +3,12 @@
 use crate::{
     arena::Arena,
     hasher::{HashMap, RandomState},
+    internable::Internable,
     key::{Key, Spur},
     reader::RodeoReader,
     resolver::RodeoResolver,
 };
 
-use alloc::vec::Vec;
 use core::{
     hash::{BuildHasher, Hash},
     iter, mem,
@@ -27,24 +27,29 @@ use std::sync::Mutex;
 /// [`ahash::RandomState`]: https://docs.rs/ahash/0.3.2/ahash/struct.RandomState.html
 /// [`RandomState`]: index.html#cargo-features
 #[derive(Debug)]
-pub struct ThreadedRodeo<K = Spur, S = RandomState>
+pub struct ThreadedRodeo<V = str, K = Spur, S = RandomState>
 where
+    V: Internable + ?Sized,
     K: Key + Hash,
     S: BuildHasher + Clone,
 {
     /// Map that allows str to key resolution
-    map: DashMap<&'static str, K, S>,
+    map: DashMap<&'static V, K, S>,
     /// Map that allows key to str resolution
-    strings: DashMap<K, &'static str, S>,
+    strings: DashMap<K, &'static V, S>,
     /// The current key value
     key: AtomicUsize,
     /// The arena where all strings are stored
-    arena: Mutex<Arena<u8>>,
+    arena: Mutex<Arena<V::Raw>>,
 }
 
 // TODO: More parity functions with std::HashMap
 
-impl<K: Key + Hash> ThreadedRodeo<K, RandomState> {
+impl<V, K> ThreadedRodeo<V, K, RandomState>
+where
+    V: Internable + ?Sized,
+    K: Key + Hash,
+{
     /// Create a new ThreadedRodeo
     ///
     /// # Example
@@ -53,7 +58,7 @@ impl<K: Key + Hash> ThreadedRodeo<K, RandomState> {
     /// use lasso::{ThreadedRodeo, Spur};
     /// use std::{thread, sync::Arc};
     ///
-    /// let lasso: Arc<ThreadedRodeo<Spur>> = Arc::new(ThreadedRodeo::new());
+    /// let lasso: Arc<ThreadedRodeo<str, Spur>> = Arc::new(ThreadedRodeo::new());
     /// let hello = lasso.get_or_intern("Hello, ");
     ///
     /// let l = Arc::clone(&lasso);
@@ -85,7 +90,7 @@ impl<K: Key + Hash> ThreadedRodeo<K, RandomState> {
     /// ```rust
     /// use lasso::{ThreadedRodeo, Spur};
     ///
-    /// let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(10);
+    /// let rodeo: ThreadedRodeo<str, Spur> = ThreadedRodeo::with_capacity(10);
     /// ```
     ///
     #[inline]
@@ -99,8 +104,9 @@ impl<K: Key + Hash> ThreadedRodeo<K, RandomState> {
     }
 }
 
-impl<K, S> ThreadedRodeo<K, S>
+impl<V, K, S> ThreadedRodeo<V, K, S>
 where
+    V: Internable + ?Sized,
     K: Key + Hash,
     S: BuildHasher + Clone,
 {
@@ -112,7 +118,7 @@ where
     /// use lasso::{Spur, ThreadedRodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: ThreadedRodeo<Spur, RandomState> = ThreadedRodeo::with_hasher(RandomState::new());
+    /// let rodeo: ThreadedRodeo<str, Spur, RandomState> = ThreadedRodeo::with_hasher(RandomState::new());
     /// ```
     ///
     #[inline]
@@ -133,7 +139,7 @@ where
     /// use lasso::{Spur, ThreadedRodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: ThreadedRodeo<Spur, RandomState> = ThreadedRodeo::with_capacity_and_hasher(10, RandomState::new());
+    /// let rodeo: ThreadedRodeo<str, Spur, RandomState> = ThreadedRodeo::with_capacity_and_hasher(10, RandomState::new());
     /// ```
     ///
     #[inline]
@@ -167,7 +173,7 @@ where
     #[inline]
     pub fn get_or_intern<T>(&self, val: T) -> K
     where
-        T: AsRef<str>,
+        T: AsRef<V>,
     {
         if let Some(key) = self.map.get(val.as_ref()) {
             *key
@@ -181,8 +187,14 @@ where
             }
 
             // Safety: The drop impl removes all references before the arena is dropped
-            let string: &'static str =
-                unsafe { self.arena.lock().unwrap().store_str(val.as_ref()) };
+            let string: &'static V = unsafe {
+                V::from_raw(
+                    self.arena
+                        .lock()
+                        .unwrap()
+                        .store_slice(val.as_ref().to_raw()),
+                )
+            };
             let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
                 .expect("Failed to get or intern string");
 
@@ -214,7 +226,7 @@ where
     #[inline]
     pub fn try_get_or_intern<T>(&self, val: T) -> Option<K>
     where
-        T: AsRef<str>,
+        T: AsRef<V>,
     {
         if let Some(key) = self.map.get(val.as_ref()) {
             Some(*key)
@@ -228,8 +240,14 @@ where
             }
 
             // Safety: The drop impl removes all references before the arena is dropped
-            let string: &'static str =
-                unsafe { self.arena.lock().unwrap().store_str(val.as_ref()) };
+            let string: &'static V = unsafe {
+                V::from_raw(
+                    self.arena
+                        .lock()
+                        .unwrap()
+                        .store_slice(val.as_ref().to_raw()),
+                )
+            };
             let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))?;
 
             self.map.insert(string, key);
@@ -257,7 +275,7 @@ where
     #[inline]
     pub fn get<T>(&self, val: T) -> Option<K>
     where
-        T: AsRef<str>,
+        T: AsRef<V>,
     {
         self.map.get(val.as_ref()).map(|k| *k)
     }
@@ -280,7 +298,7 @@ where
     /// ```
     ///
     #[inline]
-    pub fn resolve<'a>(&'a self, key: &K) -> &'a str {
+    pub fn resolve<'a>(&'a self, key: &K) -> &'a V {
         &*self.strings.get(key).expect("Key out of bounds")
     }
 
@@ -299,7 +317,7 @@ where
     /// ```
     ///
     #[inline]
-    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
+    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a V> {
         self.strings.get(key).map(|s| *s)
     }
 
@@ -345,7 +363,7 @@ where
     /// # // Note: The capacity of DashMap isn't reliable
     /// use lasso::{Spur, ThreadedRodeo};
     ///
-    /// let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(10);
+    /// let rodeo: ThreadedRodeo<str, Spur> = ThreadedRodeo::with_capacity(10);
     /// assert_eq!(rodeo.capacity(), 10);
     /// ```
     ///
@@ -375,24 +393,24 @@ where
     /// [`RodeoReader`]: crate::RodeoReader
     #[inline]
     #[must_use]
-    pub fn into_reader(self) -> RodeoReader<K, S> {
+    pub fn into_reader(self) -> RodeoReader<V, K, S> {
         // Take the strings vec from the old lasso
-        let mut strings = iter::repeat("")
+        let mut strings = iter::from_fn(|| Some(None))
             .take(self.strings.len())
-            .collect::<Vec<&'static str>>();
+            .collect::<Vec<Option<&'static V>>>();
 
         for shard in self.strings.shards() {
             for (key, val) in shard.write().drain() {
                 // Safety: The keys of the dashmap should be valid indices
                 unsafe {
                     // TODO: get_unchecked?
-                    strings[key.into_usize()] = val.into_inner();
+                    strings[key.into_usize()] = Some(val.into_inner());
                 }
             }
         }
 
         // Drain the DashMap by draining each of its buckets and creating a new hashmap to store their values
-        let mut map: HashMap<&'static str, K, S> =
+        let mut map: HashMap<&'static V, K, S> =
             HashMap::with_capacity_and_hasher(strings.len(), self.map.hasher().clone());
 
         for shard in self.map.shards() {
@@ -401,7 +419,13 @@ where
         }
 
         // Safety: No other references outside of `map` and `strings` to the interned strings exist
-        unsafe { RodeoReader::new(map, strings, mem::take(&mut *self.arena.lock().unwrap())) }
+        unsafe {
+            RodeoReader::new(
+                map,
+                strings.into_iter().map(|s| s.unwrap()).collect(),
+                mem::take(&mut *self.arena.lock().unwrap()),
+            )
+        }
     }
 
     /// Consumes the current ThreadedRodeo, returning a [`RodeoResolver`] to allow contention-free access of the interner
@@ -425,25 +449,30 @@ where
     /// [`RodeoResolver`]: crate::RodeoResolver
     #[inline]
     #[must_use]
-    pub fn into_resolver(self) -> RodeoResolver<K> {
+    pub fn into_resolver(self) -> RodeoResolver<V, K> {
         self.map.clear();
 
-        let mut strings = iter::repeat("")
+        let mut strings = iter::from_fn(|| Some(None))
             .take(self.strings.len())
-            .collect::<Vec<&'static str>>();
+            .collect::<Vec<Option<&'static V>>>();
 
         for shard in self.strings.shards() {
             for (key, val) in shard.write().drain() {
                 // Safety: The keys of the dashmap should be valid indices
                 unsafe {
                     // TODO: get_unchecked?
-                    strings[key.into_usize()] = val.into_inner();
+                    strings[key.into_usize()] = Some(val.into_inner());
                 }
             }
         }
 
         // Safety: No other references to the strings exist
-        unsafe { RodeoResolver::new(strings, mem::take(&mut *self.arena.lock().unwrap())) }
+        unsafe {
+            RodeoResolver::new(
+                strings.into_iter().map(|s| s.unwrap()).collect(),
+                mem::take(&mut *self.arena.lock().unwrap()),
+            )
+        }
     }
 }
 
@@ -451,7 +480,7 @@ where
 ///
 /// [`Spur`]: crate::Spur
 /// [`RandomState`]: index.html#cargo-features
-impl Default for ThreadedRodeo<Spur, RandomState> {
+impl Default for ThreadedRodeo<str, Spur, RandomState> {
     #[inline]
     fn default() -> Self {
         Self::new()
@@ -459,8 +488,9 @@ impl Default for ThreadedRodeo<Spur, RandomState> {
 }
 
 /// Deallocate the leaked strings interned by ThreadedRodeo
-impl<K, S> Drop for ThreadedRodeo<K, S>
+impl<V, K, S> Drop for ThreadedRodeo<V, K, S>
 where
+    V: Internable + ?Sized,
     K: Key + Hash,
     S: BuildHasher + Clone,
 {
@@ -476,8 +506,21 @@ where
     }
 }
 
-unsafe impl<K: Key + Hash + Sync, S: BuildHasher + Clone + Sync> Sync for ThreadedRodeo<K, S> {}
-unsafe impl<K: Key + Hash + Send, S: BuildHasher + Clone + Send> Send for ThreadedRodeo<K, S> {}
+unsafe impl<V, K, S> Sync for ThreadedRodeo<V, K, S>
+where
+    V: Internable + ?Sized + Sync,
+    K: Key + Hash + Sync,
+    S: BuildHasher + Clone + Sync,
+{
+}
+
+unsafe impl<V, K, S> Send for ThreadedRodeo<V, K, S>
+where
+    V: Internable + ?Sized + Send,
+    K: Key + Hash + Send,
+    S: BuildHasher + Clone + Send,
+{
+}
 
 #[cfg(test)]
 mod tests {
@@ -497,7 +540,7 @@ mod tests {
 
     #[test]
     fn new() {
-        let _: ThreadedRodeo<Spur> = ThreadedRodeo::new();
+        let _: ThreadedRodeo<str, Spur> = ThreadedRodeo::new();
     }
 
     // Capacity of DashMap isn't reliable
@@ -509,7 +552,7 @@ mod tests {
 
     #[test]
     fn with_hasher() {
-        let rodeo: ThreadedRodeo<Spur, RandomState> =
+        let rodeo: ThreadedRodeo<str, Spur, RandomState> =
             ThreadedRodeo::with_hasher(RandomState::new());
 
         let key = rodeo.get_or_intern("Test");
@@ -518,7 +561,7 @@ mod tests {
 
     #[test]
     fn with_capacity_and_hasher() {
-        let rodeo: ThreadedRodeo<Spur, RandomState> =
+        let rodeo: ThreadedRodeo<str, Spur, RandomState> =
             ThreadedRodeo::with_capacity_and_hasher(10, RandomState::new());
 
         let key = rodeo.get_or_intern("Test");
@@ -568,7 +611,7 @@ mod tests {
 
     #[test]
     fn try_get_or_intern() {
-        let rodeo: ThreadedRodeo<MicroSpur> = ThreadedRodeo::new();
+        let rodeo: ThreadedRodeo<str, MicroSpur> = ThreadedRodeo::new();
 
         for i in 0..u8::max_value() as usize - 1 {
             rodeo.get_or_intern(i.to_string());
@@ -583,7 +626,7 @@ mod tests {
     #[test]
     #[cfg(not(any(miri, feature = "no-std")))]
     fn try_get_or_intern_threaded() {
-        let rodeo: Arc<ThreadedRodeo<MicroSpur>> = Arc::new(ThreadedRodeo::new());
+        let rodeo: Arc<ThreadedRodeo<str, MicroSpur>> = Arc::new(ThreadedRodeo::new());
 
         for i in 0..u8::max_value() as usize - 1 {
             rodeo.get_or_intern(i.to_string());
