@@ -8,7 +8,7 @@ use crate::{
     util::{Iter, Strings},
 };
 
-use core::{hash::BuildHasher, mem};
+use core::hash::BuildHasher;
 
 compile! {
     if #[feature = "no-std"] {
@@ -474,16 +474,19 @@ where
     /// [`RodeoReader`]: crate::RodeoReader
     #[inline]
     #[must_use]
-    pub fn into_reader(mut self) -> RodeoReader<V, K, S> {
-        let mut map = HashMap::with_capacity_and_hasher(self.map.len(), self.map.hasher().clone());
-        map.extend(self.map.drain());
+    pub fn into_reader(self) -> RodeoReader<V, K, S> {
+        let Self {
+            map,
+            strings,
+            arena,
+        } = self;
 
         // Safety: No other references outside of `map` and `strings` to the interned strings exist
         unsafe {
             RodeoReader::new(
                 map,
-                mem::take(&mut self.strings),
-                mem::take(&mut self.arena),
+                strings,
+                arena,
             )
         }
     }
