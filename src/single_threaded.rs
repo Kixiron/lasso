@@ -509,11 +509,15 @@ where
     /// [`RodeoResolver`]: crate::RodeoResolver
     #[inline]
     #[must_use]
-    pub fn into_resolver(mut self) -> RodeoResolver<V, K> {
-        self.map.drain().for_each(drop);
+    pub fn into_resolver(self) -> RodeoResolver<V, K> {
+        let Rodeo {
+            map: _map,
+            strings,
+            arena,
+        } = self;
 
         // Safety: No other references to the strings exist
-        unsafe { RodeoResolver::new(mem::take(&mut self.strings), mem::take(&mut self.arena)) }
+        unsafe { RodeoResolver::new(strings, arena) }
     }
 }
 
@@ -525,24 +529,6 @@ impl Default for Rodeo<str, Spur, RandomState> {
     #[inline]
     fn default() -> Self {
         Self::new()
-    }
-}
-
-/// Deallocate the leaked strings interned by Rodeo
-impl<V, K, S> Drop for Rodeo<V, K, S>
-where
-    V: Internable + ?Sized,
-    K: Key,
-    S: BuildHasher + Clone,
-{
-    #[inline]
-    fn drop(&mut self) {
-        // Clear the map to remove all other references to the strings in self.strings
-        self.map.clear();
-
-        // Safety: There must not be any other references to the strings in the arena, so
-        // all strings are drained before the arena can drop
-        self.strings.drain(..).for_each(drop);
     }
 }
 
