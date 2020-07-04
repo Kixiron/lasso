@@ -145,7 +145,7 @@ where
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().copied()
+        self.iter.next().map(|&k| k)
     }
 
     #[inline]

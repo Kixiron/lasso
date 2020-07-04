@@ -297,7 +297,7 @@ where
     where
         T: AsRef<V>,
     {
-        self.map.get(val.as_ref()).copied()
+        self.map.get(val.as_ref()).map(|&k| k)
     }
 
     /// Resolves a string by its key. Only keys made by the current Rodeo may be used
