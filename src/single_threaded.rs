@@ -482,13 +482,7 @@ where
         } = self;
 
         // Safety: No other references outside of `map` and `strings` to the interned strings exist
-        unsafe {
-            RodeoReader::new(
-                map,
-                strings,
-                arena,
-            )
-        }
+        unsafe { RodeoReader::new(map, strings, arena) }
     }
 
     /// Consumes the current Rodeo, returning a [`RodeoResolver`] to allow contention-free access of the interner

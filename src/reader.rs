@@ -255,7 +255,7 @@ where
         let RodeoReader {
             map: _map,
             strings,
-            arena
+            arena,
         } = self;
 
         // Safety: The current reader no longer contains references to the strings
