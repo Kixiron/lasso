@@ -175,7 +175,7 @@ impl<T: Sized + Clone> Bucket<T> {
         self.index += slice.len();
 
         // Safety: The caller promises to forget the reference before the arena is dropped
-        &*ptr::slice_from_raw_parts(ptr, slice.len())
+        target
     }
 }
 
