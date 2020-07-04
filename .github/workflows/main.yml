@@ -31,13 +31,6 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          command: check
-          toolchain: "1.34.0"
-          override: true
-
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
           toolchain: nightly
           override: true
 
