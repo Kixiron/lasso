@@ -7,7 +7,7 @@ use crate::{
     util::{Iter, Strings},
 };
 
-use core::{hash::BuildHasher, mem};
+use core::hash::BuildHasher;
 
 compile! {
     if #[feature = "no-std"] {
@@ -82,7 +82,7 @@ where
     where
         T: AsRef<V>,
     {
-        self.map.get(val.as_ref()).copied()
+        self.map.get(val.as_ref()).map(|&k| k)
     }
 
     /// Resolves a string by its key. Only keys made by the current Resolver or the creator
@@ -251,27 +251,16 @@ where
     /// [`RodeoResolver`]: crate::RodeoResolver
     #[inline]
     #[must_use]
-    pub fn into_resolver(mut self) -> RodeoResolver<V, K> {
-        self.map.drain().for_each(drop);
+    pub fn into_resolver(self) -> RodeoResolver<V, K> {
+        let RodeoReader {
+            map: _map,
+            strings,
+            arena,
+        } = self;
 
         // Safety: The current reader no longer contains references to the strings
         // in the vec given to RodeoResolver
-        unsafe { RodeoResolver::new(mem::take(&mut self.strings), mem::take(&mut self.arena)) }
-    }
-}
-
-/// Deallocate the leaked strings interned by RodeoReader
-impl<V, K, S> Drop for RodeoReader<V, K, S>
-where
-    V: Internable + ?Sized,
-    K: Key,
-    S: BuildHasher + Clone,
-{
-    #[inline]
-    fn drop(&mut self) {
-        // Safety: There must not be any other references to the strings in the arena, so
-        // all strings are drained before the arena can drop
-        self.strings.drain(..).for_each(drop);
+        unsafe { RodeoResolver::new(strings, arena) }
     }
 }
 

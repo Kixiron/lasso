@@ -1,5 +1,7 @@
 #![cfg_attr(feature = "no-std", no_std)]
 #![cfg_attr(feature = "nightly", feature(hash_raw_entry))]
+// `.copied()` was unstable in 1.34
+#![allow(clippy::map_clone)]
 #![warn(clippy::missing_inline_in_public_items)]
 #![deny(
     missing_docs,

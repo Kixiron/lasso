@@ -8,7 +8,7 @@ use crate::{
     util::{Iter, Strings},
 };
 
-use core::{hash::BuildHasher, mem};
+use core::hash::BuildHasher;
 
 compile! {
     if #[feature = "no-std"] {
@@ -297,7 +297,7 @@ where
     where
         T: AsRef<V>,
     {
-        self.map.get(val.as_ref()).copied()
+        self.map.get(val.as_ref()).map(|&k| k)
     }
 
     /// Resolves a string by its key. Only keys made by the current Rodeo may be used
@@ -474,18 +474,15 @@ where
     /// [`RodeoReader`]: crate::RodeoReader
     #[inline]
     #[must_use]
-    pub fn into_reader(mut self) -> RodeoReader<V, K, S> {
-        let mut map = HashMap::with_capacity_and_hasher(self.map.len(), self.map.hasher().clone());
-        map.extend(self.map.drain());
+    pub fn into_reader(self) -> RodeoReader<V, K, S> {
+        let Self {
+            map,
+            strings,
+            arena,
+        } = self;
 
         // Safety: No other references outside of `map` and `strings` to the interned strings exist
-        unsafe {
-            RodeoReader::new(
-                map,
-                mem::take(&mut self.strings),
-                mem::take(&mut self.arena),
-            )
-        }
+        unsafe { RodeoReader::new(map, strings, arena) }
     }
 
     /// Consumes the current Rodeo, returning a [`RodeoResolver`] to allow contention-free access of the interner
@@ -509,11 +506,15 @@ where
     /// [`RodeoResolver`]: crate::RodeoResolver
     #[inline]
     #[must_use]
-    pub fn into_resolver(mut self) -> RodeoResolver<V, K> {
-        self.map.drain().for_each(drop);
+    pub fn into_resolver(self) -> RodeoResolver<V, K> {
+        let Rodeo {
+            map: _map,
+            strings,
+            arena,
+        } = self;
 
         // Safety: No other references to the strings exist
-        unsafe { RodeoResolver::new(mem::take(&mut self.strings), mem::take(&mut self.arena)) }
+        unsafe { RodeoResolver::new(strings, arena) }
     }
 }
 
@@ -525,24 +526,6 @@ impl Default for Rodeo<str, Spur, RandomState> {
     #[inline]
     fn default() -> Self {
         Self::new()
-    }
-}
-
-/// Deallocate the leaked strings interned by Rodeo
-impl<V, K, S> Drop for Rodeo<V, K, S>
-where
-    V: Internable + ?Sized,
-    K: Key,
-    S: BuildHasher + Clone,
-{
-    #[inline]
-    fn drop(&mut self) {
-        // Clear the map to remove all other references to the strings in self.strings
-        self.map.clear();
-
-        // Safety: There must not be any other references to the strings in the arena, so
-        // all strings are drained before the arena can drop
-        self.strings.drain(..).for_each(drop);
     }
 }
 
