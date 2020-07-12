@@ -540,12 +540,12 @@ mod tests {
         let _: ThreadedRodeo<Spur> = ThreadedRodeo::new();
     }
 
-    // The capacity measurement of DashMap isn't reliable
-    // #[test]
-    // fn with_capacity() {
-    //     let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(10);
-    //     assert_eq!(10, rodeo.capacity());
-    // }
+    #[test]
+    fn with_capacity() {
+        let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(10);
+        // DashMap's capacity isn't reliable
+        let _cap = rodeo.capacity();
+    }
 
     #[test]
     fn with_hasher() {
@@ -616,6 +616,8 @@ mod tests {
 
         let space = rodeo.try_get_or_intern("A").unwrap();
         assert_eq!("A", rodeo.resolve(&space));
+        let space = rodeo.try_get_or_intern("A").unwrap();
+        assert_eq!("A", rodeo.resolve(&space));
 
         assert!(rodeo.try_get_or_intern("C").is_none());
     }
@@ -633,20 +635,32 @@ mod tests {
         thread::spawn(move || {
             let a = moved.try_get_or_intern("A");
             assert_eq!(a, moved.try_get_or_intern("A"));
+            let a = moved.try_get_or_intern("A");
+            assert_eq!(a, moved.try_get_or_intern("A"));
 
             let b = moved.try_get_or_intern("B");
             assert_eq!(b, moved.try_get_or_intern("B"));
+            let b = moved.try_get_or_intern("B");
+            assert_eq!(b, moved.try_get_or_intern("B"));
 
+            let c = moved.try_get_or_intern("C");
+            assert_eq!(c, moved.try_get_or_intern("C"));
             let c = moved.try_get_or_intern("C");
             assert_eq!(c, moved.try_get_or_intern("C"));
         });
 
         let a = rodeo.try_get_or_intern("A");
         assert_eq!(a, rodeo.try_get_or_intern("A"));
+        let a = rodeo.try_get_or_intern("A");
+        assert_eq!(a, rodeo.try_get_or_intern("A"));
 
         let b = rodeo.try_get_or_intern("B");
         assert_eq!(b, rodeo.try_get_or_intern("B"));
+        let b = rodeo.try_get_or_intern("B");
+        assert_eq!(b, rodeo.try_get_or_intern("B"));
 
+        let c = rodeo.try_get_or_intern("C");
+        assert_eq!(c, rodeo.try_get_or_intern("C"));
         let c = rodeo.try_get_or_intern("C");
         assert_eq!(c, rodeo.try_get_or_intern("C"));
     }

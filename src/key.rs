@@ -62,7 +62,7 @@ unsafe impl Key for LargeSpur {
 impl Default for LargeSpur {
     #[inline]
     fn default() -> Self {
-        Self::try_from_usize(1).unwrap()
+        Self::try_from_usize(0).unwrap()
     }
 }
 
@@ -105,7 +105,7 @@ unsafe impl Key for Spur {
 impl Default for Spur {
     #[inline]
     fn default() -> Self {
-        Self::try_from_usize(1).unwrap()
+        Self::try_from_usize(0).unwrap()
     }
 }
 
@@ -148,7 +148,7 @@ unsafe impl Key for MiniSpur {
 impl Default for MiniSpur {
     #[inline]
     fn default() -> Self {
-        Self::try_from_usize(1).unwrap()
+        Self::try_from_usize(0).unwrap()
     }
 }
 
@@ -191,7 +191,7 @@ unsafe impl Key for MicroSpur {
 impl Default for MicroSpur {
     #[inline]
     fn default() -> Self {
-        Self::try_from_usize(1).unwrap()
+        Self::try_from_usize(0).unwrap()
     }
 }
 
@@ -203,10 +203,12 @@ mod tests {
     fn large() {
         let zero = LargeSpur::try_from_usize(0).unwrap();
         let max = LargeSpur::try_from_usize(usize::max_value() - 1).unwrap();
+        let default = LargeSpur::default();
 
         unsafe {
             assert_eq!(zero.into_usize(), 0);
             assert_eq!(max.into_usize(), usize::max_value() - 1);
+            assert_eq!(default.into_usize(), 0);
         }
     }
 
@@ -226,10 +228,12 @@ mod tests {
     fn spur() {
         let zero = Spur::try_from_usize(0).unwrap();
         let max = Spur::try_from_usize(u32::max_value() as usize - 1).unwrap();
+        let default = Spur::default();
 
         unsafe {
             assert_eq!(zero.into_usize(), 0);
             assert_eq!(max.into_usize(), u32::max_value() as usize - 1);
+            assert_eq!(default.into_usize(), 0);
         }
     }
 
@@ -249,10 +253,12 @@ mod tests {
     fn mini() {
         let zero = MiniSpur::try_from_usize(0).unwrap();
         let max = MiniSpur::try_from_usize(u16::max_value() as usize - 1).unwrap();
+        let default = MiniSpur::default();
 
         unsafe {
             assert_eq!(zero.into_usize(), 0);
             assert_eq!(max.into_usize(), u16::max_value() as usize - 1);
+            assert_eq!(default.into_usize(), 0);
         }
     }
 
@@ -272,10 +278,12 @@ mod tests {
     fn micro() {
         let zero = MicroSpur::try_from_usize(0).unwrap();
         let max = MicroSpur::try_from_usize(u8::max_value() as usize - 1).unwrap();
+        let default = MicroSpur::default();
 
         unsafe {
             assert_eq!(zero.into_usize(), 0);
             assert_eq!(max.into_usize(), u8::max_value() as usize - 1);
+            assert_eq!(default.into_usize(), 0);
         }
     }
 
