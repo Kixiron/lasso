@@ -330,7 +330,7 @@ mod util;
 
 // mod unique; // Experimental, doesn't currently work
 mod arena;
-mod internable;
+// mod internable; // Experimental, doesn't currently work
 mod key;
 mod reader;
 mod resolver;
