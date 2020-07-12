@@ -508,6 +508,7 @@ where
     K: Key + Hash + Debug,
     S: BuildHasher + Clone,
 {
+    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("Rodeo")
             .field("map", &self.map)

@@ -287,6 +287,7 @@ impl<K, S> RodeoReader<K, S> {
 }
 
 impl<K: Debug, S> Debug for RodeoReader<K, S> {
+    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("Rodeo")
             .field("map", &self.map)

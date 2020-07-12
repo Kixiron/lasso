@@ -13,11 +13,13 @@ pub struct Capacity {
 impl Capacity {
     /// Create a new `Capacity` with the number of strings that the interner will hold
     /// and the number of bytes that the interner will hold
+    #[inline]
     pub fn new(strings: usize, bytes: NonZeroUsize) -> Self {
         Self { strings, bytes }
     }
 
     /// Create a new `Capacity` with the number of strings that the interner will hold
+    #[inline]
     pub fn for_strings(strings: usize) -> Self {
         Self {
             strings,
@@ -26,6 +28,7 @@ impl Capacity {
     }
 
     /// Create a new `Capacity` with the number of bytes that the interner will hold
+    #[inline]
     pub fn for_bytes(bytes: NonZeroUsize) -> Self {
         Self {
             bytes,
@@ -34,6 +37,7 @@ impl Capacity {
     }
 
     /// Produces the smallest `Capacity` with enough room for zero strings and a single byte
+    #[inline]
     pub fn minimal() -> Self {
         Self {
             strings: 0,
@@ -43,11 +47,13 @@ impl Capacity {
     }
 
     /// Returns the number of strings this capacity will allocate
+    #[inline]
     pub fn strings(&self) -> usize {
         self.strings
     }
 
     /// Returns the number of bytes this capacity will allocate
+    #[inline]
     pub fn bytes(&self) -> NonZeroUsize {
         self.bytes
     }
@@ -55,6 +61,7 @@ impl Capacity {
 
 /// Creates a `Capacity` that will hold 50 strings and 4096 bytes
 impl Default for Capacity {
+    #[inline]
     fn default() -> Self {
         Self {
             strings: 50,

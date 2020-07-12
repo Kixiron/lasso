@@ -204,6 +204,7 @@ impl<K> RodeoResolver<K> {
 }
 
 impl<K: Debug> Debug for RodeoResolver<K> {
+    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("RodeoResolver")
             .field("strings", &self.strings)

@@ -619,6 +619,7 @@ impl Default for Rodeo<Spur, RandomState> {
 }
 
 impl<K: Debug, S> Debug for Rodeo<K, S> {
+    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("Rodeo")
             .field("map", &self.map)
