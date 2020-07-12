@@ -5,15 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.3.0
+<!-- next-header -->
+## [Unreleased] - ReleaseDate
 
 This version really wouldn't be possible without the amazing work of @CAD97. They were an amazing asset in [improving the memory efficiency](https://github.com/Kixiron/lasso/issues/4) of lasso and I can't thank them enough
 
-## Added
+### Added
 
 - Added the `get_or_intern_static` and `try_get_or_intern_static` methods for zero-copy static string internment
 
-## Changed
+### Changed
 
 - Lasso's single-threaded configuration now supports back to Rust 1.34! Thanks to @jyn514 for their [hard work](https://github.com/Kixiron/lasso/pull/3)!
 - `Rodeo` and `RodeoReader` now use less memory since they only store their interned strings' pointers once
@@ -24,7 +25,7 @@ This version really wouldn't be possible without the amazing work of @CAD97. The
 - Made custom `Debug` implementations to cut the excess and unneeded output
 - Exported the `Strings` and `Iter` structs
 
-## Removed
+### Removed
 
 - Removed the `hashbrown-table` and `nightly` features
 
@@ -84,3 +85,6 @@ This version really wouldn't be possible without the amazing work of @CAD97. The
 ## 0.1.2
 ## 0.1.1
 ## 0.1.0
+
+<!-- next-url -->
+[Unreleased]: https://github.com/Kixiron/lasso/compare/...HEAD
