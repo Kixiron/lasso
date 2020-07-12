@@ -1,25 +1,79 @@
 use crate::{key::Key, reader::RodeoReader, resolver::RodeoResolver, single_threaded::Rodeo};
+use core::{iter, marker::PhantomData, num::NonZeroUsize, slice};
 
-use core::{hash::BuildHasher, iter, marker::PhantomData, slice};
+/// The amount of strings and bytes that an interner can hold before reallocating
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Capacity {
+    /// The number of strings that will be allocated
+    pub(crate) strings: usize,
+    /// The number of bytes that will be allocated
+    pub(crate) bytes: NonZeroUsize,
+}
 
+impl Capacity {
+    /// Create a new `Capacity` with the number of strings that the interner will hold
+    /// and the number of bytes that the interner will hold
+    pub fn new(strings: usize, bytes: NonZeroUsize) -> Self {
+        Self { strings, bytes }
+    }
+
+    /// Create a new `Capacity` with the number of strings that the interner will hold
+    pub fn for_strings(strings: usize) -> Self {
+        Self {
+            strings,
+            ..Self::default()
+        }
+    }
+
+    /// Create a new `Capacity` with the number of bytes that the interner will hold
+    pub fn for_bytes(bytes: NonZeroUsize) -> Self {
+        Self {
+            bytes,
+            ..Self::default()
+        }
+    }
+
+    /// Produces the smallest `Capacity` with enough room for zero strings and a single byte
+    pub fn minimal() -> Self {
+        Self {
+            strings: 0,
+            // Safety: 1 is not 0
+            bytes: unsafe { NonZeroUsize::new_unchecked(1) },
+        }
+    }
+
+    /// Returns the number of strings this capacity will allocate
+    pub fn strings(&self) -> usize {
+        self.strings
+    }
+
+    /// Returns the number of bytes this capacity will allocate
+    pub fn bytes(&self) -> NonZeroUsize {
+        self.bytes
+    }
+}
+
+/// Creates a `Capacity` that will hold 50 strings and 4096 bytes
+impl Default for Capacity {
+    fn default() -> Self {
+        Self {
+            strings: 50,
+            // Safety: 4096 is not 0
+            bytes: unsafe { NonZeroUsize::new_unchecked(4096) },
+        }
+    }
+}
+
+/// An iterator over an interner's strings and keys
 #[derive(Debug)]
-pub struct Iter<'a, K>
-where
-    K: Key,
-{
+pub struct Iter<'a, K> {
     iter: iter::Enumerate<slice::Iter<'a, &'a str>>,
     __key: PhantomData<K>,
 }
 
-impl<'a, K> Iter<'a, K>
-where
-    K: Key,
-{
+impl<'a, K> Iter<'a, K> {
     #[inline]
-    pub(crate) fn from_rodeo<H>(rodeo: &'a Rodeo<K, H>) -> Self
-    where
-        H: BuildHasher + Clone,
-    {
+    pub(crate) fn from_rodeo<H>(rodeo: &'a Rodeo<K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -27,7 +81,7 @@ where
     }
 
     #[inline]
-    pub(crate) fn from_reader<H: BuildHasher + Clone>(rodeo: &'a RodeoReader<K, H>) -> Self {
+    pub(crate) fn from_reader<H>(rodeo: &'a RodeoReader<K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -87,24 +141,16 @@ where
 //     }
 // }
 
+/// An iterator over an interner's strings
 #[derive(Debug)]
-pub struct Strings<'a, K>
-where
-    K: Key,
-{
+pub struct Strings<'a, K> {
     iter: slice::Iter<'a, &'a str>,
     __key: PhantomData<K>,
 }
 
-impl<'a, K> Strings<'a, K>
-where
-    K: Key,
-{
+impl<'a, K> Strings<'a, K> {
     #[inline]
-    pub(crate) fn from_rodeo<H: BuildHasher + Clone>(rodeo: &'a Rodeo<K, H>) -> Self
-    where
-        H: BuildHasher + Clone,
-    {
+    pub(crate) fn from_rodeo<H>(rodeo: &'a Rodeo<K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -112,7 +158,7 @@ where
     }
 
     #[inline]
-    pub(crate) fn from_reader<H: BuildHasher + Clone>(rodeo: &'a RodeoReader<K, H>) -> Self {
+    pub(crate) fn from_reader<H>(rodeo: &'a RodeoReader<K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -128,10 +174,7 @@ where
     }
 }
 
-impl<'a, K> Iterator for Strings<'a, K>
-where
-    K: Key,
-{
+impl<'a, K> Iterator for Strings<'a, K> {
     type Item = &'a str;
 
     #[inline]
@@ -237,6 +280,27 @@ macro_rules! index_unchecked {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn new_capacity() {
+        let capacity = Capacity::new(100, NonZeroUsize::new(100).unwrap());
+        assert_eq!(100, capacity.strings());
+        assert_eq!(100, capacity.bytes.get());
+
+        let capacity = Capacity::default();
+        assert_eq!(capacity.strings, capacity.strings());
+        assert_eq!(capacity.bytes, capacity.bytes());
+
+        let capacity = Capacity::for_strings(10);
+        assert_eq!(capacity.strings(), 10);
+
+        let capacity = Capacity::for_bytes(NonZeroUsize::new(10).unwrap());
+        assert_eq!(capacity.bytes().get(), 10);
+
+        let capacity = Capacity::minimal();
+        assert_eq!(capacity.strings(), 0);
+        assert_eq!(capacity.bytes().get(), 1);
+    }
 
     #[test]
     fn iter_rodeo() {

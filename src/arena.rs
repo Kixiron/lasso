@@ -40,6 +40,15 @@ impl Arena {
         }
     }
 
+    #[inline]
+    pub fn with_capacity(capacity: NonZeroUsize) -> Self {
+        Self {
+            // Allocate one bucket
+            buckets: vec![Bucket::with_capacity(capacity)],
+            capacity,
+        }
+    }
+
     /// Store a slice in the Arena
     ///
     /// # Safety

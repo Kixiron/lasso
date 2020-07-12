@@ -338,6 +338,7 @@ pub use key::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
 pub use reader::RodeoReader;
 pub use resolver::RodeoResolver;
 pub use single_threaded::Rodeo;
+pub use util::{Capacity, Iter, Strings};
 
 compile! {
     if #[feature = "no-std"] {
@@ -347,6 +348,8 @@ compile! {
     if #[all(feature = "multi-threaded", not(feature = "no-std"))] {
         mod multi_threaded;
         pub use multi_threaded::ThreadedRodeo;
+    } else if #[all(feature = "multi-threaded", feature = "no-std")] {
+        compile_error!("The `multi-threaded` and `no-std` features are not supported together");
     }
 }
 

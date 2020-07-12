@@ -4,8 +4,10 @@ use crate::{
     key::{Key, Spur},
     reader::RodeoReader,
     resolver::RodeoResolver,
+    Capacity,
 };
 use core::{
+    fmt::{Debug, Formatter, Result as FmtResult},
     hash::{BuildHasher, Hash, Hasher},
     iter, mem,
     sync::atomic::{AtomicUsize, Ordering},
@@ -39,12 +41,7 @@ macro_rules! index_unchecked_mut {
 /// [`Spur`]: crate::Spur
 /// [`ahash::RandomState`]: https://docs.rs/ahash/0.3.2/ahash/struct.RandomState.html
 /// [`RandomState`]: index.html#cargo-features
-#[derive(Debug)]
-pub struct ThreadedRodeo<K = Spur, S = RandomState>
-where
-    K: Key + Hash,
-    S: BuildHasher + Clone,
-{
+pub struct ThreadedRodeo<K = Spur, S = RandomState> {
     // TODO: Should this be migrated over to the scheme that `Rodeo` uses for string storage?
     //       Need benchmarks to see the perf impact of two dashmap lookups and see if that's worth
     //       the storage impact of extra string pointers lying around
@@ -88,33 +85,26 @@ where
     ///
     #[inline]
     pub fn new() -> Self {
-        Self {
-            map: DashMap::with_hasher(RandomState::new()),
-            strings: DashMap::with_hasher(RandomState::new()),
-            key: AtomicUsize::new(0),
-            arena: Mutex::new(Arena::new()),
-        }
+        Self::with_capacity_and_hasher(Capacity::default(), RandomState::new())
     }
 
     /// Create a new ThreadedRodeo with the specified capacity. The interner will be able to hold `capacity`
     /// strings without reallocating. If capacity is 0, the interner will not allocate.
     ///
+    /// See [`Capacity`] for more details
+    ///
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{ThreadedRodeo, Spur};
+    /// use lasso::{ThreadedRodeo, Capacity, Spur};
     ///
-    /// let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(10);
+    /// let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(Capacity::for_strings(10));
     /// ```
     ///
+    /// [`Capacity`]: crate::Capacity
     #[inline]
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            map: DashMap::with_capacity_and_hasher(capacity, RandomState::new()),
-            strings: DashMap::with_capacity_and_hasher(capacity, RandomState::new()),
-            key: AtomicUsize::new(0),
-            arena: Mutex::new(Arena::new()),
-        }
+    pub fn with_capacity(capacity: Capacity) -> Self {
+        Self::with_capacity_and_hasher(capacity, RandomState::new())
     }
 }
 
@@ -136,32 +126,32 @@ where
     ///
     #[inline]
     pub fn with_hasher(hash_builder: S) -> Self {
-        Self {
-            map: DashMap::with_hasher(hash_builder.clone()),
-            strings: DashMap::with_hasher(hash_builder),
-            key: AtomicUsize::new(0),
-            arena: Mutex::new(Arena::new()),
-        }
+        Self::with_capacity_and_hasher(Capacity::default(), hash_builder)
     }
 
     /// Creates a new ThreadedRodeo with the specified capacity that will use the given hasher for its internal hashmap
     ///
+    /// See [`Capacity`] for more details
+    ///
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{Spur, ThreadedRodeo};
+    /// use lasso::{Spur, Capacity, ThreadedRodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: ThreadedRodeo<Spur, RandomState> = ThreadedRodeo::with_capacity_and_hasher(10, RandomState::new());
+    /// let rodeo: ThreadedRodeo<Spur, RandomState> = ThreadedRodeo::with_capacity_and_hasher(Capacity::for_strings(10), RandomState::new());
     /// ```
     ///
+    /// [`Capacity`]: crate::Capacity
     #[inline]
-    pub fn with_capacity_and_hasher(capacity: usize, hash_builder: S) -> Self {
+    pub fn with_capacity_and_hasher(capacity: Capacity, hash_builder: S) -> Self {
+        let Capacity { strings, bytes } = capacity;
+
         Self {
-            map: DashMap::with_capacity_and_hasher(capacity, hash_builder.clone()),
-            strings: DashMap::with_capacity_and_hasher(capacity, hash_builder),
+            map: DashMap::with_capacity_and_hasher(strings, hash_builder.clone()),
+            strings: DashMap::with_capacity_and_hasher(strings, hash_builder),
             key: AtomicUsize::new(0),
-            arena: Mutex::new(Arena::new()),
+            arena: Mutex::new(Arena::with_capacity(bytes)),
         }
     }
 
@@ -346,13 +336,15 @@ where
 
     /// Returns the number of strings that can be interned without a reallocation
     ///
+    /// This is an unreliable measurement since the underlying hashmap is unreliable in its
+    /// capacity measurement
+    ///
     /// # Example
     ///
     /// ```no_run
-    /// # // Note: The capacity of DashMap isn't reliable
-    /// use lasso::{Spur, ThreadedRodeo};
+    /// use lasso::{Spur, Capacity, ThreadedRodeo};
     ///
-    /// let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(10);
+    /// let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(Capacity::for_strings(10));
     /// assert_eq!(rodeo.capacity(), 10);
     /// ```
     ///
@@ -511,19 +503,21 @@ impl Default for ThreadedRodeo<Spur, RandomState> {
     }
 }
 
-unsafe impl<K, S> Sync for ThreadedRodeo<K, S>
+impl<K, S> Debug for ThreadedRodeo<K, S>
 where
-    K: Key + Hash + Sync,
-    S: BuildHasher + Clone + Sync,
+    K: Key + Hash + Debug,
+    S: BuildHasher + Clone,
 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.debug_struct("Rodeo")
+            .field("map", &self.map)
+            .field("strings", &self.strings)
+            .finish()
+    }
 }
 
-unsafe impl<K, S> Send for ThreadedRodeo<K, S>
-where
-    K: Key + Hash + Send,
-    S: BuildHasher + Clone + Send,
-{
-}
+unsafe impl<K: Sync, S: Sync> Sync for ThreadedRodeo<K, S> {}
+unsafe impl<K: Send, S: Send> Send for ThreadedRodeo<K, S> {}
 
 #[cfg(test)]
 mod tests {
@@ -548,7 +542,7 @@ mod tests {
 
     #[test]
     fn with_capacity() {
-        let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(10);
+        let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(Capacity::for_strings(10));
         // DashMap's capacity isn't reliable
         let _cap = rodeo.capacity();
     }
@@ -565,7 +559,7 @@ mod tests {
     #[test]
     fn with_capacity_and_hasher() {
         let rodeo: ThreadedRodeo<Spur, RandomState> =
-            ThreadedRodeo::with_capacity_and_hasher(10, RandomState::new());
+            ThreadedRodeo::with_capacity_and_hasher(Capacity::for_strings(10), RandomState::new());
 
         let key = rodeo.get_or_intern("Test");
         assert_eq!("Test", rodeo.resolve(&key));

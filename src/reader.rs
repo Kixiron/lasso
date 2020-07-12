@@ -5,7 +5,10 @@ use crate::{
     resolver::RodeoResolver,
     util::{Iter, Strings},
 };
-use core::hash::{BuildHasher, Hash, Hasher};
+use core::{
+    fmt::{Debug, Formatter, Result as FmtResult},
+    hash::{BuildHasher, Hash, Hasher},
+};
 use hashbrown::HashMap;
 
 compile! {
@@ -22,12 +25,7 @@ compile! {
 ///
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
-#[derive(Debug)]
-pub struct RodeoReader<K = Spur, S = RandomState>
-where
-    K: Key,
-    S: BuildHasher + Clone,
-{
+pub struct RodeoReader<K = Spur, S = RandomState> {
     // The logic behind this arrangement is more heavily documented inside of
     // `Rodeo` itself
     map: HashMap<K, (), ()>,
@@ -36,11 +34,7 @@ where
     arena: Arena,
 }
 
-impl<K, S> RodeoReader<K, S>
-where
-    K: Key,
-    S: BuildHasher + Clone,
-{
+impl<K, S> RodeoReader<K, S> {
     /// Creates a new RodeoReader
     ///
     /// # Safety
@@ -83,6 +77,8 @@ where
     pub fn get<T>(&self, val: T) -> Option<K>
     where
         T: AsRef<str>,
+        S: BuildHasher,
+        K: Key,
     {
         let string_slice: &str = val.as_ref();
 
@@ -128,7 +124,10 @@ where
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub fn resolve<'a>(&'a self, key: &K) -> &'a str {
+    pub fn resolve<'a>(&'a self, key: &K) -> &'a str
+    where
+        K: Key,
+    {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid
@@ -157,7 +156,10 @@ where
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
+    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str>
+    where
+        K: Key,
+    {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid
@@ -194,7 +196,10 @@ where
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
+    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str
+    where
+        K: Key,
+    {
         self.strings.get_unchecked(key.into_usize())
     }
 
@@ -281,18 +286,17 @@ where
     }
 }
 
-unsafe impl<K, S> Sync for RodeoReader<K, S>
-where
-    K: Key + Sync,
-    S: BuildHasher + Clone + Sync,
-{
+impl<K: Debug, S> Debug for RodeoReader<K, S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.debug_struct("Rodeo")
+            .field("map", &self.map)
+            .field("strings", &self.strings)
+            .finish()
+    }
 }
-unsafe impl<K, S> Send for RodeoReader<K, S>
-where
-    K: Key + Send,
-    S: BuildHasher + Clone + Send,
-{
-}
+
+unsafe impl<K: Sync, S: Sync> Sync for RodeoReader<K, S> {}
+unsafe impl<K: Send, S: Send> Send for RodeoReader<K, S> {}
 
 #[cfg(test)]
 mod tests {

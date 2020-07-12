@@ -20,6 +20,9 @@ This version really wouldn't be possible without the amazing work of @CAD97. The
 - `Rodeo` and `RodeoReader` use a different hashing strategy for their maps, instead of using a hashed string and key pair, they now use the key hashed *as* their paired string. This allows for decreased memory usage
 - The arena backing all interners now increases the amount of memory it allocates exponentially (The same doubling strategy used by `Vec` is used). This allows for fewer allocations to happen as more strings are interned
 - `hashbrown` is now a default dependency due to `HashMap`'s `raw_api` not being stable
+- Relaxed trait bounds of many structs and functions
+- Made custom `Debug` implementations to cut the excess and unneeded output
+- Exported the `Strings` and `Iter` structs
 
 ## Removed
 

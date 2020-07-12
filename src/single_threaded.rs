@@ -5,8 +5,12 @@ use crate::{
     reader::RodeoReader,
     resolver::RodeoResolver,
     util::{Iter, Strings},
+    Capacity,
 };
-use core::hash::{BuildHasher, Hash, Hasher};
+use core::{
+    fmt::{Debug, Formatter, Result as FmtResult},
+    hash::{BuildHasher, Hash, Hasher},
+};
 use hashbrown::{hash_map::RawEntryMut, HashMap};
 
 compile! {
@@ -22,12 +26,7 @@ compile! {
 ///
 /// [`Spur`]: crate::Spur
 /// [`RandomState`]: https://doc.rust-lang.org/std/collections/hash_map/struct.RandomState.html
-#[derive(Debug)]
-pub struct Rodeo<K = Spur, S = RandomState>
-where
-    K: Key,
-    S: BuildHasher + Clone,
-{
+pub struct Rodeo<K = Spur, S = RandomState> {
     /// Map that allows `str` -> `key` resolution
     ///
     /// This must be a `HashMap` (for now) since `raw_api`s are only avaliable for maps and not sets.
@@ -73,33 +72,26 @@ where
     ///
     #[inline]
     pub fn new() -> Self {
-        Self {
-            map: HashMap::with_hasher(()),
-            hasher: RandomState::new(),
-            strings: Vec::new(),
-            arena: Arena::default(),
-        }
+        Self::with_capacity_and_hasher(Capacity::default(), RandomState::new())
     }
 
     /// Create a new Rodeo with the specified capacity. The interner will be able to hold `capacity`
-    /// strings without reallocating. If capacity is 0, the interner will not allocate.
+    /// strings without reallocating
+    ///
+    /// See [`Capacity`] for more information
     ///
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{Rodeo, Spur};
+    /// use lasso::{Rodeo, Capacity, Spur};
     ///
-    /// let rodeo: Rodeo<Spur> = Rodeo::with_capacity(10);
+    /// let rodeo: Rodeo<Spur> = Rodeo::with_capacity(Capacity::for_strings(10));
     /// ```
     ///
+    /// [`Capacity`]: crate::Capacity
     #[inline]
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            map: HashMap::with_capacity_and_hasher(capacity, ()),
-            hasher: RandomState::new(),
-            strings: Vec::with_capacity(capacity),
-            arena: Arena::default(),
-        }
+    pub fn with_capacity(capacity: Capacity) -> Self {
+        Self::with_capacity_and_hasher(capacity, RandomState::new())
     }
 }
 
@@ -121,32 +113,32 @@ where
     ///
     #[inline]
     pub fn with_hasher(hash_builder: S) -> Self {
-        Self {
-            map: HashMap::with_hasher(()),
-            hasher: hash_builder,
-            strings: Vec::new(),
-            arena: Arena::default(),
-        }
+        Self::with_capacity_and_hasher(Capacity::default(), hash_builder)
     }
 
     /// Creates a new Rodeo with the specified capacity that will use the given hasher for its internal hashmap
     ///
+    /// See [`Capacity`] for more information
+    ///
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{Spur, Rodeo};
+    /// use lasso::{Spur, Capacity, Rodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: Rodeo<Spur, RandomState> = Rodeo::with_capacity_and_hasher(10, RandomState::new());
+    /// let rodeo: Rodeo<Spur, RandomState> = Rodeo::with_capacity_and_hasher(Capacity::for_strings(10), RandomState::new());
     /// ```
     ///
+    /// [`Capacity`]: crate::Capacity
     #[inline]
-    pub fn with_capacity_and_hasher(capacity: usize, hash_builder: S) -> Self {
+    pub fn with_capacity_and_hasher(capacity: Capacity, hash_builder: S) -> Self {
+        let Capacity { strings, bytes } = capacity;
+
         Self {
-            map: HashMap::with_capacity_and_hasher(capacity, ()),
+            map: HashMap::with_capacity_and_hasher(strings, ()),
             hasher: hash_builder,
-            strings: Vec::with_capacity(capacity),
-            arena: Arena::default(),
+            strings: Vec::with_capacity(strings),
+            arena: Arena::with_capacity(bytes),
         }
     }
 
@@ -522,9 +514,9 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use lasso::{Spur, Rodeo};
+    /// use lasso::{Spur, Capacity, Rodeo};
     ///
-    /// let rodeo: Rodeo<Spur> = Rodeo::with_capacity(10);
+    /// let rodeo: Rodeo<Spur> = Rodeo::with_capacity(Capacity::for_strings(10));
     /// assert_eq!(rodeo.capacity(), 10);
     /// ```
     ///
@@ -626,16 +618,20 @@ impl Default for Rodeo<Spur, RandomState> {
     }
 }
 
-unsafe impl<K, S> Send for Rodeo<K, S>
-where
-    K: Key + Send,
-    S: BuildHasher + Clone + Send,
-{
+impl<K: Debug, S> Debug for Rodeo<K, S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.debug_struct("Rodeo")
+            .field("map", &self.map)
+            .field("strings", &self.strings)
+            .finish()
+    }
 }
+
+unsafe impl<K: Send, S: Send> Send for Rodeo<K, S> {}
 
 #[cfg(test)]
 mod tests {
-    use crate::{hasher::RandomState, Key, MicroSpur, Rodeo, Spur};
+    use crate::{hasher::RandomState, Capacity, Key, MicroSpur, Rodeo, Spur};
 
     compile! {
         if #[feature = "no-std"] {
@@ -651,7 +647,7 @@ mod tests {
 
     #[test]
     fn with_capacity() {
-        let mut rodeo: Rodeo<Spur> = Rodeo::with_capacity(10);
+        let mut rodeo: Rodeo<Spur> = Rodeo::with_capacity(Capacity::for_strings(10));
         assert_eq!(rodeo.capacity(), 10);
 
         rodeo.get_or_intern("Test");
@@ -683,7 +679,7 @@ mod tests {
     #[test]
     fn with_capacity_and_hasher() {
         let mut rodeo: Rodeo<Spur, RandomState> =
-            Rodeo::with_capacity_and_hasher(10, RandomState::new());
+            Rodeo::with_capacity_and_hasher(Capacity::for_strings(10), RandomState::new());
         assert_eq!(rodeo.capacity(), 10);
 
         rodeo.get_or_intern("Test");
@@ -700,7 +696,7 @@ mod tests {
         assert_eq!(rodeo.len(), rodeo.capacity());
 
         let mut rodeo: Rodeo<Spur, ahash::RandomState> =
-            Rodeo::with_capacity_and_hasher(10, ahash::RandomState::new());
+            Rodeo::with_capacity_and_hasher(Capacity::for_strings(10), ahash::RandomState::new());
         assert_eq!(rodeo.capacity(), 10);
 
         rodeo.get_or_intern("Test");
