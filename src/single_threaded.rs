@@ -16,7 +16,7 @@ compile! {
 }
 
 /// A string interner that caches strings quickly with a minimal memory footprint,
-/// returning a unique key to re-access it with `O(1)` internment and resolution.
+/// returning a unique key to re-access it with `O(1)` times.
 ///
 /// By default Rodeo uses the [`Spur`] type for keys and [`RandomState`] as its hasher
 ///
@@ -152,6 +152,12 @@ where
 
     /// Get the key for a string, interning it if it does not yet exist
     ///
+    /// # Panics
+    ///
+    /// Panics if the key's `try_from_usize` function fails. With the default keys, this means that
+    /// you've interned more strings than it can handle. (For [`Spur`] this means that `u32::MAX - 1`
+    /// unique strings were interned)
+    ///
     /// # Example
     ///
     /// ```rust
@@ -168,6 +174,7 @@ where
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     /// ```
     ///
+    /// [`Spur`]: crate::Spur
     #[inline]
     pub fn get_or_intern<T>(&mut self, val: T) -> K
     where
@@ -255,6 +262,12 @@ where
     /// Get the key for a static string, interning it if it does not yet exist
     ///
     /// This will not reallocate and copy the given string but will instead just store it
+    ///
+    /// # Panics
+    ///
+    /// Panics if the key's `try_from_usize` function fails. With the default keys, this means that
+    /// you've interned more strings than it can handle. (For [`Spur`] this means that `u32::MAX - 1`
+    /// unique strings were interned)
     ///
     /// # Example
     ///

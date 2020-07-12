@@ -14,8 +14,8 @@ pub unsafe trait Key: Copy + Eq {
     ///
     /// # Safety
     ///
-    /// To be safe, `into_usize` and `{try}_from_usize` must be symmetrical, meaning that any usize given
-    /// to `into_usize` must be the same after going through `{try}_from_usize`
+    /// To be safe, `into_usize` and `try_from_usize` must be symmetrical, meaning that any usize given
+    /// to `into_usize` must be the same after going through `try_from_usize`
     ///
     unsafe fn into_usize(self) -> usize;
 

@@ -167,6 +167,12 @@ where
 
     /// Get the key for a string, interning it if it does not yet exist
     ///
+    /// # Panics
+    ///
+    /// Panics if the key's `try_from_usize` function fails. With the default keys, this means that
+    /// you've interned more strings than it can handle. (For [`Spur`] this means that `u32::MAX - 1`
+    /// unique strings were interned)
+    ///
     /// # Example
     ///
     /// ```rust

@@ -179,7 +179,7 @@
 //! OS: Windows 10  
 //! CPU: Ryzen 9 3900X at 3800Mhz  
 //! RAM: 3200Mhz  
-//! Rustc: Stable 1.44.1
+//! Rustc: Stable 1.44.1  
 //!
 //! ### Rodeo
 //!
@@ -187,43 +187,43 @@
 //!
 //! | Method                       |   Time    |  Throughput  |
 //! |:-----------------------------|:---------:|:------------:|
-//! | `resolve`                    | 1.9125 μs | 13.373 GiB/s |
-//! | `try_resolve`                | 1.9312 μs | 13.244 GiB/s |
-//! | `resolve_unchecked`          | 1.4382 μs | 17.783 GiB/s |
-//! | `get_or_intern` (empty)      | 59.379 μs | 441.06 MiB/s |
-//! | `get_or_intern` (filled)     | 56.688 μs | 462.00 MiB/s |
-//! | `try_get_or_intern` (empty)  | 59.149 μs | 442.78 MiB/s |
-//! | `try_get_or_intern` (filled) | 57.373 μs | 456.49 MiB/s |
-//! | `get` (empty)                | 38.040 μs | 688.49 MiB/s |
-//! | `get` (filled)               | 56.733 μs | 461.63 MiB/s |
+//! | `resolve`                    | 1.9251 μs | 13.285 GiB/s |
+//! | `try_resolve`                | 1.9214 μs | 13.311 GiB/s |
+//! | `resolve_unchecked`          | 1.4356 μs | 17.816 GiB/s |
+//! | `get_or_intern` (empty)      | 60.350 μs | 433.96 MiB/s |
+//! | `get_or_intern` (filled)     | 57.415 μs | 456.15 MiB/s |
+//! | `try_get_or_intern` (empty)  | 58.978 μs | 444.06 MiB/s |
+//! | `try_get_or_intern (filled)` | 57.421 μs | 456.10 MiB/s |
+//! | `get` (empty)                | 37.288 μs | 702.37 MiB/s |
+//! | `get` (filled)               | 55.095 μs | 475.36 MiB/s |
 //!
 //! #### AHash
 //!
 //! | Method                       |   Time    |  Throughput  |
 //! |:-----------------------------|:---------:|:------------:|
-//! | `resolve`                    | 1.9285 μs | 13.262 GiB/s |
-//! | `try_resolve`                | 1.9080 μs | 13.405 GiB/s |
-//! | `resolve_unchecked`          | 1.4183 μs | 18.033 GiB/s |
-//! | `get_or_intern` (empty)      | 39.370 μs | 665.23 MiB/s |
-//! | `get_or_intern` (filled)     | 35.424 μs | 739.33 MiB/s |
-//! | `try_get_or_intern` (empty)  | 39.860 μs | 657.05 MiB/s |
-//! | `try_get_or_intern` (filled) | 33.943 μs | 771.59 MiB/s |
-//! | `get` (empty)                | 11.847 μs | 2.1589 GiB/s |
-//! | `get` (filled)               | 33.799 μs | 774.86 MiB/s |
+//! | `try_resolve`                | 1.9282 μs | 13.264 GiB/s |
+//! | `resolve`                    | 1.9404 μs | 13.181 GiB/s |
+//! | `resolve_unchecked`          | 1.4328 μs | 17.851 GiB/s |
+//! | `get_or_intern` (empty)      | 38.029 μs | 688.68 MiB/s |
+//! | `get_or_intern` (filled)     | 33.650 μs | 778.30 MiB/s |
+//! | `try_get_or_intern` (empty)  | 39.392 μs | 664.84 MiB/s |
+//! | `try_get_or_intern (filled)` | 33.435 μs | 783.31 MiB/s |
+//! | `get` (empty)                | 12.565 μs | 2.0356 GiB/s |
+//! | `get` (filled)               | 26.545 μs | 986.61 MiB/s |
 //!
 //! #### FXHash
 //!
 //! | Method                       |   Time    |  Throughput  |
 //! |:-----------------------------|:---------:|:------------:|
-//! | `resolve`                    | 1.9182 μs | 13.333 GiB/s |
-//! | `try_resolve`                | 1.9170 μs | 13.342 GiB/s |
-//! | `resolve_unchecked`          | 1.4582 μs | 17.540 GiB/s |
-//! | `get_or_intern` (empty)      | 32.451 μs | 807.05 MiB/s |
-//! | `get_or_intern` (filled)     | 30.733 μs | 852.16 MiB/s |
-//! | `try_get_or_intern` (empty)  | 32.788 μs | 798.77 MiB/s |
-//! | `try_get_or_intern` (filled) | 30.398 μs | 861.55 MiB/s |
-//! | `get` (empty)                | 13.541 μs | 1.8888 GiB/s |
-//! | `get` (filled)               | 30.186 μs | 867.62 MiB/s |
+//! | `resolve`                    | 1.9014 μs | 13.451 GiB/s |
+//! | `try_resolve`                | 1.9278 μs | 13.267 GiB/s |
+//! | `resolve_unchecked`          | 1.4449 μs | 17.701 GiB/s |
+//! | `get_or_intern` (empty)      | 32.523 μs | 805.27 MiB/s |
+//! | `get_or_intern` (filled)     | 30.281 μs | 864.88 MiB/s |
+//! | `try_get_or_intern` (empty)  | 31.630 μs | 828.00 MiB/s |
+//! | `try_get_or_intern (filled)` | 31.002 μs | 844.78 MiB/s |
+//! | `get` (empty)                | 12.699 μs | 2.0141 GiB/s |
+//! | `get` (filled)               | 29.220 μs | 896.28 MiB/s |
 //!
 //! ### ThreadedRodeo
 //!

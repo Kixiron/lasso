@@ -8,6 +8,7 @@ compile! {
             alloc::{alloc, dealloc, Layout},
             format,
             vec::Vec,
+            vec,
         };
     } else {
         use std::alloc::{alloc, dealloc, Layout};
@@ -33,9 +34,8 @@ impl Arena {
         let capacity = unsafe { NonZeroUsize::new_unchecked(4096) };
 
         Self {
-            // Leave space for a single bucket
-            // TODO: Should one bucket be constructed at init time?
-            buckets: Vec::with_capacity(1),
+            // Allocate one bucket
+            buckets: vec![Bucket::with_capacity(capacity)],
             capacity,
         }
     }
@@ -54,15 +54,6 @@ impl Arena {
         // the interner should ensure that only one empty string is ever interned
         let len = cmp::max(slice.len(), 1);
 
-        // TODO: Some space is theoretically wasted here since if a string larger than capacity is interned all
-        //       other buckets are never looked at again. This could potentially be exploited by interning exponentially
-        //       larger strings but could be solved by:
-        //          A. Linearly searching every bucket at internment time
-        //              1. First to last, wasteful but guarantees that we always make the best use possible
-        //              2. Last to first, hits the most likely buckets first but makes an exceptionally slow slow path
-        //          B. Deallocating excess memory in buckets
-        //              1. A sweep function that scans all buckets and deallocates extra
-        //              2. Deallocating the previous bucket's extra memory whenever a new one is created
         if let Some(bucket) = self
             .buckets
             .last_mut()
@@ -74,19 +65,32 @@ impl Arena {
 
         // SPEED: This portion of the code could be pulled into a cold path
 
-        // Set the current capacity to the greater of the current capacity or the current string's length
-        // before multiplying it by two so that allocations are less frequent with the amount of strings you intern
-        // Safety: Capacity and len will always be >= 1
-        self.capacity =
-            unsafe { NonZeroUsize::new_unchecked(cmp::max(self.capacity.get(), len) * 2) };
+        let next_capacity = self.capacity.get() * 2;
 
-        let mut bucket = Bucket::with_capacity(self.capacity);
+        // If the current string's length is greater than the doubled current capacity, allocate a bucket exactly the
+        // size of the large string and push it back in the buckets vector. This ensures that obscenely large strings will
+        // not permanently affect the resource consumption of the interner
+        if len > next_capacity {
+            // Safety: len will always be >= 1
+            let mut bucket = Bucket::with_capacity(unsafe { NonZeroUsize::new_unchecked(len) });
 
-        // Safety: The new bucket will have enough room for the slice
-        let allocated_string = unsafe { bucket.push_slice(slice) };
-        self.buckets.push(bucket);
+            // Safety: The new bucket will have exactly enough room for the string
+            let allocated_string = unsafe { bucket.push_slice(slice) };
+            self.buckets.insert(self.buckets.len() - 2, bucket);
 
-        allocated_string
+            allocated_string
+        } else {
+            // Set the capacity to twice of what it currently is to allow for fewer allocations as more strings are interned
+            // Safety: capacity will always be >= 1
+            self.capacity = unsafe { NonZeroUsize::new_unchecked(next_capacity) };
+            let mut bucket = Bucket::with_capacity(self.capacity);
+
+            // Safety: The new bucket will have enough room for the string
+            let allocated_string = unsafe { bucket.push_slice(slice) };
+            self.buckets.push(bucket);
+
+            allocated_string
+        }
     }
 }
 
