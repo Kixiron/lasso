@@ -1,6 +1,5 @@
 use crate::{
     arena::Arena,
-    internable::Internable,
     key::{Key, Spur},
     util::{Iter, Strings},
 };
@@ -21,22 +20,20 @@ compile! {
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoResolver<V = str, K = Spur>
+pub struct RodeoResolver<K = Spur>
 where
-    V: Internable + ?Sized,
     K: Key,
 {
     /// Vector of strings mapped to key indexes that allows key to string resolution
-    pub(crate) strings: Vec<&'static V>,
+    pub(crate) strings: Vec<&'static str>,
     /// The arena that contains all the strings
-    arena: Arena<V::Raw>,
+    arena: Arena,
     /// The type of the key
     __key: PhantomData<K>,
 }
 
-impl<V, K> RodeoResolver<V, K>
+impl<K> RodeoResolver<K>
 where
-    V: Internable + ?Sized,
     K: Key,
 {
     /// Creates a new RodeoResolver
@@ -46,7 +43,7 @@ where
     /// The references inside of `strings` must be absolutely unique, meaning
     /// that no other references to those strings exist
     ///
-    pub(crate) unsafe fn new(strings: Vec<&'static V>, arena: Arena<V::Raw>) -> Self {
+    pub(crate) unsafe fn new(strings: Vec<&'static str>, arena: Arena) -> Self {
         Self {
             strings,
             arena,
@@ -76,7 +73,7 @@ where
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub fn resolve<'a>(&'a self, key: &K) -> &'a V {
+    pub fn resolve<'a>(&'a self, key: &K) -> &'a str {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid
@@ -106,7 +103,7 @@ where
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a V> {
+    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid
@@ -143,7 +140,7 @@ where
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a V {
+    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
         self.strings.get_unchecked(key.into_usize())
     }
 
@@ -188,21 +185,20 @@ where
 
     /// Returns an iterator over the interned strings and their key values
     #[inline]
-    pub fn iter(&self) -> Iter<'_, V, K> {
+    pub fn iter(&self) -> Iter<'_, K> {
         Iter::from_resolver(self)
     }
 
     /// Returns an iterator over the interned strings
     #[inline]
-    pub fn strings(&self) -> Strings<'_, V, K> {
+    pub fn strings(&self) -> Strings<'_, K> {
         Strings::from_resolver(self)
     }
 }
 
 /// Deallocate the leaked strings interned by RodeoResolver
-impl<V, K> Drop for RodeoResolver<V, K>
+impl<K> Drop for RodeoResolver<K>
 where
-    V: Internable + ?Sized,
     K: Key,
 {
     #[inline]
@@ -213,19 +209,8 @@ where
     }
 }
 
-unsafe impl<V, K> Send for RodeoResolver<V, K>
-where
-    V: Internable + ?Sized + Send,
-    K: Key + Send,
-{
-}
-
-unsafe impl<V, K> Sync for RodeoResolver<V, K>
-where
-    V: Internable + ?Sized + Sync,
-    K: Key + Sync,
-{
-}
+unsafe impl<K> Send for RodeoResolver<K> where K: Key + Send {}
+unsafe impl<K> Sync for RodeoResolver<K> where K: Key + Sync {}
 
 #[cfg(test)]
 mod tests {

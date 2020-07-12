@@ -1,14 +1,13 @@
 use crate::{
     arena::Arena,
-    hasher::{HashMap, RandomState},
-    internable::Internable,
+    hasher::RandomState,
     key::{Key, Spur},
     reader::RodeoReader,
     resolver::RodeoResolver,
     util::{Iter, Strings},
 };
-
-use core::hash::BuildHasher;
+use core::hash::{BuildHasher, Hash, Hasher};
+use hashbrown::{hash_map::RawEntryMut, HashMap};
 
 compile! {
     if #[feature = "no-std"] {
@@ -21,25 +20,40 @@ compile! {
 ///
 /// By default Rodeo uses the [`Spur`] type for keys and [`RandomState`] as its hasher
 ///
-/// [`RandomState`]: index.html#cargo-features
+/// [`Spur`]: crate::Spur
+/// [`RandomState`]: https://doc.rust-lang.org/std/collections/hash_map/struct.RandomState.html
 #[derive(Debug)]
-pub struct Rodeo<V = str, K = Spur, S = RandomState>
+pub struct Rodeo<K = Spur, S = RandomState>
 where
-    V: Internable + ?Sized,
     K: Key,
     S: BuildHasher + Clone,
 {
     /// Map that allows `str` -> `key` resolution
-    map: HashMap<&'static V, K, S>,
+    ///
+    /// This must be a `HashMap` (for now) since `raw_api`s are only avaliable for maps and not sets.
+    /// The value of the map is `()` since the key is symbolically hashed as the string it represents and
+    /// the hasher is also `()` so that we only store one hasher, the custom one contained in the `Rodeo` itself
+    ///
+    /// The keys stored in this map are not hashed as keys, they're inserted
+    /// with the hashes of the strings that they point to
+    ///
+    /// For example, if the string `foo` has the key of `FooKey` and the hash of `0xF00`,
+    /// then the hashmap will contain `FooKey` at the hashed location of `0xF00`.
+    ///
+    /// This allows us to only store references to the internally allocated strings once,
+    /// which drastically decreases memory usage
+    map: HashMap<K, (), ()>,
+    /// The hasher of the map. This is stored outside of the map so that we can use
+    /// custom hashing on the keys of the map without the map itself trying to do something else
+    hasher: S,
     /// Vec that allows `key` -> `str` resolution
-    pub(crate) strings: Vec<&'static V>,
+    pub(crate) strings: Vec<&'static str>,
     /// The arena that holds all allocated strings
-    arena: Arena<V::Raw>,
+    arena: Arena,
 }
 
-impl<V, K> Rodeo<V, K, RandomState>
+impl<K> Rodeo<K, RandomState>
 where
-    V: Internable + ?Sized,
     K: Key,
 {
     /// Create a new Rodeo
@@ -49,7 +63,7 @@ where
     /// ```rust
     /// use lasso::{Rodeo, Spur};
     ///
-    /// let mut rodeo: Rodeo<str, Spur> = Rodeo::new();
+    /// let mut rodeo: Rodeo<Spur> = Rodeo::new();
     /// let hello = rodeo.get_or_intern("Hello, ");
     /// let world = rodeo.get_or_intern("World!");
     ///
@@ -60,7 +74,8 @@ where
     #[inline]
     pub fn new() -> Self {
         Self {
-            map: HashMap::with_hasher(RandomState::new()),
+            map: HashMap::with_hasher(()),
+            hasher: RandomState::new(),
             strings: Vec::new(),
             arena: Arena::default(),
         }
@@ -74,22 +89,22 @@ where
     /// ```rust
     /// use lasso::{Rodeo, Spur};
     ///
-    /// let rodeo: Rodeo<str, Spur> = Rodeo::with_capacity(10);
+    /// let rodeo: Rodeo<Spur> = Rodeo::with_capacity(10);
     /// ```
     ///
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            map: HashMap::with_capacity_and_hasher(capacity, RandomState::new()),
+            map: HashMap::with_capacity_and_hasher(capacity, ()),
+            hasher: RandomState::new(),
             strings: Vec::with_capacity(capacity),
             arena: Arena::default(),
         }
     }
 }
 
-impl<V, K, S> Rodeo<V, K, S>
+impl<K, S> Rodeo<K, S>
 where
-    V: Internable + ?Sized,
     K: Key,
     S: BuildHasher + Clone,
 {
@@ -101,13 +116,14 @@ where
     /// use lasso::{Spur, Rodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: Rodeo<str, Spur, RandomState> = Rodeo::with_hasher(RandomState::new());
+    /// let rodeo: Rodeo<Spur, RandomState> = Rodeo::with_hasher(RandomState::new());
     /// ```
     ///
     #[inline]
     pub fn with_hasher(hash_builder: S) -> Self {
         Self {
-            map: HashMap::with_hasher(hash_builder),
+            map: HashMap::with_hasher(()),
+            hasher: hash_builder,
             strings: Vec::new(),
             arena: Arena::default(),
         }
@@ -121,13 +137,14 @@ where
     /// use lasso::{Spur, Rodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: Rodeo<str, Spur, RandomState> = Rodeo::with_capacity_and_hasher(10, RandomState::new());
+    /// let rodeo: Rodeo<Spur, RandomState> = Rodeo::with_capacity_and_hasher(10, RandomState::new());
     /// ```
     ///
     #[inline]
     pub fn with_capacity_and_hasher(capacity: usize, hash_builder: S) -> Self {
         Self {
-            map: HashMap::with_capacity_and_hasher(capacity, hash_builder),
+            map: HashMap::with_capacity_and_hasher(capacity, ()),
+            hasher: hash_builder,
             strings: Vec::with_capacity(capacity),
             arena: Arena::default(),
         }
@@ -154,55 +171,10 @@ where
     #[inline]
     pub fn get_or_intern<T>(&mut self, val: T) -> K
     where
-        T: AsRef<V>,
+        T: AsRef<str>,
     {
-        // When the feature-set supports it, only hash the value once
-        compile_expr! {
-            if #[any(feature = "nightly", feature = "hashbrown-table")] {
-                use core::hash::Hasher;
-
-                compile! {
-                    if #[feature = "hashbrown-table"] {
-                        use hashbrown::hash_map::RawEntryMut;
-                    } else if #[feature = "nightly"] {
-                        use std::collections::hash_map::RawEntryMut;
-                    }
-                }
-
-                let mut hasher = self.map.hasher().build_hasher();
-                val.as_ref().hash(&mut hasher);
-                let hash = hasher.finish();
-
-                match self.map.raw_entry_mut().from_key_hashed_nocheck(hash, val.as_ref()) {
-                    RawEntryMut::Occupied(entry) => *entry.get(),
-                    RawEntryMut::Vacant(entry) => {
-                        let key = K::try_from_usize(self.strings.len()).expect("Failed to get or intern string");
-
-                        // Safety: The drop impl removes all references before the arena is dropped
-                        let item = unsafe { V::from_raw(self.arena.store_slice(val.as_ref().to_raw())) };
-
-                        entry.insert_hashed_nocheck(hash, item, key);
-                        self.strings.push(item);
-
-                        key
-                    }
-                }
-            } else {
-                if let Some(key) = self.get(&val) {
-                    key
-                } else {
-                    let key = K::try_from_usize(self.strings.len()).expect("Failed to get or intern string");
-
-                    // Safety: The drop impl removes all references before the arena is dropped
-                    let item = unsafe { V::from_raw(self.arena.store_slice(val.as_ref().to_raw())) };
-
-                    self.map.insert(item, key);
-                    self.strings.push(item);
-
-                    key
-                }
-            }
-        }
+        self.try_get_or_intern(val)
+            .expect("Failed to get or intern string")
     }
 
     /// Get the key for a string, interning it if it does not yet exist
@@ -215,66 +187,163 @@ where
     /// let mut rodeo = Rodeo::default();
     ///
     /// // Interned the string
-    /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
+    /// let key = rodeo.try_get_or_intern("Strings of things with wings and dings").unwrap();
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     ///
     /// // No string was interned, as it was already contained
-    /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
+    /// let key = rodeo.try_get_or_intern("Strings of things with wings and dings").unwrap();
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     /// ```
     ///
     #[inline]
     pub fn try_get_or_intern<T>(&mut self, val: T) -> Option<K>
     where
-        T: AsRef<V>,
+        T: AsRef<str>,
     {
-        // When the feature-set supports it, only hash the value once
-        compile_expr! {
-            if #[any(feature = "nightly", feature = "hashbrown-table")] {
-                use core::hash::Hasher;
+        let Self {
+            map,
+            hasher,
+            strings,
+            arena,
+        } = self;
 
-                compile! {
-                    if #[feature = "hashbrown-table"] {
-                        use hashbrown::hash_map::RawEntryMut;
-                    } else if #[feature = "nightly"] {
-                        use std::collections::hash_map::RawEntryMut;
-                    }
-                }
+        let string_slice: &str = val.as_ref();
 
-                let mut hasher = self.map.hasher().build_hasher();
-                val.as_ref().hash(&mut hasher);
-                let hash = hasher.finish();
+        // Make a hash of the requested string
+        let hash = {
+            let mut state = hasher.build_hasher();
+            string_slice.hash(&mut state);
 
-                match self.map.raw_entry_mut().from_key_hashed_nocheck(hash, val.as_ref()) {
-                    RawEntryMut::Occupied(entry) => Some(*entry.get()),
-                    RawEntryMut::Vacant(entry) => {
-                        let key = K::try_from_usize(self.strings.len())?;
+            state.finish()
+        };
 
-                        // Safety: The drop impl removes all references before the arena is dropped
-                        let item = unsafe { V::from_raw(self.arena.store_slice(val.as_ref().to_raw())) };
+        // Get the map's entry that the string should occupy
+        let entry = map.raw_entry_mut().from_hash(hash, |key| {
+            // Safety: The index given by `key` will be in bounds of the strings vector
+            let key_string: &str = unsafe { index_unchecked!(strings, key.into_usize()) };
 
-                        entry.insert_hashed_nocheck(hash, item, key);
-                        self.strings.push(item);
+            // Compare the requested string against the key's string
+            string_slice == key_string
+        });
 
-                        Some(key)
-                    }
-                }
-            } else {
-                if let Some(key) = self.get(&val) {
-                    Some(key)
-                } else {
-                    let key = K::try_from_usize(self.strings.len())?;
+        let key = match entry {
+            // The string already exists, so return its key
+            RawEntryMut::Occupied(entry) => *entry.into_key(),
 
-                    // Safety: The drop impl removes all references before the arena is dropped
-                    let item = unsafe { V::from_raw(self.arena.store_slice(val.as_ref().to_raw())) };
+            // The string does not yet exist, so insert it and create its key
+            RawEntryMut::Vacant(entry) => {
+                // Create the key from the vec's index that the string will hold
+                let key = K::try_from_usize(strings.len())?;
 
-                    self.map.insert(item, key);
-                    self.strings.push(item);
+                // Allocate the string in the arena
+                // Safety: The returned strings will be dropped before the arena that created them is
+                let allocated = unsafe { arena.store_str(string_slice) };
 
-                    Some(key)
-                }
+                // Push the allocated string to the strings vector
+                strings.push(allocated);
+
+                // Insert the key with the hash of the string that it points to, reusing the hash we made earlier
+                entry.insert_with_hasher(hash, key, (), |_| hash);
+
+                key
             }
-        }
+        };
+
+        Some(key)
+    }
+
+    /// Get the key for a static string, interning it if it does not yet exist
+    ///
+    /// This will not reallocate and copy the given string but will instead just store it
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::Rodeo;
+    ///
+    /// let mut rodeo = Rodeo::default();
+    ///
+    /// // Interned the string
+    /// let key = rodeo.get_or_intern_static("Strings of things with wings and dings");
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    ///
+    /// // No string was interned, as it was already contained
+    /// let key = rodeo.get_or_intern_static("Strings of things with wings and dings");
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    /// ```
+    ///
+    #[inline]
+    pub fn get_or_intern_static(&mut self, string: &'static str) -> K {
+        self.try_get_or_intern_static(string)
+            .expect("Failed to get or intern static string")
+    }
+
+    /// Get the key for a static string, interning it if it does not yet exist
+    ///
+    /// This will not reallocate and copy the given string but will instead just store it
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::Rodeo;
+    ///
+    /// let mut rodeo = Rodeo::default();
+    ///
+    /// // Interned the string
+    /// let key = rodeo.try_get_or_intern_static("Strings of things with wings and dings").unwrap();
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    ///
+    /// // No string was interned, as it was already contained
+    /// let key = rodeo.try_get_or_intern_static("Strings of things with wings and dings").unwrap();
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    /// ```
+    ///
+    #[inline]
+    pub fn try_get_or_intern_static(&mut self, string: &'static str) -> Option<K> {
+        let Self {
+            map,
+            hasher,
+            strings,
+            ..
+        } = self;
+
+        // Make a hash of the requested string
+        let hash = {
+            let mut state = hasher.build_hasher();
+            string.hash(&mut state);
+
+            state.finish()
+        };
+
+        // Get the map's entry that the string should occupy
+        let entry = map.raw_entry_mut().from_hash(hash, |key| {
+            // Safety: The index given by `key` will be in bounds of the strings vector
+            let key_string: &str = unsafe { index_unchecked!(strings, key.into_usize()) };
+
+            // Compare the requested string against the key's string
+            string == key_string
+        });
+
+        let key = match entry {
+            // The string already exists, so return its key
+            RawEntryMut::Occupied(entry) => *entry.into_key(),
+
+            // The string does not yet exist, so insert it and create its key
+            RawEntryMut::Vacant(entry) => {
+                // Create the key from the vec's index that the string will hold
+                let key = K::try_from_usize(strings.len())?;
+
+                // Push the static string to the strings vector
+                strings.push(string);
+
+                // Insert the key with the hash of the string that it points to, reusing the hash we made earlier
+                entry.insert_with_hasher(hash, key, (), |_| hash);
+
+                key
+            }
+        };
+
+        Some(key)
     }
 
     /// Get the key value of a string, returning `None` if it doesn't exist
@@ -295,9 +364,28 @@ where
     #[inline]
     pub fn get<T>(&self, val: T) -> Option<K>
     where
-        T: AsRef<V>,
+        T: AsRef<str>,
     {
-        self.map.get(val.as_ref()).map(|&k| k)
+        let string_slice: &str = val.as_ref();
+
+        // Make a hash of the requested string
+        let hash = {
+            let mut state = self.hasher.build_hasher();
+            string_slice.hash(&mut state);
+
+            state.finish()
+        };
+
+        // Get the map's entry that the string should occupy
+        let entry = self.map.raw_entry().from_hash(hash, |key| {
+            // Safety: The index given by `key` will be in bounds of the strings vector
+            let key_string: &str = unsafe { index_unchecked!(self.strings, key.into_usize()) };
+
+            // Compare the requested string against the
+            string_slice == key_string
+        });
+
+        entry.map(|(key, ())| *key)
     }
 
     /// Resolves a string by its key. Only keys made by the current Rodeo may be used
@@ -318,7 +406,7 @@ where
     /// ```
     ///
     #[inline]
-    pub fn resolve<'a>(&'a self, key: &K) -> &'a V {
+    pub fn resolve<'a>(&'a self, key: &K) -> &'a str {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid
@@ -344,7 +432,7 @@ where
     /// ```
     ///
     #[inline]
-    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a V> {
+    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid
@@ -378,7 +466,7 @@ where
     /// ```
     ///
     #[inline]
-    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a V {
+    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
         self.strings.get_unchecked(key.into_usize())
     }
 
@@ -423,7 +511,7 @@ where
     /// ```rust
     /// use lasso::{Spur, Rodeo};
     ///
-    /// let rodeo: Rodeo<str, Spur> = Rodeo::with_capacity(10);
+    /// let rodeo: Rodeo<Spur> = Rodeo::with_capacity(10);
     /// assert_eq!(rodeo.capacity(), 10);
     /// ```
     ///
@@ -436,20 +524,19 @@ where
 
     /// Returns an iterator over the interned strings and their key values
     #[inline]
-    pub fn iter(&self) -> Iter<'_, V, K> {
+    pub fn iter(&self) -> Iter<'_, K> {
         Iter::from_rodeo(self)
     }
 
     /// Returns an iterator over the interned strings
     #[inline]
-    pub fn strings(&self) -> Strings<'_, V, K> {
+    pub fn strings(&self) -> Strings<'_, K> {
         Strings::from_rodeo(self)
     }
 }
 
-impl<V, K, S> Rodeo<V, K, S>
+impl<K, S> Rodeo<K, S>
 where
-    V: Internable + ?Sized,
     K: Key + Default,
     S: BuildHasher + Clone,
 {
@@ -474,15 +561,16 @@ where
     /// [`RodeoReader`]: crate::RodeoReader
     #[inline]
     #[must_use]
-    pub fn into_reader(self) -> RodeoReader<V, K, S> {
+    pub fn into_reader(self) -> RodeoReader<K, S> {
         let Self {
             map,
+            hasher,
             strings,
             arena,
         } = self;
 
         // Safety: No other references outside of `map` and `strings` to the interned strings exist
-        unsafe { RodeoReader::new(map, strings, arena) }
+        unsafe { RodeoReader::new(map, hasher, strings, arena) }
     }
 
     /// Consumes the current Rodeo, returning a [`RodeoResolver`] to allow contention-free access of the interner
@@ -506,12 +594,8 @@ where
     /// [`RodeoResolver`]: crate::RodeoResolver
     #[inline]
     #[must_use]
-    pub fn into_resolver(self) -> RodeoResolver<V, K> {
-        let Rodeo {
-            map: _map,
-            strings,
-            arena,
-        } = self;
+    pub fn into_resolver(self) -> RodeoResolver<K> {
+        let Rodeo { strings, arena, .. } = self;
 
         // Safety: No other references to the strings exist
         unsafe { RodeoResolver::new(strings, arena) }
@@ -522,16 +606,15 @@ where
 ///
 /// [`Spur`]: crate::Spur
 /// [`RandomState`]: index.html#cargo-features
-impl Default for Rodeo<str, Spur, RandomState> {
+impl Default for Rodeo<Spur, RandomState> {
     #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
-unsafe impl<V, K, S> Send for Rodeo<V, K, S>
+unsafe impl<K, S> Send for Rodeo<K, S>
 where
-    V: Internable + ?Sized + Send,
     K: Key + Send,
     S: BuildHasher + Clone + Send,
 {
@@ -549,13 +632,13 @@ mod tests {
 
     #[test]
     fn new() {
-        let mut rodeo: Rodeo<str, Spur> = Rodeo::new();
+        let mut rodeo: Rodeo<Spur> = Rodeo::new();
         rodeo.get_or_intern("Test");
     }
 
     #[test]
     fn with_capacity() {
-        let mut rodeo: Rodeo<str, Spur> = Rodeo::with_capacity(10);
+        let mut rodeo: Rodeo<Spur> = Rodeo::with_capacity(10);
         assert_eq!(rodeo.capacity(), 10);
 
         rodeo.get_or_intern("Test");
@@ -574,11 +657,11 @@ mod tests {
 
     #[test]
     fn with_hasher() {
-        let mut rodeo: Rodeo<str, Spur, RandomState> = Rodeo::with_hasher(RandomState::new());
+        let mut rodeo: Rodeo<Spur, RandomState> = Rodeo::with_hasher(RandomState::new());
         let key = rodeo.get_or_intern("Test");
         assert_eq!("Test", rodeo.resolve(&key));
 
-        let mut rodeo: Rodeo<str, Spur, ahash::RandomState> =
+        let mut rodeo: Rodeo<Spur, ahash::RandomState> =
             Rodeo::with_hasher(ahash::RandomState::new());
         let key = rodeo.get_or_intern("Test");
         assert_eq!("Test", rodeo.resolve(&key));
@@ -586,7 +669,7 @@ mod tests {
 
     #[test]
     fn with_capacity_and_hasher() {
-        let mut rodeo: Rodeo<str, Spur, RandomState> =
+        let mut rodeo: Rodeo<Spur, RandomState> =
             Rodeo::with_capacity_and_hasher(10, RandomState::new());
         assert_eq!(rodeo.capacity(), 10);
 
@@ -603,7 +686,7 @@ mod tests {
 
         assert_eq!(rodeo.len(), rodeo.capacity());
 
-        let mut rodeo: Rodeo<str, Spur, ahash::RandomState> =
+        let mut rodeo: Rodeo<Spur, ahash::RandomState> =
             Rodeo::with_capacity_and_hasher(10, ahash::RandomState::new());
         assert_eq!(rodeo.capacity(), 10);
 
@@ -636,7 +719,7 @@ mod tests {
 
     #[test]
     fn try_get_or_intern() {
-        let mut rodeo: Rodeo<str, MicroSpur> = Rodeo::new();
+        let mut rodeo: Rodeo<MicroSpur> = Rodeo::new();
 
         for i in 0..u8::max_value() as usize - 1 {
             rodeo.get_or_intern(i.to_string());
@@ -647,6 +730,46 @@ mod tests {
         assert_eq!("A", rodeo.resolve(&space));
 
         assert!(rodeo.try_get_or_intern("C").is_none());
+    }
+
+    #[test]
+    fn get_or_intern_static() {
+        let mut rodeo = Rodeo::default();
+        let a = rodeo.get_or_intern_static("A");
+        assert_eq!(a, rodeo.get_or_intern_static("A"));
+
+        let b = rodeo.get_or_intern_static("B");
+        assert_eq!(b, rodeo.get_or_intern_static("B"));
+
+        let c = rodeo.get_or_intern_static("C");
+        assert_eq!(c, rodeo.get_or_intern_static("C"));
+    }
+
+    #[test]
+    fn try_get_or_intern_static() {
+        use core::pin::Pin;
+        compile! {
+            if #[feature = "no-std"] {
+                use alloc::vec::Vec;
+            }
+        }
+
+        let mut strings = Vec::new();
+        let mut rodeo: Rodeo<MicroSpur> = Rodeo::new();
+
+        for i in 0..u8::max_value() as usize - 1 {
+            let string = Pin::new(i.to_string().into_boxed_str());
+            let static_ref = unsafe { core::mem::transmute(Pin::into_inner(string.as_ref())) };
+            strings.push(string);
+
+            rodeo.get_or_intern_static(static_ref);
+        }
+
+        let space = rodeo.try_get_or_intern_static("A").unwrap();
+        assert_eq!(Some(space), rodeo.try_get_or_intern_static("A"));
+        assert_eq!("A", rodeo.resolve(&space));
+
+        assert!(rodeo.try_get_or_intern_static("C").is_none());
     }
 
     #[test]

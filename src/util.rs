@@ -1,27 +1,22 @@
-use crate::{
-    internable::Internable, key::Key, reader::RodeoReader, resolver::RodeoResolver,
-    single_threaded::Rodeo,
-};
+use crate::{key::Key, reader::RodeoReader, resolver::RodeoResolver, single_threaded::Rodeo};
 
 use core::{hash::BuildHasher, iter, marker::PhantomData, slice};
 
 #[derive(Debug)]
-pub struct Iter<'a, V, K>
+pub struct Iter<'a, K>
 where
-    V: Internable + ?Sized,
     K: Key,
 {
-    iter: iter::Enumerate<slice::Iter<'a, &'a V>>,
+    iter: iter::Enumerate<slice::Iter<'a, &'a str>>,
     __key: PhantomData<K>,
 }
 
-impl<'a, V, K> Iter<'a, V, K>
+impl<'a, K> Iter<'a, K>
 where
-    V: Internable + ?Sized,
     K: Key,
 {
     #[inline]
-    pub(crate) fn from_rodeo<H>(rodeo: &'a Rodeo<V, K, H>) -> Self
+    pub(crate) fn from_rodeo<H>(rodeo: &'a Rodeo<K, H>) -> Self
     where
         H: BuildHasher + Clone,
     {
@@ -32,7 +27,7 @@ where
     }
 
     #[inline]
-    pub(crate) fn from_reader<H: BuildHasher + Clone>(rodeo: &'a RodeoReader<V, K, H>) -> Self {
+    pub(crate) fn from_reader<H: BuildHasher + Clone>(rodeo: &'a RodeoReader<K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -40,7 +35,7 @@ where
     }
 
     #[inline]
-    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<V, K>) -> Self {
+    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<K>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -48,12 +43,11 @@ where
     }
 }
 
-impl<'a, V, K> Iterator for Iter<'a, V, K>
+impl<'a, K> Iterator for Iter<'a, K>
 where
-    V: Internable + ?Sized,
     K: Key,
 {
-    type Item = (K, &'a V);
+    type Item = (K, &'a str);
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -94,22 +88,20 @@ where
 // }
 
 #[derive(Debug)]
-pub struct Strings<'a, V, K>
+pub struct Strings<'a, K>
 where
-    V: Internable + ?Sized,
     K: Key,
 {
-    iter: slice::Iter<'a, &'a V>,
+    iter: slice::Iter<'a, &'a str>,
     __key: PhantomData<K>,
 }
 
-impl<'a, V, K> Strings<'a, V, K>
+impl<'a, K> Strings<'a, K>
 where
-    V: Internable + ?Sized,
     K: Key,
 {
     #[inline]
-    pub(crate) fn from_rodeo<H: BuildHasher + Clone>(rodeo: &'a Rodeo<V, K, H>) -> Self
+    pub(crate) fn from_rodeo<H: BuildHasher + Clone>(rodeo: &'a Rodeo<K, H>) -> Self
     where
         H: BuildHasher + Clone,
     {
@@ -120,7 +112,7 @@ where
     }
 
     #[inline]
-    pub(crate) fn from_reader<H: BuildHasher + Clone>(rodeo: &'a RodeoReader<V, K, H>) -> Self {
+    pub(crate) fn from_reader<H: BuildHasher + Clone>(rodeo: &'a RodeoReader<K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -128,7 +120,7 @@ where
     }
 
     #[inline]
-    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<V, K>) -> Self {
+    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<K>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -136,12 +128,11 @@ where
     }
 }
 
-impl<'a, V, K> Iterator for Strings<'a, V, K>
+impl<'a, K> Iterator for Strings<'a, K>
 where
-    V: Internable + ?Sized,
     K: Key,
 {
-    type Item = &'a V;
+    type Item = &'a str;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -226,71 +217,21 @@ macro_rules! compile {
 
     (@inner ($($prev_metas:tt)*))=>{};
 }
-macro_rules! compile_expr {
-    ($(
-        if #[$meta:meta] {
-            $( $stmt:tt )*
-        } $(else if #[$else_if_meta:meta] {
-            $( $else_if_stmt:tt )*
-        })* $(else {
-            $( $else_stmt:tt )*
-        })?
-    )+) => {
-        $(
-            #[cfg($meta)]
-            {
-                $( $stmt )*
-            }
 
-            compile_expr! {
-                @inner
-                ( $meta, )
-                $(else if #[$else_if_meta] {
-                    $( $else_if_stmt )*
-                })* $(else {
-                    $( $else_stmt )*
-                })?
-            }
-        )+
-    };
+#[cfg(debug_assertions)]
+macro_rules! index_unchecked {
+    ($slice:expr, $idx:expr) => {{
+        let elem: &_ = $slice[$idx];
+        elem
+    }};
+}
 
-    (@recurse ($( $prev_metas:tt)* ) ($new_meta:meta) $( $rem:tt )*) => {
-        compile_expr! {
-            @inner
-            ($( $prev_metas )* $new_meta,)
-            $( $rem )*
-        }
-    };
-
-    (@inner
-        $prev_metas:tt
-        else if #[$meta:meta] {
-            $( $else_if_stmt:tt )*
-        }
-        $( $rem:tt )*
-    ) => {
-        #[cfg(all(not(any $prev_metas), $meta))]
-        {
-            $( $else_if_stmt )*
-        }
-
-        compile_expr! {
-            @recurse $prev_metas ($meta) $( $rem )*
-        }
-    };
-
-    (@inner $prev_metas:tt
-        else {
-            $( $else_stmt:tt )*
-        }
-    ) => {
-        #[cfg(not(any $prev_metas))]
-        {
-            $( $else_stmt )*
-        }
-    };
-
-    (@inner ($($prev_metas:tt)*)) => {};
+#[cfg(not(debug_assertions))]
+macro_rules! index_unchecked {
+    ($slice:expr, $idx:expr) => {{
+        let elem: &_ = $slice.get_unchecked($idx);
+        elem
+    }};
 }
 
 #[cfg(test)]

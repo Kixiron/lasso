@@ -1,8 +1,12 @@
 mod setup;
 
+use core::hash::BuildHasher;
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion, Throughput};
-use setup::{
-    run_threaded_filled, ThreadedRodeoEmptySetup, ThreadedRodeoFilledSetup, INPUT, NUM_THREADS,
+use lasso::{Spur, ThreadedRodeo};
+use setup::{bench_lines, INPUT, NUM_THREADS};
+use std::{
+    sync::{atomic::AtomicBool, Arc, Barrier},
+    thread,
 };
 
 fn rodeo_std(c: &mut Criterion) {
@@ -570,6 +574,119 @@ fn rodeo_fxhash_threaded(c: &mut Criterion) {
     });
 
     group.finish();
+}
+
+pub struct ThreadedRodeoFilledSetup<S: BuildHasher + Clone> {
+    lines: &'static [&'static str],
+    rodeo: ThreadedRodeo<Spur, S>,
+    keys: Vec<Spur>,
+}
+
+impl<S: BuildHasher + Clone> ThreadedRodeoFilledSetup<S> {
+    pub fn new(hash_builder: S) -> Self {
+        let lines = bench_lines();
+        let rodeo = ThreadedRodeo::with_capacity_and_hasher(lines.len(), hash_builder);
+        let keys = lines
+            .into_iter()
+            .map(|&line| rodeo.get_or_intern(line))
+            .collect::<Vec<_>>();
+
+        Self { lines, rodeo, keys }
+    }
+
+    pub fn into_inner(self) -> ThreadedRodeo<Spur, S> {
+        self.rodeo
+    }
+
+    pub fn lines(&self) -> &'static [&'static str] {
+        self.lines
+    }
+
+    pub fn filled_rodeo(&self) -> &ThreadedRodeo<Spur, S> {
+        &self.rodeo
+    }
+
+    pub fn filled_rodeo_mut(&mut self) -> &mut ThreadedRodeo<Spur, S> {
+        &mut self.rodeo
+    }
+
+    pub fn keys(&self) -> &[Spur] {
+        &self.keys
+    }
+}
+
+pub struct ThreadedRodeoEmptySetup<S: BuildHasher + Clone> {
+    lines: &'static [&'static str],
+    build_hasher: S,
+}
+
+impl<S: BuildHasher + Clone> ThreadedRodeoEmptySetup<S> {
+    pub fn new(build_hasher: S) -> Self {
+        let lines = bench_lines();
+
+        Self {
+            lines,
+            build_hasher,
+        }
+    }
+
+    pub fn empty_rodeo(&self) -> ThreadedRodeo<Spur, S> {
+        ThreadedRodeo::with_capacity_and_hasher(self.lines.len(), self.build_hasher.clone())
+    }
+
+    pub fn lines(&self) -> &'static [&'static str] {
+        self.lines
+    }
+}
+
+pub fn run_threaded_filled<F, S>(
+    func: F,
+    num_threads: usize,
+    iters: u64,
+    hash: S,
+) -> std::time::Duration
+where
+    F: FnOnce(&ThreadedRodeo<Spur, S>, &[Spur]) + Send + 'static + Clone + Copy,
+    S: BuildHasher + Clone + Send + Sync + 'static,
+{
+    use std::sync::atomic::Ordering;
+    use std::time::Instant;
+
+    let setup = ThreadedRodeoFilledSetup::new(hash);
+    let keys = setup.keys().to_vec();
+    let reader = Arc::new(setup.into_inner());
+    let barrier = Arc::new(Barrier::new(num_threads));
+    let mut threads = Vec::with_capacity(num_threads - 1);
+    let running = Arc::new(AtomicBool::new(true));
+
+    for _ in 0..num_threads - 1 {
+        let barrier = barrier.clone();
+        let reader = Arc::clone(&reader);
+        let func = func.clone();
+        let running = running.clone();
+        let keys = keys.clone();
+
+        threads.push(thread::spawn(move || {
+            let reader: &ThreadedRodeo<Spur, S> = &*reader;
+            barrier.wait();
+            while running.load(Ordering::Relaxed) {
+                func(reader, &keys)
+            }
+        }));
+    }
+
+    let reader: &ThreadedRodeo<Spur, S> = &*reader;
+    barrier.wait();
+    let start = Instant::now();
+    for _ in 0..iters {
+        func(reader, &keys);
+    }
+    let time = start.elapsed();
+
+    running.store(false, Ordering::Relaxed);
+    threads.into_iter().for_each(|x| x.join().unwrap());
+
+    time
 }
 
 criterion_group!(

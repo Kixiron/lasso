@@ -1,13 +1,12 @@
 use crate::{
     arena::Arena,
-    hasher::{HashMap, RandomState},
-    internable::Internable,
+    hasher::RandomState,
     key::{Key, Spur},
     resolver::RodeoResolver,
     util::{Iter, Strings},
 };
-
-use core::hash::BuildHasher;
+use core::hash::{BuildHasher, Hash, Hasher};
+use hashbrown::HashMap;
 
 compile! {
     if #[feature = "no-std"] {
@@ -24,20 +23,21 @@ compile! {
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoReader<V = str, K = Spur, S = RandomState>
+pub struct RodeoReader<K = Spur, S = RandomState>
 where
-    V: Internable + ?Sized,
     K: Key,
     S: BuildHasher + Clone,
 {
-    map: HashMap<&'static V, K, S>,
-    pub(crate) strings: Vec<&'static V>,
-    arena: Arena<V::Raw>,
+    // The logic behind this arrangement is more heavily documented inside of
+    // `Rodeo` itself
+    map: HashMap<K, (), ()>,
+    hasher: S,
+    pub(crate) strings: Vec<&'static str>,
+    arena: Arena,
 }
 
-impl<V, K, S> RodeoReader<V, K, S>
+impl<K, S> RodeoReader<K, S>
 where
-    V: Internable + ?Sized,
     K: Key,
     S: BuildHasher + Clone,
 {
@@ -49,12 +49,14 @@ where
     /// that no other references to those strings exist
     ///
     pub(crate) unsafe fn new(
-        map: HashMap<&'static V, K, S>,
-        strings: Vec<&'static V>,
-        arena: Arena<V::Raw>,
+        map: HashMap<K, (), ()>,
+        hasher: S,
+        strings: Vec<&'static str>,
+        arena: Arena,
     ) -> Self {
         Self {
             map,
+            hasher,
             strings,
             arena,
         }
@@ -80,9 +82,28 @@ where
     #[inline]
     pub fn get<T>(&self, val: T) -> Option<K>
     where
-        T: AsRef<V>,
+        T: AsRef<str>,
     {
-        self.map.get(val.as_ref()).map(|&k| k)
+        let string_slice: &str = val.as_ref();
+
+        // Make a hash of the requested string
+        let hash = {
+            let mut state = self.hasher.build_hasher();
+            string_slice.hash(&mut state);
+
+            state.finish()
+        };
+
+        // Get the map's entry that the string should occupy
+        let entry = self.map.raw_entry().from_hash(hash, |key| {
+            // Safety: The index given by `key` will be in bounds of the strings vector
+            let key_string: &str = unsafe { index_unchecked!(self.strings, key.into_usize()) };
+
+            // Compare the requested string against the key's string
+            string_slice == key_string
+        });
+
+        entry.map(|(key, ())| *key)
     }
 
     /// Resolves a string by its key. Only keys made by the current Resolver or the creator
@@ -107,7 +128,7 @@ where
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub fn resolve<'a>(&'a self, key: &K) -> &'a V {
+    pub fn resolve<'a>(&'a self, key: &K) -> &'a str {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid
@@ -136,7 +157,7 @@ where
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a V> {
+    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid
@@ -173,7 +194,7 @@ where
     ///
     /// [`Key`]: crate::Key
     #[inline]
-    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a V {
+    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
         self.strings.get_unchecked(key.into_usize())
     }
 
@@ -218,13 +239,13 @@ where
 
     /// Returns an iterator over the interned strings and their key values
     #[inline]
-    pub fn iter(&self) -> Iter<'_, V, K> {
+    pub fn iter(&self) -> Iter<'_, K> {
         Iter::from_reader(self)
     }
 
     /// Returns an iterator over the interned strings
     #[inline]
-    pub fn strings(&self) -> Strings<'_, V, K> {
+    pub fn strings(&self) -> Strings<'_, K> {
         Strings::from_reader(self)
     }
 
@@ -251,12 +272,8 @@ where
     /// [`RodeoResolver`]: crate::RodeoResolver
     #[inline]
     #[must_use]
-    pub fn into_resolver(self) -> RodeoResolver<V, K> {
-        let RodeoReader {
-            map: _map,
-            strings,
-            arena,
-        } = self;
+    pub fn into_resolver(self) -> RodeoResolver<K> {
+        let RodeoReader { strings, arena, .. } = self;
 
         // Safety: The current reader no longer contains references to the strings
         // in the vec given to RodeoResolver
@@ -264,17 +281,14 @@ where
     }
 }
 
-unsafe impl<V, K, S> Sync for RodeoReader<V, K, S>
+unsafe impl<K, S> Sync for RodeoReader<K, S>
 where
-    V: Internable + ?Sized + Sync,
     K: Key + Sync,
     S: BuildHasher + Clone + Sync,
 {
 }
-
-unsafe impl<V, K, S> Send for RodeoReader<V, K, S>
+unsafe impl<K, S> Send for RodeoReader<K, S>
 where
-    V: Internable + ?Sized + Send,
     K: Key + Send,
     S: BuildHasher + Clone + Send,
 {

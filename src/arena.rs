@@ -1,3 +1,7 @@
+// Unsafe blocks are used within unsafe functions for clarity on what is
+// unsafe code and why it's sound
+#![allow(unused_unsafe)]
+
 compile! {
     if #[feature = "no-std"] {
         use alloc::{
@@ -9,38 +13,28 @@ compile! {
         use std::alloc::{alloc, dealloc, Layout};
     }
 }
-
-use core::{
-    cmp, fmt, mem,
-    num::NonZeroUsize,
-    ptr::{self, NonNull},
-    slice,
-};
+use core::{cmp, fmt, mem, num::NonZeroUsize, ptr::NonNull, slice};
 
 /// An arena allocator that dynamically grows in size when needed, allocating memory in large chunks
-pub struct Arena<T: Sized + Clone> {
+pub(crate) struct Arena {
     /// All the internal buckets, storing all allocated and unallocated items
-    buckets: Vec<Bucket<T>>,
+    buckets: Vec<Bucket>,
     /// The default capacity of each bucket
     capacity: NonZeroUsize,
 }
 
-impl<T: Sized + Clone> Arena<T> {
-    /// Create a new Arena with the default bucket size of 4096 items
+impl Arena {
+    /// Create a new Arena with the default bucket size of 4096 bytes
     ///
     /// Note: When used with ZSTs, the bucket size will always be 1
     ///
     #[inline]
     pub fn new() -> Self {
-        let capacity = if mem::size_of::<T>() == 0 {
-            // Only make buckets of size 1 for zsts
-            unsafe { NonZeroUsize::new_unchecked(1) }
-        } else {
-            unsafe { NonZeroUsize::new_unchecked(4096) }
-        };
+        let capacity = unsafe { NonZeroUsize::new_unchecked(4096) };
 
         Self {
             // Leave space for a single bucket
+            // TODO: Should one bucket be constructed at init time?
             buckets: Vec::with_capacity(1),
             capacity,
         }
@@ -50,40 +44,59 @@ impl<T: Sized + Clone> Arena<T> {
     ///
     /// # Safety
     ///
-    /// The caller promises to forget the reference before the arena is dropped
+    /// The reference passed back must be dropped before the arena that created it is
     ///
     #[inline]
-    pub unsafe fn store_slice(&mut self, slice: &[T]) -> &'static [T] {
+    pub unsafe fn store_str(&mut self, string: &str) -> &'static str {
+        let slice = string.as_bytes();
+        // Ensure the length is at least 1, mainly for empty strings
+        // This theoretically wastes a single byte, but it shouldn't matter since
+        // the interner should ensure that only one empty string is ever interned
         let len = cmp::max(slice.len(), 1);
 
+        // TODO: Some space is theoretically wasted here since if a string larger than capacity is interned all
+        //       other buckets are never looked at again. This could potentially be exploited by interning exponentially
+        //       larger strings but could be solved by:
+        //          A. Linearly searching every bucket at internment time
+        //              1. First to last, wasteful but guarantees that we always make the best use possible
+        //              2. Last to first, hits the most likely buckets first but makes an exceptionally slow slow path
+        //          B. Deallocating excess memory in buckets
+        //              1. A sweep function that scans all buckets and deallocates extra
+        //              2. Deallocating the previous bucket's extra memory whenever a new one is created
         if let Some(bucket) = self
             .buckets
             .last_mut()
             .filter(|bucket| bucket.free_elements() >= len)
         {
             // Safety: The bucket found has enough room for the slice
-            return bucket.push_slice(slice);
+            return unsafe { bucket.push_slice(slice) };
         }
 
-        // Safety: Length is >= 1
-        let mut bucket =
-            Bucket::with_capacity(cmp::max(self.capacity, NonZeroUsize::new_unchecked(len)));
+        // SPEED: This portion of the code could be pulled into a cold path
+
+        // Set the current capacity to the greater of the current capacity or the current string's length
+        // before multiplying it by two so that allocations are less frequent with the amount of strings you intern
+        // Safety: Capacity and len will always be >= 1
+        self.capacity =
+            unsafe { NonZeroUsize::new_unchecked(cmp::max(self.capacity.get(), len) * 2) };
+
+        let mut bucket = Bucket::with_capacity(self.capacity);
 
         // Safety: The new bucket will have enough room for the slice
-        let static_slice = bucket.push_slice(slice);
+        let allocated_string = unsafe { bucket.push_slice(slice) };
         self.buckets.push(bucket);
 
-        static_slice
+        allocated_string
     }
 }
 
-impl<T: Clone> Default for Arena<T> {
+impl Default for Arena {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Clone> fmt::Debug for Arena<T> {
+impl fmt::Debug for Arena {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Arena")
             .field("buckets", &format!("... {} buckets", self.buckets.len()))
@@ -92,55 +105,69 @@ impl<T: Clone> fmt::Debug for Arena<T> {
 }
 
 /// A bucket to hold a number of stored items
-struct Bucket<T: Sized + Clone> {
+struct Bucket {
     /// The start of uninitialized memory within `items`
     index: usize,
     /// A pointer to the start of the data
-    items: NonNull<T>,
+    items: NonNull<u8>,
     /// The total number of Ts that can be stored
     capacity: NonZeroUsize,
 }
 
-impl<T: Sized + Clone> Drop for Bucket<T> {
+impl Drop for Bucket {
     fn drop(&mut self) {
-        // Safety: Only valid items are dropped, and then all memory is deallocated.
-        // All pointers are valid.
+        // Safety: We have exclusive access to the pointers since the contract of
+        //         `store_str` should be withheld
         unsafe {
             let items = self.items.as_ptr();
 
-            // Drop all initialized items
-            for i in 0..self.index {
-                ptr::drop_in_place(items.add(i));
-            }
+            debug_assert!(Layout::from_size_align(
+                mem::size_of::<u8>() * self.capacity.get(),
+                mem::align_of::<u8>(),
+            )
+            .is_ok());
 
             // Deallocate all memory that the bucket allocated
             dealloc(
                 items as *mut u8,
+                // Safety: Align will always be a non-zero power of two and the
+                //         size will not overflow when rounded up
                 Layout::from_size_align_unchecked(
-                    mem::size_of::<T>() * self.capacity.get(),
-                    mem::align_of::<T>(),
+                    mem::size_of::<u8>() * self.capacity.get(),
+                    mem::align_of::<u8>(),
                 ),
             );
         }
     }
 }
 
-impl<T: Sized + Clone> Bucket<T> {
+impl Bucket {
     /// Allocates a bucket with space for `capacity` items
     #[inline]
     pub(crate) fn with_capacity(capacity: NonZeroUsize) -> Self {
         unsafe {
+            debug_assert!(Layout::from_size_align(
+                mem::size_of::<u8>() * capacity.get(),
+                mem::align_of::<u8>(),
+            )
+            .is_ok());
+
+            // Safety: Align will always be a non-zero power of two and the
+            //         size will not overflow when rounded up
             let layout = Layout::from_size_align_unchecked(
-                mem::size_of::<T>() * capacity.get(),
-                mem::align_of::<T>(),
+                mem::size_of::<u8>() * capacity.get(),
+                mem::align_of::<u8>(),
             );
+
+            // Allocate the bucket's memory
+            let items = NonNull::new(alloc(layout))
+                .expect("Failed to allocate a new bucket, process out of memory")
+                .cast();
 
             Self {
                 index: 0,
                 capacity,
-                items: NonNull::new(alloc(layout))
-                    .expect("Failed to allocate a new bucket, process out of memory")
-                    .cast(),
+                items,
             }
         }
     }
@@ -162,25 +189,32 @@ impl<T: Sized + Clone> Bucket<T> {
     /// # Safety
     ///
     /// The current bucket must have room for all bytes of the slice and
-    /// the caller promises to forget the reference before the arena is dropped
+    /// the caller promises to forget the reference before the arena is dropped.
+    /// Additionally, `slice` must be valid UTF-8 and should come from an `&str`
     ///
     #[inline]
-    pub(crate) unsafe fn push_slice(&mut self, slice: &[T]) -> &'static [T] {
+    pub(crate) unsafe fn push_slice(&mut self, slice: &[u8]) -> &'static str {
         debug_assert!(!self.is_full());
         debug_assert!(slice.len() <= self.capacity.get() - self.index);
 
+        // Get a pointer to the start of free bytes
         let ptr = self.items.as_ptr().add(self.index);
+
+        // Make the slice that we'll fill with the string's data
         let target = slice::from_raw_parts_mut(ptr, slice.len());
-        target.clone_from_slice(slice);
+        // Copy the data from the source string into the bucket's buffer
+        target.copy_from_slice(slice);
+        // Increment the index so that the string we just made isn't overwritten
         self.index += slice.len();
 
-        // Safety: The caller promises to forget the reference before the arena is dropped
-        target
+        // Create a string from that slice
+        // Safety: The source string was valid utf8, so the created buffer will be as well
+        core::str::from_utf8_unchecked(target)
     }
 }
 
-unsafe impl<T: Send + Clone> Send for Bucket<T> {}
-unsafe impl<T: Sync + Clone> Sync for Bucket<T> {}
+unsafe impl Send for Bucket {}
+unsafe impl Sync for Bucket {}
 
 #[cfg(test)]
 mod tests {
@@ -190,9 +224,11 @@ mod tests {
     fn string() {
         let mut arena = Arena::new();
 
-        let slice = unsafe { arena.store_slice("test".as_bytes()) };
+        unsafe {
+            let idx = arena.store_str("test");
 
-        assert_eq!(slice, b"test");
+            assert_eq!(idx, "test");
+        }
     }
 
     #[test]
@@ -200,13 +236,27 @@ mod tests {
         let mut arena = Arena::new();
 
         unsafe {
-            let zst = arena.store_slice("".as_bytes());
-            let zst1 = arena.store_slice("".as_bytes());
-            let zst2 = arena.store_slice("".as_bytes());
+            let zst = arena.store_str("");
+            let zst1 = arena.store_str("");
+            let zst2 = arena.store_str("");
 
-            assert_eq!(zst, b"");
-            assert_eq!(zst1, b"");
-            assert_eq!(zst2, b"");
+            assert_eq!(zst, "");
+            assert_eq!(zst1, "");
+            assert_eq!(zst2, "");
+        }
+    }
+
+    #[test]
+    fn exponential_allocations() {
+        let mut arena = Arena::new();
+
+        let mut len = 4096;
+        for _ in 0..10 {
+            let large_string = "a".repeat(len);
+            let arena_string = unsafe { arena.store_str(&large_string) };
+            assert_eq!(arena_string, &large_string);
+
+            len *= 2;
         }
     }
 }

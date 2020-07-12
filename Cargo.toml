@@ -15,38 +15,35 @@ edition = "2018"
 
 [features]
 default = []
-multi-threaded = ["dashmap", "hashbrown"]
-no-std = ["ahasher", "hashbrown-table", "dashmap/no_std"]
-hashbrown-table = ["hashbrown"]
+multi-threaded = ["dashmap"]
+no-std = ["ahasher"]
 ahasher = ["ahash"]
-nightly = []
 serialize = ["serde"]
 
 # Provides a concurrent hashmap, enabled with the `multi-threaded` feature
 [dependencies.dashmap]
-version = "3.11.1"
+version = "3.11.7"
 features = ["raw-api"]
 optional = true
 
 # Provides a no_std hasher, enabled with the `no-std` feature
 [dependencies.ahash]
-version = "0.3.5"
+version = "0.4.2"
 optional = true
 
-# Provides a no_std hashmap, enabled with the `no-std` feature
+# Provides the hashmap that all single-threaded interners use
 [dependencies.hashbrown]
-version = "0.7.2"
-optional = true
+version = "0.8.0"
 
 # Allows {de}serialization of Spurs
 [dependencies.serde]
-version = "1.0.105"
+version = "1.0.114"
 features = ["derive"]
 optional = true
 
 # Benchmarking
 [dev-dependencies.criterion]
-version = "0.3.2"
+version = "0.3.3"
 
 # Benchmarking
 [dev-dependencies.lazy_static]
@@ -54,19 +51,15 @@ version = "1.4.0"
 
 # Cross-hash comparisons with benchmarking
 [dev-dependencies.ahash]
-version = "0.3.5"
+version = "0.4.2"
 
 # Cross-hash comparisons with benchmarking
 [dev-dependencies.fxhash]
 version = "0.2.1"
 
-# Cross-interner comparsions with benchmarking
-[dev-dependencies.string-interner]
-version = "0.7.1"
-
 # Testing serialization
 [dev-dependencies.serde_json]
-version = "1.0.53"
+version = "1.0.56"
 
 [[bench]]
 name = "single_threaded"
@@ -75,6 +68,7 @@ harness = false
 [[bench]]
 name = "multi_threaded"
 harness = false
+required-features = ["multi-threaded"]
 
 [[bench]]
 name = "reader"
@@ -82,10 +76,6 @@ harness = false
 
 [[bench]]
 name = "resolver"
-harness = false
-
-[[bench]]
-name = "string_interner"
 harness = false
 
 [package.metadata.docs.rs]
