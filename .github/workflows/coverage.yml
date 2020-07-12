@@ -9,6 +9,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+        with:
+          ref: master
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
