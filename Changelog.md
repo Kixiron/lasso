@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
 ## [0.3.0] - 2020-07-12
 
 This version really wouldn't be possible without the amazing work of @CAD97. They were an amazing asset in [improving the memory efficiency](https://github.com/Kixiron/lasso/issues/4) of lasso and I can't thank them enough
@@ -91,4 +92,4 @@ This version really wouldn't be possible without the amazing work of @CAD97. The
 
 <!-- next-url -->
 [Unreleased]: https://github.com/Kixiron/lasso/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/Kixiron/lasso/compare/...v0.3.0
+[0.3.0]: https://github.com/Kixiron/lasso/compare/v0.3.0
