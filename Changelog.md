@@ -13,6 +13,7 @@ This version really wouldn't be possible without the amazing work of @CAD97. The
 ### Added
 
 - Added the `get_or_intern_static` and `try_get_or_intern_static` methods for zero-copy static string internment
+- Added the `Capacity` struct for better internment estimates and more accurate pre-allocation
 
 ### Changed
 
@@ -24,6 +25,7 @@ This version really wouldn't be possible without the amazing work of @CAD97. The
 - Relaxed trait bounds of many structs and functions
 - Made custom `Debug` implementations to cut the excess and unneeded output
 - Exported the `Strings` and `Iter` structs
+- The `with_capacity` methods now use the `Capacity` struct
 
 ### Removed
 
