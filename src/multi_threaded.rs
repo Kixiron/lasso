@@ -353,6 +353,15 @@ where
         self.strings.capacity()
     }
 
+    /// Clears the interner, releasing all allocated memory.
+    pub fn clear(&self) {
+        self.map.clear();
+        self.map.shrink_to_fit();
+        self.strings.clear();
+        self.strings.shrink_to_fit();
+        *self.arena.lock().unwrap_or_else(|err| err.into_inner()) = Arena::new();
+    }
+
     /// Consumes the current ThreadedRodeo, returning a [`RodeoReader`] to allow contention-free access of the interner
     /// from multiple threads
     ///
