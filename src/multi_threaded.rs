@@ -35,7 +35,7 @@ macro_rules! index_unchecked_mut {
 /// A concurrent string interner that caches strings quickly with a minimal memory footprint,
 /// returning a unique key to re-access it with `O(1)` internment and resolution.
 ///
-/// This struct is only avaliable with the `multi-threaded` feature!  
+/// This struct is only avaliable with the `multi-threaded` feature!
 /// By default ThreadedRodeo uses the [`Spur`] type for keys and [`RandomState`] as the hasher
 ///
 /// [`Spur`]: crate::Spur
@@ -238,7 +238,7 @@ where
 
     /// Get the key for a static string, interning it if it does not yet exist
     ///
-    /// This will not reallocate and copy the given string but will instead just store it
+    /// This will not reallocate or copy the given string but will instead just store it
     ///
     /// # Panics
     ///
@@ -301,7 +301,6 @@ where
                 return Some(*key.get());
             }
 
-            // Safety: The drop impl removes all references before the arena is dropped
             let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))?;
 
             self.map.insert(string, key);
@@ -739,6 +738,20 @@ mod tests {
         assert_eq!(c, rodeo.try_get_or_intern("C"));
         let c = rodeo.try_get_or_intern("C");
         assert_eq!(c, rodeo.try_get_or_intern("C"));
+    }
+
+    #[test]
+    fn get_or_intern_static() {
+        let rodeo = ThreadedRodeo::default();
+
+        let a = rodeo.get_or_intern_static("A");
+        assert_eq!(a, rodeo.get_or_intern_static("A"));
+
+        let b = rodeo.get_or_intern_static("B");
+        assert_eq!(b, rodeo.get_or_intern_static("B"));
+
+        let c = rodeo.get_or_intern_static("C");
+        assert_eq!(c, rodeo.get_or_intern_static("C"));
     }
 
     #[test]
