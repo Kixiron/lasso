@@ -236,6 +236,81 @@ where
         }
     }
 
+    /// Get the key for a static string, interning it if it does not yet exist
+    ///
+    /// This will not reallocate and copy the given string but will instead just store it
+    ///
+    /// # Panics
+    ///
+    /// Panics if the key's `try_from_usize` function fails. With the default keys, this means that
+    /// you've interned more strings than it can handle. (For [`Spur`] this means that `u32::MAX - 1`
+    /// unique strings were interned)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::ThreadedRodeo;
+    ///
+    /// let mut rodeo = ThreadedRodeo::default();
+    ///
+    /// // Interned the string
+    /// let key = rodeo.get_or_intern_static("Strings of things with wings and dings");
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    ///
+    /// // No string was interned, as it was already contained
+    /// let key = rodeo.get_or_intern_static("Strings of things with wings and dings");
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    /// ```
+    ///
+    #[inline]
+    pub fn get_or_intern_static(&self, string: &'static str) -> K {
+        self.try_get_or_intern_static(string)
+            .expect("Failed to get or intern static string")
+    }
+
+    /// Get the key for a static string, interning it if it does not yet exist
+    ///
+    /// This will not reallocate and copy the given string but will instead just store it
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::ThreadedRodeo;
+    ///
+    /// let mut rodeo = ThreadedRodeo::default();
+    ///
+    /// // Interned the string
+    /// let key = rodeo.try_get_or_intern_static("Strings of things with wings and dings").unwrap();
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    ///
+    /// // No string was interned, as it was already contained
+    /// let key = rodeo.try_get_or_intern_static("Strings of things with wings and dings").unwrap();
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    /// ```
+    ///
+    #[inline]
+    pub fn try_get_or_intern_static(&self, string: &'static str) -> Option<K> {
+        if let Some(key) = self.map.get(string) {
+            Some(*key)
+        } else {
+            let shard = self.map.determine_map(string);
+            // Safety: The indices provided by DashMap always refer to a shard in it's shards
+            let shard = unsafe { self.map.shards().get_unchecked(shard) };
+
+            if let Some(key) = shard.read().get(string) {
+                return Some(*key.get());
+            }
+
+            // Safety: The drop impl removes all references before the arena is dropped
+            let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))?;
+
+            self.map.insert(string, key);
+            self.strings.insert(key, string);
+
+            Some(key)
+        }
+    }
+
     /// Get the key value of a string, returning `None` if it doesn't exist
     ///
     /// # Example
@@ -663,6 +738,45 @@ mod tests {
         let c = rodeo.try_get_or_intern("C");
         assert_eq!(c, rodeo.try_get_or_intern("C"));
         let c = rodeo.try_get_or_intern("C");
+        assert_eq!(c, rodeo.try_get_or_intern("C"));
+    }
+
+    #[test]
+    #[cfg(not(any(miri, feature = "no-std")))]
+    fn try_get_or_intern_static_threaded() {
+        let rodeo: Arc<ThreadedRodeo<MicroSpur>> = Arc::new(ThreadedRodeo::new());
+
+        let moved = Arc::clone(&rodeo);
+        thread::spawn(move || {
+            let a = moved.try_get_or_intern_static("A");
+            assert_eq!(a, moved.try_get_or_intern("A"));
+            let a = moved.try_get_or_intern_static("A");
+            assert_eq!(a, moved.try_get_or_intern("A"));
+
+            let b = moved.try_get_or_intern_static("B");
+            assert_eq!(b, moved.try_get_or_intern("B"));
+            let b = moved.try_get_or_intern_static("B");
+            assert_eq!(b, moved.try_get_or_intern("B"));
+
+            let c = moved.try_get_or_intern_static("C");
+            assert_eq!(c, moved.try_get_or_intern("C"));
+            let c = moved.try_get_or_intern_static("C");
+            assert_eq!(c, moved.try_get_or_intern("C"));
+        });
+
+        let a = rodeo.try_get_or_intern_static("A");
+        assert_eq!(a, rodeo.try_get_or_intern("A"));
+        let a = rodeo.try_get_or_intern_static("A");
+        assert_eq!(a, rodeo.try_get_or_intern("A"));
+
+        let b = rodeo.try_get_or_intern_static("B");
+        assert_eq!(b, rodeo.try_get_or_intern("B"));
+        let b = rodeo.try_get_or_intern_static("B");
+        assert_eq!(b, rodeo.try_get_or_intern("B"));
+
+        let c = rodeo.try_get_or_intern_static("C");
+        assert_eq!(c, rodeo.try_get_or_intern("C"));
+        let c = rodeo.try_get_or_intern_static("C");
         assert_eq!(c, rodeo.try_get_or_intern("C"));
     }
 
