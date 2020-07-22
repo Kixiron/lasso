@@ -253,7 +253,7 @@ where
 
     /// Get the key for a static string, interning it if it does not yet exist
     ///
-    /// This will not reallocate and copy the given string but will instead just store it
+    /// This will not reallocate or copy the given string but will instead just store it
     ///
     /// # Panics
     ///
@@ -285,7 +285,7 @@ where
 
     /// Get the key for a static string, interning it if it does not yet exist
     ///
-    /// This will not reallocate and copy the given string but will instead just store it
+    /// This will not reallocate or copy the given string but will instead just store it
     ///
     /// # Example
     ///
