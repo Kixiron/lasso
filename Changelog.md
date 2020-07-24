@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## Added
+
+- Added the `get_or_intern_static` and `try_get_or_intern_static` methods to `ThreadedRodeo` (Thanks to [@jonas-schievink](https://github.com/Kixiron/lasso/pull/6))
+
+## Fixed
+
+- [Strange double-internment bug](https://github.com/Kixiron/lasso/issues/7)
+
 ## [0.3.0] - 2020-07-12
 
 This version really wouldn't be possible without the amazing work of @CAD97. They were an amazing asset in [improving the memory efficiency](https://github.com/Kixiron/lasso/issues/4) of lasso and I can't thank them enough

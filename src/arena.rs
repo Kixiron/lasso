@@ -29,6 +29,7 @@ impl Arena {
     ///
     /// Note: When used with ZSTs, the bucket size will always be 1
     ///
+    // TODO: Memory limit
     #[inline]
     pub fn new() -> Self {
         let capacity = unsafe { NonZeroUsize::new_unchecked(4096) };

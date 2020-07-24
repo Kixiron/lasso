@@ -501,7 +501,15 @@ where
 
                         RawEntryMut::Vacant(entry) => {
                             // Insert the key with the hash of the string that it points to, reusing the hash we made earlier
-                            entry.insert_with_hasher(hash, *key.get(), (), |_| hash);
+                            entry.insert_with_hasher(hash, *key.get(), (), |key| {
+                                let key_string: &str =
+                                    unsafe { index_unchecked!(strings, key.into_usize()) };
+
+                                let mut state = hasher.build_hasher();
+                                key_string.hash(&mut state);
+
+                                state.finish()
+                            });
                         }
                     }
                 }

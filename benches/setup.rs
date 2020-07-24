@@ -1,8 +1,9 @@
 #![allow(dead_code)]
 
 use core::hash::BuildHasher;
-use lasso::{Rodeo, RodeoReader, RodeoResolver, Spur};
+use lasso::{Capacity, Rodeo, RodeoReader, RodeoResolver, Spur};
 use std::{
+    num::NonZeroUsize,
     sync::{atomic::AtomicBool, Arc, Barrier},
     thread,
 };
@@ -36,7 +37,7 @@ impl<S: BuildHasher + Clone> RodeoEmptySetup<S> {
     }
 
     pub fn empty_rodeo(&self) -> Rodeo<Spur, S> {
-        Rodeo::with_capacity_and_hasher(self.lines.len(), self.build_hasher.clone())
+        Rodeo::with_capacity_and_hasher(Capacity::default(), self.build_hasher.clone())
     }
 
     pub fn lines(&self) -> &'static [&'static str] {
@@ -53,7 +54,13 @@ pub struct RodeoFilledSetup<S: BuildHasher + Clone> {
 impl<S: BuildHasher + Clone> RodeoFilledSetup<S> {
     pub fn new(hash_builder: S) -> Self {
         let lines = bench_lines();
-        let mut rodeo = Rodeo::with_capacity_and_hasher(lines.len(), hash_builder);
+        let mut rodeo = Rodeo::with_capacity_and_hasher(
+            Capacity::new(
+                lines.len(),
+                NonZeroUsize::new(lines.iter().map(|l| l.as_bytes().len()).sum()).unwrap(),
+            ),
+            hash_builder,
+        );
         let keys = lines
             .into_iter()
             .map(|&line| rodeo.get_or_intern(line))
@@ -95,7 +102,8 @@ impl<S: BuildHasher + Clone> ReaderEmptySetup<S> {
     }
 
     pub fn empty_rodeo(&self) -> RodeoReader<Spur, S> {
-        Rodeo::with_capacity_and_hasher(self.lines.len(), self.build_hasher.clone()).into_reader()
+        Rodeo::with_capacity_and_hasher(Capacity::default(), self.build_hasher.clone())
+            .into_reader()
     }
 
     pub fn lines(&self) -> &'static [&'static str] {
@@ -112,7 +120,13 @@ pub struct ReaderFilledSetup<S: BuildHasher + Clone> {
 impl<S: BuildHasher + Clone> ReaderFilledSetup<S> {
     pub fn new(hash_builder: S) -> Self {
         let lines = bench_lines();
-        let mut rodeo = Rodeo::with_capacity_and_hasher(lines.len(), hash_builder);
+        let mut rodeo = Rodeo::with_capacity_and_hasher(
+            Capacity::new(
+                lines.len(),
+                NonZeroUsize::new(lines.iter().map(|l| l.as_bytes().len()).sum()).unwrap(),
+            ),
+            hash_builder,
+        );
         let keys = lines
             .into_iter()
             .map(|&line| rodeo.get_or_intern(line))
@@ -251,7 +265,10 @@ impl ResolverFilledSetup {
     pub fn new() -> Self {
         let lines = bench_lines();
         let mut rodeo = Rodeo::with_capacity_and_hasher(
-            lines.len(),
+            Capacity::new(
+                lines.len(),
+                NonZeroUsize::new(lines.iter().map(|l| l.as_bytes().len()).sum()).unwrap(),
+            ),
             std::collections::hash_map::RandomState::new(),
         );
         let keys = lines

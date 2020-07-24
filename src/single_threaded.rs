@@ -98,7 +98,7 @@ where
 impl<K, S> Rodeo<K, S>
 where
     K: Key,
-    S: BuildHasher + Clone,
+    S: BuildHasher,
 {
     /// Creates an empty Rodeo which will use the given hasher for its internal hashmap
     ///
@@ -242,7 +242,14 @@ where
                 strings.push(allocated);
 
                 // Insert the key with the hash of the string that it points to, reusing the hash we made earlier
-                entry.insert_with_hasher(hash, key, (), |_| hash);
+                entry.insert_with_hasher(hash, key, (), |key| {
+                    let key_string: &str = unsafe { index_unchecked!(strings, key.into_usize()) };
+
+                    let mut state = hasher.build_hasher();
+                    key_string.hash(&mut state);
+
+                    state.finish()
+                });
 
                 key
             }
@@ -342,7 +349,14 @@ where
                 strings.push(string);
 
                 // Insert the key with the hash of the string that it points to, reusing the hash we made earlier
-                entry.insert_with_hasher(hash, key, (), |_| hash);
+                entry.insert_with_hasher(hash, key, (), |key| {
+                    let key_string: &str = unsafe { index_unchecked!(strings, key.into_usize()) };
+
+                    let mut state = hasher.build_hasher();
+                    key_string.hash(&mut state);
+
+                    state.finish()
+                });
 
                 key
             }
@@ -895,5 +909,75 @@ mod tests {
     fn debug() {
         let rodeo = Rodeo::default();
         println!("{:?}", rodeo);
+    }
+
+    // Regression test for https://github.com/Kixiron/lasso/issues/7
+    #[test]
+    fn wrong_keys() {
+        let mut rodeo = Rodeo::default();
+
+        rodeo.get_or_intern("a");
+        rodeo.get_or_intern("b");
+        rodeo.get_or_intern("c");
+        rodeo.get_or_intern("d");
+        rodeo.get_or_intern("e");
+        rodeo.get_or_intern("f");
+        rodeo.get_or_intern("g");
+        rodeo.get_or_intern("h");
+        rodeo.get_or_intern("i");
+        rodeo.get_or_intern("j");
+        rodeo.get_or_intern("k");
+        rodeo.get_or_intern("l");
+        rodeo.get_or_intern("m");
+        rodeo.get_or_intern("n");
+        rodeo.get_or_intern("o");
+        rodeo.get_or_intern("p");
+        rodeo.get_or_intern("q");
+        rodeo.get_or_intern("r");
+        rodeo.get_or_intern("s");
+        rodeo.get_or_intern("t");
+        rodeo.get_or_intern("u");
+        rodeo.get_or_intern("v");
+        rodeo.get_or_intern("w");
+        rodeo.get_or_intern("x");
+        rodeo.get_or_intern("y");
+        rodeo.get_or_intern("z");
+        rodeo.get_or_intern("aa");
+        rodeo.get_or_intern("bb");
+        rodeo.get_or_intern("cc");
+        rodeo.get_or_intern("dd");
+        rodeo.get_or_intern("ee");
+        rodeo.get_or_intern("ff");
+        rodeo.get_or_intern("gg");
+        rodeo.get_or_intern("hh");
+        rodeo.get_or_intern("ii");
+        rodeo.get_or_intern("jj");
+        rodeo.get_or_intern("kk");
+        rodeo.get_or_intern("ll");
+        rodeo.get_or_intern("mm");
+        rodeo.get_or_intern("nn");
+        rodeo.get_or_intern("oo");
+        rodeo.get_or_intern("pp");
+        rodeo.get_or_intern("qq");
+        rodeo.get_or_intern("rr");
+        rodeo.get_or_intern("ss");
+        rodeo.get_or_intern("tt");
+        rodeo.get_or_intern("uu");
+        rodeo.get_or_intern("vv");
+        rodeo.get_or_intern("ww");
+        rodeo.get_or_intern("xx");
+        rodeo.get_or_intern("yy");
+        rodeo.get_or_intern("zz");
+        rodeo.get_or_intern("aaa");
+        rodeo.get_or_intern("bbb");
+        rodeo.get_or_intern("ccc");
+
+        let var = rodeo.get_or_intern("ddd");
+
+        rodeo.get_or_intern("eee");
+
+        let var2 = rodeo.get_or_intern("ddd");
+        dbg!(&rodeo);
+        assert_eq!(var, var2);
     }
 }
