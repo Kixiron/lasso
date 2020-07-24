@@ -977,7 +977,6 @@ mod tests {
         rodeo.get_or_intern("eee");
 
         let var2 = rodeo.get_or_intern("ddd");
-        dbg!(&rodeo);
         assert_eq!(var, var2);
     }
 }
