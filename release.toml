@@ -3,9 +3,9 @@ no-dev-version = true
 tag-message = "v{{version}}"
 tag-name = "v{{version}}"
 pre-release-replacements = [
-    { file="CHANGELOG.md", search="Unreleased",           replace="{{version}}" },
-    { file="CHANGELOG.md", search="\\.\\.\\.HEAD",        replace="...{{tag_name}}" },
-    { file="CHANGELOG.md", search="ReleaseDate",          replace="{{date}}" },
-    { file="CHANGELOG.md", search="<!-- next-header -->", replace="<!-- next-header -->\n## [Unreleased] - ReleaseDate" },
-    { file="CHANGELOG.md", search="<!-- next-url -->",    replace="<!-- next-url -->\n[Unreleased]: https://github.com/Kixiron/lasso/compare/{{tag_name}}...HEAD" },
+    { file="Changelog.md", search="Unreleased",           replace="{{version}}" },
+    { file="Changelog.md", search="\\.\\.\\.HEAD",        replace="...{{tag_name}}" },
+    { file="Changelog.md", search="ReleaseDate",          replace="{{date}}" },
+    { file="Changelog.md", search="<!-- next-header -->", replace="<!-- next-header -->\n## [Unreleased] - ReleaseDate" },
+    { file="Changelog.md", search="<!-- next-url -->",    replace="<!-- next-url -->\n[Unreleased]: https://github.com/Kixiron/lasso/compare/{{tag_name}}...HEAD" },
 ]
