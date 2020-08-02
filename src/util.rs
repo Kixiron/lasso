@@ -90,10 +90,7 @@ impl MemoryLimits {
     /// Create a new `MemoryLimits` with the number of bytes that the interner can allocate
     #[inline]
     pub fn for_memory_usage(max_memory_usage: usize) -> Self {
-        Self {
-            max_memory_usage,
-            ..Self::default()
-        }
+        Self { max_memory_usage }
     }
 
     /// Returns the maximum memory usage this `MemoryLimits` can allocate

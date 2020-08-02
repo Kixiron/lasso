@@ -48,7 +48,7 @@ impl Arena {
         if self.memory_usage + requested_mem > self.max_memory_usage {
             None
         } else {
-            self.memory_usage = self.memory_usage + requested_mem;
+            self.memory_usage += requested_mem;
 
             Some(())
         }
