@@ -658,6 +658,18 @@ where
     pub fn set_memory_limits(&mut self, memory_limits: MemoryLimits) {
         self.arena.max_memory_usage = memory_limits.max_memory_usage;
     }
+
+    /// Get the `Rodeo`'s currently allocated memory
+    #[inline]
+    pub fn current_memory_usage(&self) -> usize {
+        self.arena.memory_usage()
+    }
+
+    /// Get the `Rodeo`'s current maximum of allocated memory
+    #[inline]
+    pub fn max_memory_usage(&self) -> usize {
+        self.arena.max_memory_usage
+    }
 }
 
 impl<K, S> Rodeo<K, S>
@@ -1155,5 +1167,18 @@ mod tests {
 
         assert_eq!(rodeo.resolve(&string1), "0123456789");
         assert_eq!(rodeo.resolve(&string2), "9876543210");
+    }
+
+    #[test]
+    fn memory_usage_stats() {
+        let mut rodeo: Rodeo<Spur> = Rodeo::with_capacity_and_memory_limits(
+            Capacity::for_bytes(NonZeroUsize::new(10).unwrap()),
+            MemoryLimits::for_memory_usage(10),
+        );
+
+        rodeo.get_or_intern("0123456789");
+
+        assert_eq!(rodeo.current_memory_usage(), 10);
+        assert_eq!(rodeo.max_memory_usage(), 10);
     }
 }

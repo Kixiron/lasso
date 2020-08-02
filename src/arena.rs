@@ -41,6 +41,10 @@ impl Arena {
         }
     }
 
+    pub(crate) fn memory_usage(&self) -> usize {
+        self.memory_usage
+    }
+
     /// Doesn't actually allocate anything, but increments `self.memory_usage` and returns `None` if
     /// the attempted amount surpasses `max_memory_usage`
     // TODO: Make this return a `Result`

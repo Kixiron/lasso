@@ -535,6 +535,18 @@ where
         self.arena.lock().unwrap().max_memory_usage = memory_limits.max_memory_usage;
     }
 
+    /// Get the `ThreadedRodeo`'s currently allocated memory
+    #[inline]
+    pub fn current_memory_usage(&self) -> usize {
+        self.arena.lock().unwrap().memory_usage()
+    }
+
+    /// Get the `ThreadedRodeo`'s current maximum of allocated memory
+    #[inline]
+    pub fn max_memory_usage(&self) -> usize {
+        self.arena.lock().unwrap().max_memory_usage
+    }
+
     /// Consumes the current ThreadedRodeo, returning a [`RodeoReader`] to allow contention-free access of the interner
     /// from multiple threads
     ///
@@ -1189,5 +1201,18 @@ mod tests {
 
         assert_eq!(rodeo.resolve(&string1), "0123456789");
         assert_eq!(rodeo.resolve(&string2), "9876543210");
+    }
+
+    #[test]
+    fn memory_usage_stats() {
+        let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity_and_memory_limits(
+            Capacity::for_bytes(NonZeroUsize::new(10).unwrap()),
+            MemoryLimits::for_memory_usage(10),
+        );
+
+        rodeo.get_or_intern("0123456789");
+
+        assert_eq!(rodeo.current_memory_usage(), 10);
+        assert_eq!(rodeo.max_memory_usage(), 10);
     }
 }

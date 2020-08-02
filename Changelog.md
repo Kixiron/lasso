@@ -12,7 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added the `MemoryLimits` struct for creating memory limits on interners
 - Gave `Rodeo` & `ThreadedRodeo` the ability to be given a hard memory capacity, currently only limiting the amount of memory allocated within the arena it uses
-- Added the `set_memory_limits`, `with_memory_limits`, `with_capacity_and_memory_limits` and `with_capacity_memory_limits_and_hasher` methods to `Rodeo` & `ThreadedRodeo`
+- Added the `with_memory_limits`, `with_capacity_and_memory_limits` and `with_capacity_memory_limits_and_hasher` methods to `Rodeo` & `ThreadedRodeo` for creating interners with memory limits
+- Added `set_memory_limits` to `Rodeo` & `ThreadedRodeo` for in-flight modification of memory limits
+- Added `current_memory_usage` and `max_memory_usage` methods to `Rodeo` & `ThreadedRodeo` for introspection of current memory usage maximum memory usage
 
 ### Changed
 
