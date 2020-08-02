@@ -5,10 +5,7 @@ use crate::{
     resolver::RodeoResolver,
     util::{Iter, Strings},
 };
-use core::{
-    fmt::{Debug, Formatter, Result as FmtResult},
-    hash::{BuildHasher, Hash, Hasher},
-};
+use core::hash::{BuildHasher, Hash, Hasher};
 use hashbrown::HashMap;
 
 compile! {
@@ -25,6 +22,7 @@ compile! {
 ///
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
+#[derive(Debug)]
 pub struct RodeoReader<K = Spur, S = RandomState> {
     // The logic behind this arrangement is more heavily documented inside of
     // `Rodeo` itself
@@ -283,16 +281,6 @@ impl<K, S> RodeoReader<K, S> {
         // Safety: The current reader no longer contains references to the strings
         // in the vec given to RodeoResolver
         unsafe { RodeoResolver::new(strings, arena) }
-    }
-}
-
-impl<K: Debug, S> Debug for RodeoReader<K, S> {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        f.debug_struct("Rodeo")
-            .field("map", &self.map)
-            .field("strings", &self.strings)
-            .finish()
     }
 }
 

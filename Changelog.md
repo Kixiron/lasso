@@ -7,13 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+### Added
+
+- Added the `MemoryLimits` struct for creating memory limits on interners
+- Gave `Rodeo` & `ThreadedRodeo` the ability to be given a hard memory capacity, currently only limiting the amount of memory allocated within the arena it uses
+- Added the `set_memory_limits`, `with_memory_limits`, `with_capacity_and_memory_limits` and `with_capacity_memory_limits_and_hasher` methods to `Rodeo` & `ThreadedRodeo`
+
+### Changed
+
+- Debug views of all interners now show their arenas
+
 ## [0.3.1] - 2020-07-24
 
-## Added
+### Added
 
 - Added the `get_or_intern_static` and `try_get_or_intern_static` methods to `ThreadedRodeo` (Thanks to [@jonas-schievink](https://github.com/Kixiron/lasso/pull/6))
 
-## Fixed
+### Fixed
 
 - [Strange double-internment bug](https://github.com/Kixiron/lasso/issues/7)
 

@@ -14,6 +14,7 @@ compile! {
         use std::alloc::{alloc, dealloc, Layout};
     }
 }
+use crate::{Capacity, MemoryLimits};
 use core::{cmp, fmt, mem, num::NonZeroUsize, ptr::NonNull, slice};
 
 /// An arena allocator that dynamically grows in size when needed, allocating memory in large chunks
@@ -21,43 +22,46 @@ pub(crate) struct Arena {
     /// All the internal buckets, storing all allocated and unallocated items
     buckets: Vec<Bucket>,
     /// The default capacity of each bucket
-    capacity: NonZeroUsize,
+    bucket_capacity: NonZeroUsize,
+    memory_usage: usize,
+    pub(crate) max_memory_usage: usize,
 }
 
 impl Arena {
     /// Create a new Arena with the default bucket size of 4096 bytes
-    ///
-    /// Note: When used with ZSTs, the bucket size will always be 1
-    ///
-    // TODO: Memory limit
     #[inline]
-    pub fn new() -> Self {
-        let capacity = unsafe { NonZeroUsize::new_unchecked(4096) };
-
+    pub fn new(capacity: NonZeroUsize, max_memory_usage: usize) -> Self {
         Self {
             // Allocate one bucket
             buckets: vec![Bucket::with_capacity(capacity)],
-            capacity,
+            bucket_capacity: capacity,
+            // The current capacity is whatever size the bucket we just allocated is
+            memory_usage: capacity.get(),
+            max_memory_usage,
         }
     }
 
-    #[inline]
-    pub fn with_capacity(capacity: NonZeroUsize) -> Self {
-        Self {
-            // Allocate one bucket
-            buckets: vec![Bucket::with_capacity(capacity)],
-            capacity,
+    /// Doesn't actually allocate anything, but increments `self.memory_usage` and returns `None` if
+    /// the attempted amount surpasses `max_memory_usage`
+    // TODO: Make this return a `Result`
+    fn allocate_memory(&mut self, requested_mem: usize) -> Option<()> {
+        if self.memory_usage + requested_mem > self.max_memory_usage {
+            None
+        } else {
+            self.memory_usage = self.memory_usage + requested_mem;
+
+            Some(())
         }
     }
 
-    /// Store a slice in the Arena
+    /// Store a slice in the Arena, returning `None` if memory is exhausted
     ///
     /// # Safety
     ///
     /// The reference passed back must be dropped before the arena that created it is
     ///
     #[inline]
-    pub unsafe fn store_str(&mut self, string: &str) -> &'static str {
+    pub unsafe fn store_str(&mut self, string: &str) -> Option<&'static str> {
         let slice = string.as_bytes();
         // Ensure the length is at least 1, mainly for empty strings
         // This theoretically wastes a single byte, but it shouldn't matter since
@@ -70,17 +74,20 @@ impl Arena {
             .filter(|bucket| bucket.free_elements() >= len)
         {
             // Safety: The bucket found has enough room for the slice
-            return unsafe { bucket.push_slice(slice) };
+            return unsafe { Some(bucket.push_slice(slice)) };
         }
 
         // SPEED: This portion of the code could be pulled into a cold path
 
-        let next_capacity = self.capacity.get() * 2;
+        let next_capacity = self.bucket_capacity.get() * 2;
 
         // If the current string's length is greater than the doubled current capacity, allocate a bucket exactly the
         // size of the large string and push it back in the buckets vector. This ensures that obscenely large strings will
         // not permanently affect the resource consumption of the interner
         if len > next_capacity {
+            // Check that we haven't exhausted our memory limit
+            self.allocate_memory(len)?;
+
             // Safety: len will always be >= 1
             let mut bucket = Bucket::with_capacity(unsafe { NonZeroUsize::new_unchecked(len) });
 
@@ -88,32 +95,65 @@ impl Arena {
             let allocated_string = unsafe { bucket.push_slice(slice) };
             self.buckets.insert(self.buckets.len() - 2, bucket);
 
-            allocated_string
-        } else {
+            Some(allocated_string)
+
+        // If trying to use the doubled capacity will surpass our memory limit, just allocate as much as we can
+        } else if self.memory_usage + next_capacity > self.max_memory_usage {
+            let remaining_memory = self.max_memory_usage.saturating_sub(self.memory_usage);
+            // Check that we haven't exhausted our memory limit
+            self.allocate_memory(remaining_memory)?;
+
             // Set the capacity to twice of what it currently is to allow for fewer allocations as more strings are interned
-            // Safety: capacity will always be >= 1
-            self.capacity = unsafe { NonZeroUsize::new_unchecked(next_capacity) };
-            let mut bucket = Bucket::with_capacity(self.capacity);
+            let mut bucket = Bucket::with_capacity(NonZeroUsize::new(remaining_memory)?);
 
             // Safety: The new bucket will have enough room for the string
             let allocated_string = unsafe { bucket.push_slice(slice) };
             self.buckets.push(bucket);
 
-            allocated_string
+            Some(allocated_string)
+
+        // Otherwise just allocate a normal doubled bucket
+        } else {
+            // Check that we haven't exhausted our memory limit
+            self.allocate_memory(next_capacity)?;
+
+            // Set the capacity to twice of what it currently is to allow for fewer allocations as more strings are interned
+            // Safety: capacity will always be >= 1
+            self.bucket_capacity = unsafe { NonZeroUsize::new_unchecked(next_capacity) };
+            let mut bucket = Bucket::with_capacity(self.bucket_capacity);
+
+            // Safety: The new bucket will have enough room for the string
+            let allocated_string = unsafe { bucket.push_slice(slice) };
+            self.buckets.push(bucket);
+
+            Some(allocated_string)
         }
     }
 }
 
 impl Default for Arena {
     fn default() -> Self {
-        Self::new()
+        Self::new(
+            Capacity::default().bytes,
+            MemoryLimits::default().max_memory_usage,
+        )
     }
 }
 
 impl fmt::Debug for Arena {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Arena")
-            .field("buckets", &format!("... {} buckets", self.buckets.len()))
+            .field(
+                "buckets",
+                &format!(
+                    "... {} bucket{}",
+                    self.buckets.len(),
+                    if self.buckets.len() == 1 { "" } else { "s" },
+                ),
+            )
+            .field("bucket_capacity", &self.bucket_capacity)
+            .field("memory_usage", &self.memory_usage)
+            .field("max_memory_usage", &self.max_memory_usage)
             .finish()
     }
 }
@@ -175,6 +215,7 @@ impl Bucket {
 
             // Allocate the bucket's memory
             let items = NonNull::new(alloc(layout))
+                // TODO: When `Result`s are piped through return this as a unique error
                 .expect("Failed to allocate a new bucket, process out of memory")
                 .cast();
 
@@ -236,41 +277,53 @@ mod tests {
 
     #[test]
     fn string() {
-        let mut arena = Arena::new();
+        let mut arena = Arena::default();
 
         unsafe {
             let idx = arena.store_str("test");
 
-            assert_eq!(idx, "test");
+            assert_eq!(idx, Some("test"));
         }
     }
 
     #[test]
     fn empty_str() {
-        let mut arena = Arena::new();
+        let mut arena = Arena::default();
 
         unsafe {
             let zst = arena.store_str("");
             let zst1 = arena.store_str("");
             let zst2 = arena.store_str("");
 
-            assert_eq!(zst, "");
-            assert_eq!(zst1, "");
-            assert_eq!(zst2, "");
+            assert_eq!(zst, Some(""));
+            assert_eq!(zst1, Some(""));
+            assert_eq!(zst2, Some(""));
         }
     }
 
     #[test]
     fn exponential_allocations() {
-        let mut arena = Arena::new();
+        let mut arena = Arena::default();
 
         let mut len = 4096;
         for _ in 0..10 {
             let large_string = "a".repeat(len);
             let arena_string = unsafe { arena.store_str(&large_string) };
-            assert_eq!(arena_string, &large_string);
+            assert_eq!(arena_string, Some(large_string.as_str()));
 
             len *= 2;
+        }
+    }
+
+    #[test]
+    fn memory_exhausted() {
+        let mut arena = Arena::new(NonZeroUsize::new(10).unwrap(), 10);
+
+        unsafe {
+            assert!(arena.store_str("0123456789").is_some());
+            // A ZST takes up a single byte
+            assert!(arena.store_str("").is_none());
+            assert!(arena.store_str("dfgsagdfgsdf").is_none());
         }
     }
 }
