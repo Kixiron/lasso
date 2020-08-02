@@ -71,6 +71,48 @@ impl Default for Capacity {
     }
 }
 
+/// Settings for the memory consumption of an interner
+///
+/// By default `max_memory_usage` is set to `usize::MAX`
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MemoryLimits {
+    /// The maximum memory an interner will allocate
+    pub(crate) max_memory_usage: usize,
+}
+
+impl MemoryLimits {
+    /// Create a new `MemoryLimits` with the number of bytes that the interner can allocate
+    #[inline]
+    pub fn new(max_memory_usage: usize) -> Self {
+        Self { max_memory_usage }
+    }
+
+    /// Create a new `MemoryLimits` with the number of bytes that the interner can allocate
+    #[inline]
+    pub fn for_memory_usage(max_memory_usage: usize) -> Self {
+        Self {
+            max_memory_usage,
+            ..Self::default()
+        }
+    }
+
+    /// Returns the maximum memory usage this `MemoryLimits` can allocate
+    #[inline]
+    pub fn max_memory_usage(&self) -> usize {
+        self.max_memory_usage
+    }
+}
+
+/// Creates a `MemoryLimits` with `max_memory_usage` set to `usize::max_value()`
+impl Default for MemoryLimits {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            max_memory_usage: usize::max_value(),
+        }
+    }
+}
+
 /// An iterator over an interner's strings and keys
 #[derive(Debug)]
 pub struct Iter<'a, K> {

@@ -3,10 +3,7 @@ use crate::{
     key::{Key, Spur},
     util::{Iter, Strings},
 };
-use core::{
-    fmt::{Debug, Formatter, Result as FmtResult},
-    marker::PhantomData,
-};
+use core::marker::PhantomData;
 
 compile! {
     if #[feature = "no-std"] {
@@ -21,6 +18,7 @@ compile! {
 ///
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
+#[derive(Debug)]
 pub struct RodeoResolver<K = Spur> {
     /// Vector of strings mapped to key indexes that allows key to string resolution
     pub(crate) strings: Vec<&'static str>,
@@ -200,15 +198,6 @@ impl<K> RodeoResolver<K> {
     #[inline]
     pub fn strings(&self) -> Strings<'_, K> {
         Strings::from_resolver(self)
-    }
-}
-
-impl<K: Debug> Debug for RodeoResolver<K> {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        f.debug_struct("RodeoResolver")
-            .field("strings", &self.strings)
-            .finish()
     }
 }
 

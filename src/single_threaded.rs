@@ -5,12 +5,9 @@ use crate::{
     reader::RodeoReader,
     resolver::RodeoResolver,
     util::{Iter, Strings},
-    Capacity,
+    Capacity, MemoryLimits,
 };
-use core::{
-    fmt::{Debug, Formatter, Result as FmtResult},
-    hash::{BuildHasher, Hash, Hasher},
-};
+use core::hash::{BuildHasher, Hash, Hasher};
 use hashbrown::{hash_map::RawEntryMut, HashMap};
 
 compile! {
@@ -26,6 +23,7 @@ compile! {
 ///
 /// [`Spur`]: crate::Spur
 /// [`RandomState`]: https://doc.rust-lang.org/std/collections/hash_map/struct.RandomState.html
+#[derive(Debug)]
 pub struct Rodeo<K = Spur, S = RandomState> {
     /// Map that allows `str` -> `key` resolution
     ///
@@ -72,7 +70,11 @@ where
     ///
     #[inline]
     pub fn new() -> Self {
-        Self::with_capacity_and_hasher(Capacity::default(), RandomState::new())
+        Self::with_capacity_memory_limits_and_hasher(
+            Capacity::default(),
+            MemoryLimits::default(),
+            RandomState::new(),
+        )
     }
 
     /// Create a new Rodeo with the specified capacity. The interner will be able to hold `capacity`
@@ -91,7 +93,65 @@ where
     /// [`Capacity`]: crate::Capacity
     #[inline]
     pub fn with_capacity(capacity: Capacity) -> Self {
-        Self::with_capacity_and_hasher(capacity, RandomState::new())
+        Self::with_capacity_memory_limits_and_hasher(
+            capacity,
+            MemoryLimits::default(),
+            RandomState::new(),
+        )
+    }
+
+    /// Create a new Rodeo with the specified memory limits. The interner will be able to hold `max_memory_usage`
+    /// bytes of interned strings until it will start returning `None` from `try_get_or_intern` or panicking from
+    /// `get_or_intern`.
+    ///
+    /// Note: If the capacity of the interner is greater than the memory limit, then that will be the effective maximum
+    /// for allocated memory
+    ///
+    /// See [`MemoryLimits`] for more information
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::{Rodeo, MemoryLimits, Spur};
+    ///
+    /// let rodeo: Rodeo<Spur> = Rodeo::with_memory_limits(MemoryLimits::for_memory_usage(4096));
+    /// ```
+    ///
+    /// [`MemoryLimits`]: crate::MemoryLimits
+    #[inline]
+    pub fn with_memory_limits(memory_limits: MemoryLimits) -> Self {
+        Self::with_capacity_memory_limits_and_hasher(
+            Capacity::default(),
+            memory_limits,
+            RandomState::new(),
+        )
+    }
+
+    /// Create a new Rodeo with the specified capacity and memory limits. The interner will be able to hold `max_memory_usage`
+    /// bytes of interned strings until it will start returning `None` from `try_get_or_intern` or panicking from
+    /// `get_or_intern`.
+    ///
+    /// Note: If the capacity of the interner is greater than the memory limit, then that will be the effective maximum
+    /// for allocated memory
+    ///
+    /// See [`Capacity`] [`MemoryLimits`] for more information
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::{Rodeo, MemoryLimits, Spur};
+    ///
+    /// let rodeo: Rodeo<Spur> = Rodeo::with_memory_limits(MemoryLimits::for_memory_usage(4096));
+    /// ```
+    ///
+    /// [`Capacity`]: crate::Capacity
+    /// [`MemoryLimits`]: crate::MemoryLimits
+    #[inline]
+    pub fn with_capacity_and_memory_limits(
+        capacity: Capacity,
+        memory_limits: MemoryLimits,
+    ) -> Self {
+        Self::with_capacity_memory_limits_and_hasher(capacity, memory_limits, RandomState::new())
     }
 }
 
@@ -113,7 +173,11 @@ where
     ///
     #[inline]
     pub fn with_hasher(hash_builder: S) -> Self {
-        Self::with_capacity_and_hasher(Capacity::default(), hash_builder)
+        Self::with_capacity_memory_limits_and_hasher(
+            Capacity::default(),
+            MemoryLimits::default(),
+            hash_builder,
+        )
     }
 
     /// Creates a new Rodeo with the specified capacity that will use the given hasher for its internal hashmap
@@ -132,13 +196,46 @@ where
     /// [`Capacity`]: crate::Capacity
     #[inline]
     pub fn with_capacity_and_hasher(capacity: Capacity, hash_builder: S) -> Self {
+        Self::with_capacity_memory_limits_and_hasher(
+            capacity,
+            MemoryLimits::default(),
+            hash_builder,
+        )
+    }
+
+    /// Creates a new Rodeo with the specified capacity and memory limits that will use the given hasher for its internal hashmap
+    ///
+    /// See [`Capacity`] and [`MemoryLimits`] for more information
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::{Spur, Capacity, MemoryLimits, Rodeo};
+    /// use std::collections::hash_map::RandomState;
+    ///
+    /// let rodeo: Rodeo<Spur, RandomState> = Rodeo::with_capacity_memory_limits_and_hasher(
+    ///     Capacity::for_strings(10),
+    ///     MemoryLimits::for_memory_usage(4096),
+    ///     RandomState::new(),
+    /// );
+    /// ```
+    ///
+    /// [`Capacity`]: crate::Capacity
+    /// [`MemoryLimits`]: crate::MemoryLimits
+    #[inline]
+    pub fn with_capacity_memory_limits_and_hasher(
+        capacity: Capacity,
+        memory_limits: MemoryLimits,
+        hash_builder: S,
+    ) -> Self {
         let Capacity { strings, bytes } = capacity;
+        let MemoryLimits { max_memory_usage } = memory_limits;
 
         Self {
             map: HashMap::with_capacity_and_hasher(strings, ()),
             hasher: hash_builder,
             strings: Vec::with_capacity(strings),
-            arena: Arena::with_capacity(bytes),
+            arena: Arena::new(bytes, max_memory_usage),
         }
     }
 
@@ -236,7 +333,7 @@ where
 
                 // Allocate the string in the arena
                 // Safety: The returned strings will be dropped before the arena that created them is
-                let allocated = unsafe { arena.store_str(string_slice) };
+                let allocated = unsafe { arena.store_str(string_slice)? };
 
                 // Push the allocated string to the strings vector
                 strings.push(allocated);
@@ -552,6 +649,15 @@ where
     pub fn strings(&self) -> Strings<'_, K> {
         Strings::from_rodeo(self)
     }
+
+    /// Set the `Rodeo`'s maximum memory usage while in-flight
+    ///
+    /// Note that setting the maximum memory usage to below the currently allocated
+    /// memory will do nothing
+    #[inline]
+    pub fn set_memory_limits(&mut self, memory_limits: MemoryLimits) {
+        self.arena.max_memory_usage = memory_limits.max_memory_usage;
+    }
 }
 
 impl<K, S> Rodeo<K, S>
@@ -632,21 +738,12 @@ impl Default for Rodeo<Spur, RandomState> {
     }
 }
 
-impl<K: Debug, S> Debug for Rodeo<K, S> {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        f.debug_struct("Rodeo")
-            .field("map", &self.map)
-            .field("strings", &self.strings)
-            .finish()
-    }
-}
-
 unsafe impl<K: Send, S: Send> Send for Rodeo<K, S> {}
 
 #[cfg(test)]
 mod tests {
-    use crate::{hasher::RandomState, Capacity, Key, MicroSpur, Rodeo, Spur};
+    use crate::{hasher::RandomState, Capacity, Key, MemoryLimits, MicroSpur, Rodeo, Spur};
+    use core::num::NonZeroUsize;
 
     compile! {
         if #[feature = "no-std"] {
@@ -978,5 +1075,85 @@ mod tests {
 
         let var2 = rodeo.get_or_intern("ddd");
         assert_eq!(var, var2);
+    }
+
+    #[test]
+    fn memory_exhausted() {
+        let mut rodeo: Rodeo<Spur> = Rodeo::with_capacity_and_memory_limits(
+            Capacity::for_bytes(NonZeroUsize::new(10).unwrap()),
+            MemoryLimits::for_memory_usage(10),
+        );
+
+        let string = rodeo.try_get_or_intern("0123456789").unwrap();
+        assert_eq!(rodeo.resolve(&string), "0123456789");
+
+        assert!(rodeo.try_get_or_intern("").is_none());
+        assert!(rodeo.try_get_or_intern("").is_none());
+        assert!(rodeo.try_get_or_intern("").is_none());
+
+        assert_eq!(rodeo.resolve(&string), "0123456789");
+    }
+
+    // TODO: Add a reason for should_panic once `Result`s are used
+    #[test]
+    #[should_panic]
+    fn memory_exhausted_panics() {
+        let mut rodeo: Rodeo<Spur> = Rodeo::with_capacity_and_memory_limits(
+            Capacity::for_bytes(NonZeroUsize::new(10).unwrap()),
+            MemoryLimits::for_memory_usage(10),
+        );
+
+        let string = rodeo.get_or_intern("0123456789");
+        assert_eq!(rodeo.resolve(&string), "0123456789");
+
+        rodeo.get_or_intern("");
+    }
+
+    #[test]
+    fn with_capacity_memory_limits_and_hasher() {
+        let mut rodeo: Rodeo<Spur, RandomState> = Rodeo::with_capacity_memory_limits_and_hasher(
+            Capacity::default(),
+            MemoryLimits::default(),
+            RandomState::new(),
+        );
+
+        rodeo.get_or_intern("Test");
+    }
+
+    #[test]
+    fn with_capacity_and_memory_limits() {
+        let mut rodeo: Rodeo<Spur> =
+            Rodeo::with_capacity_and_memory_limits(Capacity::default(), MemoryLimits::default());
+
+        rodeo.get_or_intern("Test");
+    }
+
+    #[test]
+    fn set_memory_limits() {
+        let mut rodeo: Rodeo<Spur> = Rodeo::with_capacity_and_memory_limits(
+            Capacity::for_bytes(NonZeroUsize::new(10).unwrap()),
+            MemoryLimits::for_memory_usage(10),
+        );
+
+        let string1 = rodeo.try_get_or_intern("0123456789").unwrap();
+        assert_eq!(rodeo.resolve(&string1), "0123456789");
+
+        assert!(rodeo.try_get_or_intern("").is_none());
+        assert!(rodeo.try_get_or_intern("").is_none());
+        assert!(rodeo.try_get_or_intern("").is_none());
+
+        assert_eq!(rodeo.resolve(&string1), "0123456789");
+
+        rodeo.set_memory_limits(MemoryLimits::for_memory_usage(20));
+
+        let string2 = rodeo.try_get_or_intern("9876543210").unwrap();
+        assert_eq!(rodeo.resolve(&string2), "9876543210");
+
+        assert!(rodeo.try_get_or_intern("").is_none());
+        assert!(rodeo.try_get_or_intern("").is_none());
+        assert!(rodeo.try_get_or_intern("").is_none());
+
+        assert_eq!(rodeo.resolve(&string1), "0123456789");
+        assert_eq!(rodeo.resolve(&string2), "9876543210");
     }
 }

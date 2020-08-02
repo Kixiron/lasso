@@ -2,10 +2,33 @@ pre-release-commit-message = "Release v{{version}}"
 no-dev-version = true
 tag-message = "v{{version}}"
 tag-name = "v{{version}}"
-pre-release-replacements = [
-    { file="Changelog.md", search="Unreleased",           replace="{{version}}" },
-    { file="Changelog.md", search="\\.\\.\\.HEAD",        replace="...{{tag_name}}" },
-    { file="Changelog.md", search="ReleaseDate",          replace="{{date}}" },
-    { file="Changelog.md", search="<!-- next-header -->", replace="<!-- next-header -->\n## [Unreleased] - ReleaseDate" },
-    { file="Changelog.md", search="<!-- next-url -->",    replace="<!-- next-url -->\n[Unreleased]: https://github.com/Kixiron/lasso/compare/{{tag_name}}...HEAD" },
-]
+
+[[pre-release-replacements]]
+file = "Changelog.md"
+search = "Unreleased"
+replace = "{{version}}"
+
+[[pre-release-replacements]]
+file = "Changelog.md"
+search = "Unreleased"
+replace = "{{version}}"
+
+[[pre-release-replacements]]
+file = "Changelog.md"
+search = "\\.\\.\\.HEAD"
+replace = "...{{tag_name}}"
+
+[[pre-release-replacements]]
+file = "Changelog.md"
+search = "ReleaseDate"
+replace = "{{date}}"
+
+[[pre-release-replacements]]
+file = "Changelog.md"
+search = "<!-- next-header -->"
+replace = "<!-- next-header -->\n## [Unreleased] - ReleaseDate\n"
+
+[[pre-release-replacements]]
+file = "Changelog.md"
+search = "<!-- next-url -->"
+replace = "<!-- next-url -->\n[Unreleased]: https://github.com/Kixiron/lasso/compare/{{tag_name}}...HEAD"
