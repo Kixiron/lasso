@@ -10,7 +10,7 @@ use std::{
 
 pub const NUM_THREADS: usize = 24;
 
-pub static INPUT: &'static str = include_str!("input.txt");
+pub static INPUT: &str = include_str!("input.txt");
 
 lazy_static::lazy_static! {
     pub static ref INPUT_LINES: Vec<&'static str> =

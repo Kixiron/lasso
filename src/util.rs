@@ -310,6 +310,10 @@ macro_rules! compile {
 #[cfg(debug_assertions)]
 macro_rules! index_unchecked {
     ($slice:expr, $idx:expr) => {{
+        // Keeps unsafe required even when debug assertions are off
+        unsafe fn x() {}
+        x();
+
         let elem: &_ = $slice[$idx];
         elem
     }};

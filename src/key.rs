@@ -11,13 +11,7 @@ use serde::{Deserialize, Serialize};
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 pub unsafe trait Key: Copy + Eq {
     /// Returns the `usize` that represents the current key
-    ///
-    /// # Safety
-    ///
-    /// To be safe, `into_usize` and `try_from_usize` must be symmetrical, meaning that any usize given
-    /// to `into_usize` must be the same after going through `try_from_usize`
-    ///
-    unsafe fn into_usize(self) -> usize;
+    fn into_usize(self) -> usize;
 
     /// Attempts to create a key from a `usize`, returning `None` if it fails
     fn try_from_usize(int: usize) -> Option<Self>;
@@ -38,7 +32,7 @@ pub struct LargeSpur {
 
 unsafe impl Key for LargeSpur {
     #[inline]
-    unsafe fn into_usize(self) -> usize {
+    fn into_usize(self) -> usize {
         self.key.get() - 1
     }
 
@@ -81,7 +75,7 @@ pub struct Spur {
 
 unsafe impl Key for Spur {
     #[inline]
-    unsafe fn into_usize(self) -> usize {
+    fn into_usize(self) -> usize {
         self.key.get() as usize - 1
     }
 
@@ -124,7 +118,7 @@ pub struct MiniSpur {
 
 unsafe impl Key for MiniSpur {
     #[inline]
-    unsafe fn into_usize(self) -> usize {
+    fn into_usize(self) -> usize {
         self.key.get() as usize - 1
     }
 
@@ -167,7 +161,7 @@ pub struct MicroSpur {
 
 unsafe impl Key for MicroSpur {
     #[inline]
-    unsafe fn into_usize(self) -> usize {
+    fn into_usize(self) -> usize {
         self.key.get() as usize - 1
     }
 
@@ -205,11 +199,9 @@ mod tests {
         let max = LargeSpur::try_from_usize(usize::max_value() - 1).unwrap();
         let default = LargeSpur::default();
 
-        unsafe {
-            assert_eq!(zero.into_usize(), 0);
-            assert_eq!(max.into_usize(), usize::max_value() - 1);
-            assert_eq!(default.into_usize(), 0);
-        }
+        assert_eq!(zero.into_usize(), 0);
+        assert_eq!(max.into_usize(), usize::max_value() - 1);
+        assert_eq!(default.into_usize(), 0);
     }
 
     #[test]
@@ -230,11 +222,9 @@ mod tests {
         let max = Spur::try_from_usize(u32::max_value() as usize - 1).unwrap();
         let default = Spur::default();
 
-        unsafe {
-            assert_eq!(zero.into_usize(), 0);
-            assert_eq!(max.into_usize(), u32::max_value() as usize - 1);
-            assert_eq!(default.into_usize(), 0);
-        }
+        assert_eq!(zero.into_usize(), 0);
+        assert_eq!(max.into_usize(), u32::max_value() as usize - 1);
+        assert_eq!(default.into_usize(), 0);
     }
 
     #[test]
@@ -255,11 +245,9 @@ mod tests {
         let max = MiniSpur::try_from_usize(u16::max_value() as usize - 1).unwrap();
         let default = MiniSpur::default();
 
-        unsafe {
-            assert_eq!(zero.into_usize(), 0);
-            assert_eq!(max.into_usize(), u16::max_value() as usize - 1);
-            assert_eq!(default.into_usize(), 0);
-        }
+        assert_eq!(zero.into_usize(), 0);
+        assert_eq!(max.into_usize(), u16::max_value() as usize - 1);
+        assert_eq!(default.into_usize(), 0);
     }
 
     #[test]
@@ -280,11 +268,9 @@ mod tests {
         let max = MicroSpur::try_from_usize(u8::max_value() as usize - 1).unwrap();
         let default = MicroSpur::default();
 
-        unsafe {
-            assert_eq!(zero.into_usize(), 0);
-            assert_eq!(max.into_usize(), u8::max_value() as usize - 1);
-            assert_eq!(default.into_usize(), 0);
-        }
+        assert_eq!(zero.into_usize(), 0);
+        assert_eq!(max.into_usize(), u8::max_value() as usize - 1);
+        assert_eq!(default.into_usize(), 0);
     }
 
     #[test]

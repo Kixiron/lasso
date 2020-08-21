@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Debug views of all interners now show their arenas
+- Made `Key::into_usize` safe
 
 ## [0.3.1] - 2020-07-24
 
