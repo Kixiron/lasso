@@ -18,7 +18,7 @@ default = []
 multi-threaded = ["dashmap"]
 no-std = ["ahasher"]
 ahasher = ["ahash"]
-serialize = ["serde"]
+serialize = ["serde", "hashbrown/serde"]
 inline-more = []
 
 # Provides a concurrent hashmap, enabled with the `multi-threaded` feature
@@ -80,5 +80,5 @@ name = "resolver"
 harness = false
 
 [package.metadata.docs.rs]
-features = ["multi-threaded"]
+features = ["multi-threaded", "serialize"]
 targets = ["x86_64-unknown-linux-gnu"]

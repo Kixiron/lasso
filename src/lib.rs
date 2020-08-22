@@ -48,7 +48,7 @@
 //! * `no-std` - Enables `no_std` + `alloc` support for [`Rodeo`] and [`ThreadedRodeo`]
 //!   * Automatically enables the following required features:
 //!     * `ahasher` - `no_std` hashing function
-//! * `serialize` - Implements `Serialize` and `Deserialize` for all `Spur` types
+//! * `serialize` - Implements `Serialize` and `Deserialize` for all `Spur` types and all interners
 //! * `inline-more` - Annotate external apis with `#[inline]`
 //!
 //! ## Example: Using Rodeo

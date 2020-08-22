@@ -239,10 +239,68 @@ impl<'a, K: Key> IntoIterator for &'a RodeoResolver<K> {
     }
 }
 
+compile! {
+    if #[feature = "serialize"] {
+        use crate::Capacity;
+        use core::num::NonZeroUsize;
+        use serde::{
+            de::{Deserialize, Deserializer},
+            ser::{Serialize, Serializer},
+        };
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl<K> Serialize for RodeoResolver<K> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Serialize all of self as a `Vec<String>`
+        self.strings.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl<'de, K: Key> Deserialize<'de> for RodeoResolver<K> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let vector: Vec<String> = Vec::deserialize(deserializer)?;
+        let capacity = {
+            let total_bytes = vector.iter().map(|s| s.len()).sum::<usize>();
+            let total_bytes =
+                NonZeroUsize::new(total_bytes).unwrap_or_else(|| Capacity::default().bytes());
+
+            Capacity::new(vector.len(), total_bytes)
+        };
+
+        let mut strings = Vec::with_capacity(capacity.strings);
+        let mut arena = Arena::new(capacity.bytes, capacity.bytes.get() * 2);
+
+        for string in vector {
+            let allocated = unsafe {
+                arena
+                    .store_str(&string)
+                    .expect("failed to allocate enough memory")
+            };
+
+            strings.push(allocated);
+        }
+
+        Ok(Self {
+            strings,
+            __arena: arena,
+            __key: PhantomData,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     mod single_threaded {
-        use crate::{single_threaded::Rodeo, Key, Spur};
+        use crate::{Key, Rodeo, RodeoResolver, Spur};
 
         #[test]
         fn resolve() {
@@ -358,11 +416,58 @@ mod tests {
             assert!(resolver.contains_key(&key));
             assert!(!resolver.contains_key(&Spur::try_from_usize(10000).unwrap()));
         }
+
+        #[test]
+        #[cfg(feature = "serialize")]
+        fn empty_serialize() {
+            let rodeo = Rodeo::default().into_resolver();
+
+            let ser = serde_json::to_string(&rodeo).unwrap();
+            let ser2 = serde_json::to_string(&rodeo).unwrap();
+            assert_eq!(ser, ser2);
+
+            let deser: RodeoResolver = serde_json::from_str(&ser).unwrap();
+            assert!(deser.is_empty());
+            let deser2: RodeoResolver = serde_json::from_str(&ser2).unwrap();
+            assert!(deser2.is_empty());
+        }
+
+        #[test]
+        #[cfg(feature = "serialize")]
+        fn filled_serialize() {
+            let mut rodeo = Rodeo::default();
+            let a = rodeo.get_or_intern("a");
+            let b = rodeo.get_or_intern("b");
+            let c = rodeo.get_or_intern("c");
+            let d = rodeo.get_or_intern("d");
+            let rodeo = rodeo.into_resolver();
+
+            let ser = serde_json::to_string(&rodeo).unwrap();
+            let ser2 = serde_json::to_string(&rodeo).unwrap();
+            assert_eq!(ser, ser2);
+
+            let deser: RodeoResolver = serde_json::from_str(&ser).unwrap();
+            let deser2: RodeoResolver = serde_json::from_str(&ser2).unwrap();
+
+            for (((correct_key, correct_str), (key1, str1)), (key2, str2)) in
+                [(a, "a"), (b, "b"), (c, "c"), (d, "d")]
+                    .iter()
+                    .copied()
+                    .zip(&deser)
+                    .zip(&deser2)
+            {
+                assert_eq!(correct_key, key1);
+                assert_eq!(correct_key, key2);
+
+                assert_eq!(correct_str, str1);
+                assert_eq!(correct_str, str2);
+            }
+        }
     }
 
     #[cfg(all(not(any(miri, feature = "no-std")), features = "multi-threaded"))]
     mod multi_threaded {
-        use crate::{locks::Arc, multi_threaded::ThreadedRodeo};
+        use crate::{locks::Arc, ThreadedRodeo};
         use std::thread;
 
         #[test]
@@ -556,6 +661,53 @@ mod tests {
 
             assert!(resolver.contains_key(&key));
             assert!(!resolver.contains_key(&Spur::try_from_usize(10000).unwrap()));
+        }
+
+        #[test]
+        #[cfg(feature = "serialize")]
+        fn empty_serialize() {
+            let rodeo = ThreadedRodeo::default().into_resolver();
+
+            let ser = serde_json::to_string(&rodeo).unwrap();
+            let ser2 = serde_json::to_string(&rodeo).unwrap();
+            assert_eq!(ser, ser2);
+
+            let deser: RodeoResolver = serde_json::from_str(&ser).unwrap();
+            assert!(deser.is_empty());
+            let deser2: RodeoResolver = serde_json::from_str(&ser2).unwrap();
+            assert!(deser2.is_empty());
+        }
+
+        #[test]
+        #[cfg(feature = "serialize")]
+        fn filled_serialize() {
+            let rodeo = ThreadedRodeo::default();
+            let a = rodeo.get_or_intern("a");
+            let b = rodeo.get_or_intern("b");
+            let c = rodeo.get_or_intern("c");
+            let d = rodeo.get_or_intern("d");
+            let rodeo = rodeo.into_resolver();
+
+            let ser = serde_json::to_string(&rodeo).unwrap();
+            let ser2 = serde_json::to_string(&rodeo).unwrap();
+            assert_eq!(ser, ser2);
+
+            let deser: RodeoResolver = serde_json::from_str(&ser).unwrap();
+            let deser2: RodeoResolver = serde_json::from_str(&ser2).unwrap();
+
+            for (((correct_key, correct_str), (key1, str1)), (key2, str2)) in
+                [(a, "a"), (b, "b"), (c, "c"), (d, "d")]
+                    .iter()
+                    .copied()
+                    .zip(&deser)
+                    .zip(&deser2)
+            {
+                assert_eq!(correct_key, key1);
+                assert_eq!(correct_key, key2);
+
+                assert_eq!(correct_str, str1);
+                assert_eq!(correct_str, str2);
+            }
         }
     }
 }

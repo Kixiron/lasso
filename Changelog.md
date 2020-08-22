@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the `inline-more` feature to enable inlining (off by default)
 - Added `FromIterator` and `Extend` implementations to `ThreadedRodeo`
 - Added the `.contains()` and the `.contains_key()` methods to `Rodeo`, `ThreadedRodeo`, `RodeoReader` and `RodeoResolver`
+- Implemented `Serialize` and `Deserialize` for `Rodeo`, `ThreadedRodeo`, `RodeoReader` and `RodeoResolver`
 
 ### Changed
 

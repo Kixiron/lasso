@@ -816,6 +816,85 @@ where
     }
 }
 
+compile! {
+    if #[feature = "serialize"] {
+        use core::num::NonZeroUsize;
+        use serde::{
+            de::{Deserialize, Deserializer},
+            ser::{Serialize, Serializer},
+        };
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl<K, H> Serialize for ThreadedRodeo<K, H>
+where
+    K: Copy + Eq + Hash + Serialize,
+    H: Clone + BuildHasher,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Serialize all of self as a `HashMap<String, K>`
+        let mut map = HashMap::with_capacity(self.map.len());
+        for entry in self.map.iter() {
+            map.insert(*entry.key(), entry.value().to_owned());
+        }
+
+        map.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl<'de, K, S> Deserialize<'de> for ThreadedRodeo<K, S>
+where
+    K: Key + Eq + Hash + Deserialize<'de>,
+    S: BuildHasher + Clone + Default,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let deser_map: HashMap<String, K> = HashMap::deserialize(deserializer)?;
+        let capacity = {
+            let total_bytes = deser_map.keys().map(|s| s.len()).sum::<usize>();
+            let total_bytes =
+                NonZeroUsize::new(total_bytes).unwrap_or_else(|| Capacity::default().bytes());
+
+            Capacity::new(deser_map.len(), total_bytes)
+        };
+
+        let hasher = S::default();
+        let map = DashMap::with_capacity_and_hasher(capacity.strings, hasher.clone());
+        let strings = DashMap::with_capacity_and_hasher(capacity.strings, hasher);
+        let mut highest = 0;
+        let mut arena = Arena::new(capacity.bytes, capacity.bytes.get() * 2);
+
+        for (string, key) in deser_map {
+            if key.into_usize() > highest {
+                highest = key.into_usize();
+            }
+
+            let allocated = unsafe {
+                arena
+                    .store_str(&string)
+                    .expect("failed to allocate enough memory")
+            };
+
+            map.insert(allocated, key);
+            strings.insert(key, allocated);
+        }
+
+        Ok(Self {
+            map,
+            strings,
+            key: AtomicUsize::new(highest),
+            arena: Mutex::new(arena),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1355,5 +1434,44 @@ mod tests {
         assert!(rodeo.contains("c"));
         assert!(rodeo.contains("d"));
         assert!(rodeo.contains("e"));
+    }
+
+    #[test]
+    #[cfg(feature = "serialize")]
+    fn empty_serialize() {
+        let rodeo = ThreadedRodeo::default();
+
+        let ser = serde_json::to_string(&rodeo).unwrap();
+        let ser2 = serde_json::to_string(&rodeo).unwrap();
+        assert_eq!(ser, ser2);
+
+        let deser: ThreadedRodeo = serde_json::from_str(&ser).unwrap();
+        assert!(deser.is_empty());
+        let deser2: ThreadedRodeo = serde_json::from_str(&ser2).unwrap();
+        assert!(deser2.is_empty());
+    }
+
+    #[test]
+    #[cfg(feature = "serialize")]
+    fn filled_serialize() {
+        let rodeo = ThreadedRodeo::default();
+        let a = rodeo.get_or_intern("a");
+        let b = rodeo.get_or_intern("b");
+        let c = rodeo.get_or_intern("c");
+        let d = rodeo.get_or_intern("d");
+
+        let ser = serde_json::to_string(&rodeo).unwrap();
+        let ser2 = serde_json::to_string(&rodeo).unwrap();
+
+        let deser: ThreadedRodeo = serde_json::from_str(&ser).unwrap();
+        let deser2: ThreadedRodeo = serde_json::from_str(&ser2).unwrap();
+
+        for (correct_key, correct_str) in [(a, "a"), (b, "b"), (c, "c"), (d, "d")].iter().copied() {
+            assert_eq!(correct_key, deser.get(correct_str).unwrap());
+            assert_eq!(correct_key, deser2.get(correct_str).unwrap());
+
+            assert_eq!(correct_str, deser.resolve(&correct_key));
+            assert_eq!(correct_str, deser2.resolve(&correct_key));
+        }
     }
 }
