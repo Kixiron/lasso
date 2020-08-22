@@ -9,7 +9,8 @@ use crate::{
 use core::{
     fmt::{Debug, Formatter, Result as FmtResult},
     hash::{BuildHasher, Hash, Hasher},
-    iter, mem,
+    iter::{self, FromIterator},
+    mem,
     sync::atomic::{AtomicUsize, Ordering},
 };
 use dashmap::DashMap;
@@ -726,6 +727,49 @@ where
 
 unsafe impl<K: Sync, S: Sync> Sync for ThreadedRodeo<K, S> {}
 unsafe impl<K: Send, S: Send> Send for ThreadedRodeo<K, S> {}
+
+impl<Str, K, S> FromIterator<Str> for ThreadedRodeo<K, S>
+where
+    Str: AsRef<str>,
+    K: Key + Hash,
+    S: BuildHasher + Clone + Default,
+{
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = Str>,
+    {
+        let iter = iter.into_iter();
+        let (lower, upper) = iter.size_hint();
+        let interner = Self::with_capacity_and_hasher(
+            Capacity::for_strings(upper.unwrap_or(lower)),
+            Default::default(),
+        );
+
+        for string in iter {
+            interner.get_or_intern(string.as_ref());
+        }
+
+        interner
+    }
+}
+
+impl<K, S, T> Extend<T> for ThreadedRodeo<K, S>
+where
+    K: Key + Hash,
+    S: BuildHasher + Clone,
+    T: AsRef<str>,
+{
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = T>,
+    {
+        for s in iter {
+            self.get_or_intern(s.as_ref());
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
