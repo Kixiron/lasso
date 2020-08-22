@@ -279,7 +279,8 @@ impl<'de, K: Key> Deserialize<'de> for RodeoResolver<K> {
         };
 
         let mut strings = Vec::with_capacity(capacity.strings);
-        let mut arena = Arena::new(capacity.bytes, usize::max_value());
+        let mut arena = Arena::new(capacity.bytes, usize::max_value())
+            .expect("failed to allocate memory for interner");
 
         for string in vector {
             let allocated = unsafe {

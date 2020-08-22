@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Debug views of all interners now show their arenas
 - Made `Key::into_usize` safe
 - External apis are no longer `#[inline]` by default, for that use the `inline-more` feature
+- `.get_or_intern()` and `.get_or_intern_static()` now return a `Result<T, LassoError>` to allow intelligently handling failure
 
 ## [0.3.1] - 2020-07-24
 

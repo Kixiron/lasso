@@ -436,7 +436,7 @@ pub use key::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
 pub use reader::RodeoReader;
 pub use resolver::RodeoResolver;
 pub use single_threaded::Rodeo;
-pub use util::{Capacity, Iter, MemoryLimits, Strings};
+pub use util::{Capacity, Iter, LassoError, LassoErrorKind, LassoResult, MemoryLimits, Strings};
 
 compile! {
     if #[feature = "no-std"] {

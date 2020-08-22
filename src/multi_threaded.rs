@@ -4,7 +4,7 @@ use crate::{
     key::{Key, Spur},
     reader::RodeoReader,
     resolver::RodeoResolver,
-    Capacity, MemoryLimits,
+    Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits,
 };
 use core::{
     fmt::{Debug, Formatter, Result as FmtResult},
@@ -255,7 +255,10 @@ where
             map: DashMap::with_capacity_and_hasher(strings, hash_builder.clone()),
             strings: DashMap::with_capacity_and_hasher(strings, hash_builder),
             key: AtomicUsize::new(0),
-            arena: Mutex::new(Arena::new(bytes, max_memory_usage)),
+            arena: Mutex::new(
+                Arena::new(bytes, max_memory_usage)
+                    .expect("failed to allocate memory for interner"),
+            ),
         }
     }
 
@@ -311,32 +314,33 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_get_or_intern<T>(&self, val: T) -> Option<K>
+    pub fn try_get_or_intern<T>(&self, val: T) -> LassoResult<K>
     where
         T: AsRef<str>,
     {
         let string_slice = val.as_ref();
 
         if let Some(key) = self.map.get(string_slice) {
-            Some(*key)
+            Ok(*key)
         } else {
             let shard = self.map.determine_map(string_slice);
             // Safety: The indices provided by DashMap always refer to a shard in it's shards
             let shard = unsafe { self.map.shards().get_unchecked(shard) };
 
             if let Some(key) = shard.read().get(string_slice) {
-                return Some(*key.get());
+                return Ok(*key.get());
             }
 
             // Safety: The drop impl removes all references before the arena is dropped
             let string: &'static str =
                 unsafe { self.arena.lock().unwrap().store_str(string_slice)? };
-            let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))?;
+            let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
+                .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
 
             self.map.insert(string, key);
             self.strings.insert(key, string);
 
-            Some(key)
+            Ok(key)
         }
     }
 
@@ -393,24 +397,25 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_get_or_intern_static(&self, string: &'static str) -> Option<K> {
+    pub fn try_get_or_intern_static(&self, string: &'static str) -> LassoResult<K> {
         if let Some(key) = self.map.get(string) {
-            Some(*key)
+            Ok(*key)
         } else {
             let shard = self.map.determine_map(string);
             // Safety: The indices provided by DashMap always refer to a shard in it's shards
             let shard = unsafe { self.map.shards().get_unchecked(shard) };
 
             if let Some(key) = shard.read().get(string) {
-                return Some(*key.get());
+                return Ok(*key.get());
             }
 
-            let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))?;
+            let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
+                .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
 
             self.map.insert(string, key);
             self.strings.insert(key, string);
 
-            Some(key)
+            Ok(key)
         }
     }
 
@@ -871,7 +876,8 @@ where
         let map = DashMap::with_capacity_and_hasher(capacity.strings, hasher.clone());
         let strings = DashMap::with_capacity_and_hasher(capacity.strings, hasher);
         let mut highest = 0;
-        let mut arena = Arena::new(capacity.bytes, usize::max_value());
+        let mut arena = Arena::new(capacity.bytes, usize::max_value())
+            .expect("failed to allocate memory for interner");
 
         for (string, key) in deser_map {
             if key.into_usize() > highest {
@@ -998,7 +1004,7 @@ mod tests {
         let space = rodeo.try_get_or_intern("A").unwrap();
         assert_eq!("A", rodeo.resolve(&space));
 
-        assert!(rodeo.try_get_or_intern("C").is_none());
+        assert!(rodeo.try_get_or_intern("C").is_err());
     }
 
     #[test]
@@ -1273,9 +1279,9 @@ mod tests {
         let string = rodeo.try_get_or_intern("0123456789").unwrap();
         assert_eq!(rodeo.resolve(&string), "0123456789");
 
-        assert!(rodeo.try_get_or_intern("").is_none());
-        assert!(rodeo.try_get_or_intern("").is_none());
-        assert!(rodeo.try_get_or_intern("").is_none());
+        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("").is_err());
 
         assert_eq!(rodeo.resolve(&string), "0123456789");
     }
@@ -1294,9 +1300,9 @@ mod tests {
             let string = moved.try_get_or_intern("0123456789").unwrap();
             assert_eq!(moved.resolve(&string), "0123456789");
 
-            assert!(moved.try_get_or_intern("").is_none());
-            assert!(moved.try_get_or_intern("").is_none());
-            assert!(moved.try_get_or_intern("").is_none());
+            assert!(moved.try_get_or_intern("").is_err());
+            assert!(moved.try_get_or_intern("").is_err());
+            assert!(moved.try_get_or_intern("").is_err());
 
             assert_eq!(moved.resolve(&string), "0123456789");
         });
@@ -1304,9 +1310,9 @@ mod tests {
         let string = rodeo.try_get_or_intern("0123456789").unwrap();
         assert_eq!(rodeo.resolve(&string), "0123456789");
 
-        assert!(rodeo.try_get_or_intern("").is_none());
-        assert!(rodeo.try_get_or_intern("").is_none());
-        assert!(rodeo.try_get_or_intern("").is_none());
+        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("").is_err());
 
         assert_eq!(rodeo.resolve(&string), "0123456789");
     }
@@ -1358,9 +1364,9 @@ mod tests {
         let string1 = rodeo.try_get_or_intern("0123456789").unwrap();
         assert_eq!(rodeo.resolve(&string1), "0123456789");
 
-        assert!(rodeo.try_get_or_intern("").is_none());
-        assert!(rodeo.try_get_or_intern("").is_none());
-        assert!(rodeo.try_get_or_intern("").is_none());
+        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("").is_err());
 
         assert_eq!(rodeo.resolve(&string1), "0123456789");
 
@@ -1369,9 +1375,9 @@ mod tests {
         let string2 = rodeo.try_get_or_intern("9876543210").unwrap();
         assert_eq!(rodeo.resolve(&string2), "9876543210");
 
-        assert!(rodeo.try_get_or_intern("").is_none());
-        assert!(rodeo.try_get_or_intern("").is_none());
-        assert!(rodeo.try_get_or_intern("").is_none());
+        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("").is_err());
 
         assert_eq!(rodeo.resolve(&string1), "0123456789");
         assert_eq!(rodeo.resolve(&string2), "9876543210");

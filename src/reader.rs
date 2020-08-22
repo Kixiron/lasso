@@ -392,7 +392,8 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for RodeoReader<K, 
         let hasher: S = Default::default();
         let mut strings = Vec::with_capacity(capacity.strings);
         let mut map = HashMap::with_capacity_and_hasher(capacity.strings, ());
-        let mut arena = Arena::new(capacity.bytes, usize::max_value());
+        let mut arena = Arena::new(capacity.bytes, usize::max_value())
+            .expect("failed to allocate memory for interner");
 
         for (key, string) in vector.into_iter().enumerate() {
             let allocated = unsafe {

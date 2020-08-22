@@ -14,7 +14,7 @@ compile! {
         use std::alloc::{alloc, dealloc, Layout};
     }
 }
-use crate::{Capacity, MemoryLimits};
+use crate::{Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits};
 use core::{cmp, fmt, mem, num::NonZeroUsize, ptr::NonNull, slice};
 
 /// An arena allocator that dynamically grows in size when needed, allocating memory in large chunks
@@ -29,15 +29,15 @@ pub(crate) struct Arena {
 
 impl Arena {
     /// Create a new Arena with the default bucket size of 4096 bytes
-    pub fn new(capacity: NonZeroUsize, max_memory_usage: usize) -> Self {
-        Self {
+    pub fn new(capacity: NonZeroUsize, max_memory_usage: usize) -> LassoResult<Self> {
+        Ok(Self {
             // Allocate one bucket
-            buckets: vec![Bucket::with_capacity(capacity)],
+            buckets: vec![Bucket::with_capacity(capacity)?],
             bucket_capacity: capacity,
             // The current capacity is whatever size the bucket we just allocated is
             memory_usage: capacity.get(),
             max_memory_usage,
-        }
+        })
     }
 
     pub(crate) fn memory_usage(&self) -> usize {
@@ -47,13 +47,13 @@ impl Arena {
     /// Doesn't actually allocate anything, but increments `self.memory_usage` and returns `None` if
     /// the attempted amount surpasses `max_memory_usage`
     // TODO: Make this return a `Result`
-    fn allocate_memory(&mut self, requested_mem: usize) -> Option<()> {
+    fn allocate_memory(&mut self, requested_mem: usize) -> LassoResult<()> {
         if self.memory_usage + requested_mem > self.max_memory_usage {
-            None
+            Err(LassoError::new(LassoErrorKind::MemoryLimitReached))
         } else {
             self.memory_usage += requested_mem;
 
-            Some(())
+            Ok(())
         }
     }
 
@@ -63,7 +63,7 @@ impl Arena {
     ///
     /// The reference passed back must be dropped before the arena that created it is
     ///
-    pub unsafe fn store_str(&mut self, string: &str) -> Option<&'static str> {
+    pub unsafe fn store_str(&mut self, string: &str) -> LassoResult<&'static str> {
         let slice = string.as_bytes();
         // Ensure the length is at least 1, mainly for empty strings
         // This theoretically wastes a single byte, but it shouldn't matter since
@@ -76,7 +76,7 @@ impl Arena {
             .filter(|bucket| bucket.free_elements() >= len)
         {
             // Safety: The bucket found has enough room for the slice
-            return unsafe { Some(bucket.push_slice(slice)) };
+            return unsafe { Ok(bucket.push_slice(slice)) };
         }
 
         // SPEED: This portion of the code could be pulled into a cold path
@@ -91,13 +91,13 @@ impl Arena {
             self.allocate_memory(len)?;
 
             // Safety: len will always be >= 1
-            let mut bucket = Bucket::with_capacity(unsafe { NonZeroUsize::new_unchecked(len) });
+            let mut bucket = Bucket::with_capacity(unsafe { NonZeroUsize::new_unchecked(len) })?;
 
             // Safety: The new bucket will have exactly enough room for the string
             let allocated_string = unsafe { bucket.push_slice(slice) };
             self.buckets.insert(self.buckets.len() - 2, bucket);
 
-            Some(allocated_string)
+            Ok(allocated_string)
 
         // If trying to use the doubled capacity will surpass our memory limit, just allocate as much as we can
         } else if self.memory_usage + next_capacity > self.max_memory_usage {
@@ -106,13 +106,16 @@ impl Arena {
             self.allocate_memory(remaining_memory)?;
 
             // Set the capacity to twice of what it currently is to allow for fewer allocations as more strings are interned
-            let mut bucket = Bucket::with_capacity(NonZeroUsize::new(remaining_memory)?);
+            let mut bucket = Bucket::with_capacity(
+                NonZeroUsize::new(remaining_memory)
+                    .ok_or_else(|| LassoError::new(LassoErrorKind::MemoryLimitReached))?,
+            )?;
 
             // Safety: The new bucket will have enough room for the string
             let allocated_string = unsafe { bucket.push_slice(slice) };
             self.buckets.push(bucket);
 
-            Some(allocated_string)
+            Ok(allocated_string)
 
         // Otherwise just allocate a normal doubled bucket
         } else {
@@ -122,13 +125,13 @@ impl Arena {
             // Set the capacity to twice of what it currently is to allow for fewer allocations as more strings are interned
             // Safety: capacity will always be >= 1
             self.bucket_capacity = unsafe { NonZeroUsize::new_unchecked(next_capacity) };
-            let mut bucket = Bucket::with_capacity(self.bucket_capacity);
+            let mut bucket = Bucket::with_capacity(self.bucket_capacity)?;
 
             // Safety: The new bucket will have enough room for the string
             let allocated_string = unsafe { bucket.push_slice(slice) };
             self.buckets.push(bucket);
 
-            Some(allocated_string)
+            Ok(allocated_string)
         }
     }
 }
@@ -139,6 +142,7 @@ impl Default for Arena {
             Capacity::default().bytes,
             MemoryLimits::default().max_memory_usage,
         )
+        .expect("failed to create arena")
     }
 }
 
@@ -199,7 +203,7 @@ impl Drop for Bucket {
 
 impl Bucket {
     /// Allocates a bucket with space for `capacity` items
-    pub(crate) fn with_capacity(capacity: NonZeroUsize) -> Self {
+    pub(crate) fn with_capacity(capacity: NonZeroUsize) -> LassoResult<Self> {
         unsafe {
             debug_assert!(Layout::from_size_align(
                 mem::size_of::<u8>() * capacity.get(),
@@ -217,14 +221,14 @@ impl Bucket {
             // Allocate the bucket's memory
             let items = NonNull::new(alloc(layout))
                 // TODO: When `Result`s are piped through return this as a unique error
-                .expect("Failed to allocate a new bucket, process out of memory")
+                .ok_or_else(|| LassoError::new(LassoErrorKind::FailedAllocation))?
                 .cast();
 
-            Self {
+            Ok(Self {
                 index: 0,
                 capacity,
                 items,
-            }
+            })
         }
     }
 
@@ -280,7 +284,7 @@ mod tests {
         unsafe {
             let idx = arena.store_str("test");
 
-            assert_eq!(idx, Some("test"));
+            assert_eq!(idx, Ok("test"));
         }
     }
 
@@ -293,9 +297,9 @@ mod tests {
             let zst1 = arena.store_str("");
             let zst2 = arena.store_str("");
 
-            assert_eq!(zst, Some(""));
-            assert_eq!(zst1, Some(""));
-            assert_eq!(zst2, Some(""));
+            assert_eq!(zst, Ok(""));
+            assert_eq!(zst1, Ok(""));
+            assert_eq!(zst2, Ok(""));
         }
     }
 
@@ -307,7 +311,7 @@ mod tests {
         for _ in 0..10 {
             let large_string = "a".repeat(len);
             let arena_string = unsafe { arena.store_str(&large_string) };
-            assert_eq!(arena_string, Some(large_string.as_str()));
+            assert_eq!(arena_string, Ok(large_string.as_str()));
 
             len *= 2;
         }
@@ -315,22 +319,25 @@ mod tests {
 
     #[test]
     fn memory_exhausted() {
-        let mut arena = Arena::new(NonZeroUsize::new(10).unwrap(), 10);
+        let mut arena = Arena::new(NonZeroUsize::new(10).unwrap(), 10).unwrap();
 
         unsafe {
-            assert!(arena.store_str("0123456789").is_some());
+            assert!(arena.store_str("0123456789").is_ok());
             // A ZST takes up a single byte
-            assert!(arena.store_str("").is_none());
-            assert!(arena.store_str("dfgsagdfgsdf").is_none());
+            let err = arena.store_str("").unwrap_err();
+            assert!(err.kind().is_memory_limit());
+            let err = arena.store_str("dfgsagdfgsdf").unwrap_err();
+            assert!(err.kind().is_memory_limit());
         }
     }
 
     #[test]
     fn allocate_too_much() {
-        let mut arena = Arena::new(NonZeroUsize::new(1).unwrap(), 10);
+        let mut arena = Arena::new(NonZeroUsize::new(1).unwrap(), 10).unwrap();
 
         unsafe {
-            assert!(arena.store_str("abcdefghijklmnopqrstuvwxyz").is_none());
+            let err = arena.store_str("abcdefghijklmnopqrstuvwxyz").unwrap_err();
+            assert!(err.kind().is_memory_limit());
         }
     }
 }

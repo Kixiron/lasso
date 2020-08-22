@@ -1,5 +1,88 @@
 use crate::{key::Key, reader::RodeoReader, resolver::RodeoResolver, single_threaded::Rodeo};
-use core::{iter, marker::PhantomData, num::NonZeroUsize, slice};
+use core::{fmt, iter, marker::PhantomData, num::NonZeroUsize, slice};
+
+/// A continence type for an error from an interner
+pub type LassoResult<T> = std::result::Result<T, LassoError>;
+
+/// An error encountered while using an interner
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LassoError {
+    kind: LassoErrorKind,
+}
+
+impl LassoError {
+    /// Gets the kind of error that occurred
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub const fn kind(&self) -> LassoErrorKind {
+        self.kind
+    }
+}
+
+impl LassoError {
+    pub(crate) const fn new(kind: LassoErrorKind) -> Self {
+        Self { kind }
+    }
+}
+
+impl fmt::Display for LassoError {
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Lasso encountered an error: {}", self.kind)
+    }
+}
+
+#[cfg(not(feature = "no-std"))]
+impl std::error::Error for LassoError {}
+
+/// The kind of error that occurred
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum LassoErrorKind {
+    /// A memory limit set using [`MemoryLimits`] was reached, and no more memory could be allocated
+    ///
+    /// [`MemoryLimits`]: crate::MemoryLimits
+    MemoryLimitReached,
+    /// A [`Key`] implementation returned `None`, meaning it could not produce any more keys
+    ///
+    /// [`Key`]: crate::Key
+    KeySpaceExhaustion,
+    /// A memory allocation failed
+    FailedAllocation,
+}
+
+impl LassoErrorKind {
+    /// A memory limit set using [`MemoryLimits`] was reached, and no more memory could be allocated
+    ///
+    /// [`MemoryLimits`]: crate::MemoryLimits
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn is_memory_limit(&self) -> bool {
+        matches!(self, Self::MemoryLimitReached)
+    }
+
+    /// A [`Key`] implementation returned `None`, meaning it could not produce any more keys
+    ///
+    /// [`Key`]: crate::Key
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn is_keyspace_exhaustion(&self) -> bool {
+        matches!(self, Self::KeySpaceExhaustion)
+    }
+
+    /// A memory allocation failed
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn is_failed_alloc(&self) -> bool {
+        matches!(self, Self::FailedAllocation)
+    }
+}
+
+impl fmt::Display for LassoErrorKind {
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MemoryLimitReached => f.write_str("The configured memory limit was reached"),
+            Self::KeySpaceExhaustion => f.write_str("The key space was exhausted"),
+            Self::FailedAllocation => f.write_str("Failed to allocate memory"),
+        }
+    }
+}
 
 /// The amount of strings and bytes that an interner can hold before reallocating
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

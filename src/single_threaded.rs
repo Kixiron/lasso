@@ -5,7 +5,7 @@ use crate::{
     reader::RodeoReader,
     resolver::RodeoResolver,
     util::{Iter, Strings},
-    Capacity, MemoryLimits,
+    Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits,
 };
 use core::{
     hash::{BuildHasher, Hash, Hasher},
@@ -238,7 +238,8 @@ where
             map: HashMap::with_capacity_and_hasher(strings, ()),
             hasher: hash_builder,
             strings: Vec::with_capacity(strings),
-            arena: Arena::new(bytes, max_memory_usage),
+            arena: Arena::new(bytes, max_memory_usage)
+                .expect("failed to allocate memory for interner"),
         }
     }
 
@@ -295,7 +296,7 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_get_or_intern<T>(&mut self, val: T) -> Option<K>
+    pub fn try_get_or_intern<T>(&mut self, val: T) -> LassoResult<K>
     where
         T: AsRef<str>,
     {
@@ -332,7 +333,8 @@ where
             // The string does not yet exist, so insert it and create its key
             RawEntryMut::Vacant(entry) => {
                 // Create the key from the vec's index that the string will hold
-                let key = K::try_from_usize(strings.len())?;
+                let key = K::try_from_usize(strings.len())
+                    .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
 
                 // Allocate the string in the arena
                 // Safety: The returned strings will be dropped before the arena that created them is
@@ -355,7 +357,7 @@ where
             }
         };
 
-        Some(key)
+        Ok(key)
     }
 
     /// Get the key for a static string, interning it if it does not yet exist
@@ -411,7 +413,7 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_get_or_intern_static(&mut self, string: &'static str) -> Option<K> {
+    pub fn try_get_or_intern_static(&mut self, string: &'static str) -> LassoResult<K> {
         let Self {
             map,
             hasher,
@@ -443,7 +445,8 @@ where
             // The string does not yet exist, so insert it and create its key
             RawEntryMut::Vacant(entry) => {
                 // Create the key from the vec's index that the string will hold
-                let key = K::try_from_usize(strings.len())?;
+                let key = K::try_from_usize(strings.len())
+                    .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
 
                 // Push the static string to the strings vector
                 strings.push(string);
@@ -462,7 +465,7 @@ where
             }
         };
 
-        Some(key)
+        Ok(key)
     }
 
     /// Get the key value of a string, returning `None` if it doesn't exist
@@ -896,7 +899,8 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, S> {
         let hasher: S = Default::default();
         let mut strings = Vec::with_capacity(capacity.strings);
         let mut map = HashMap::with_capacity_and_hasher(capacity.strings, ());
-        let mut arena = Arena::new(capacity.bytes, usize::max_value());
+        let mut arena = Arena::new(capacity.bytes, usize::max_value())
+            .expect("failed to allocate memory for interner");
 
         for (key, string) in vector.into_iter().enumerate() {
             let allocated = unsafe {
@@ -1063,10 +1067,10 @@ mod tests {
         }
 
         let space = rodeo.try_get_or_intern("A").unwrap();
-        assert_eq!(Some(space), rodeo.try_get_or_intern("A"));
+        assert_eq!(Ok(space), rodeo.try_get_or_intern("A"));
         assert_eq!("A", rodeo.resolve(&space));
 
-        assert!(rodeo.try_get_or_intern("C").is_none());
+        assert!(rodeo.try_get_or_intern("C").is_err());
     }
 
     #[test]
@@ -1103,10 +1107,10 @@ mod tests {
         }
 
         let space = rodeo.try_get_or_intern_static("A").unwrap();
-        assert_eq!(Some(space), rodeo.try_get_or_intern_static("A"));
+        assert_eq!(Ok(space), rodeo.try_get_or_intern_static("A"));
         assert_eq!("A", rodeo.resolve(&space));
 
-        assert!(rodeo.try_get_or_intern_static("C").is_none());
+        assert!(rodeo.try_get_or_intern_static("C").is_err());
     }
 
     #[test]
@@ -1303,9 +1307,9 @@ mod tests {
         let string = rodeo.try_get_or_intern("0123456789").unwrap();
         assert_eq!(rodeo.resolve(&string), "0123456789");
 
-        assert!(rodeo.try_get_or_intern("").is_none());
-        assert!(rodeo.try_get_or_intern("").is_none());
-        assert!(rodeo.try_get_or_intern("").is_none());
+        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("").is_err());
 
         assert_eq!(rodeo.resolve(&string), "0123456789");
     }
@@ -1354,9 +1358,9 @@ mod tests {
         let string1 = rodeo.try_get_or_intern("0123456789").unwrap();
         assert_eq!(rodeo.resolve(&string1), "0123456789");
 
-        assert!(rodeo.try_get_or_intern("").is_none());
-        assert!(rodeo.try_get_or_intern("").is_none());
-        assert!(rodeo.try_get_or_intern("").is_none());
+        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("").is_err());
 
         assert_eq!(rodeo.resolve(&string1), "0123456789");
 
@@ -1365,9 +1369,9 @@ mod tests {
         let string2 = rodeo.try_get_or_intern("9876543210").unwrap();
         assert_eq!(rodeo.resolve(&string2), "9876543210");
 
-        assert!(rodeo.try_get_or_intern("").is_none());
-        assert!(rodeo.try_get_or_intern("").is_none());
-        assert!(rodeo.try_get_or_intern("").is_none());
+        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("").is_err());
 
         assert_eq!(rodeo.resolve(&string1), "0123456789");
         assert_eq!(rodeo.resolve(&string2), "9876543210");
