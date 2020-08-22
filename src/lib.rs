@@ -174,6 +174,68 @@
 //! // The Resolver can now be shared across threads, no matter what kind of Rodeo created it
 //! ```
 //!
+//! ## Example: Making a custom-ranged key
+//!
+//! Sometimes you want your keys to only inhabit (or *not* inhabit) a certain range of values so that you can have custom [niches].
+//! This allows you to pack more data into what would otherwise be unused space, which can be critical for memory-sensitive applications.
+//!
+//! ```rust
+//! use lasso::{Key, Rodeo};
+//!
+//! // First make our key type, this will be what we use as handles into our interner
+//! #[derive(Copy, Clone, PartialEq, Eq)]
+//! struct NicheKey(u32);
+//!
+//! // This will reserve the upper 255 values for us to use as niches
+//! const NICHE: usize = 0xFF000000;
+//!
+//! // Implementing `Key` is unsafe and requires that anything given to `try_from_usize` must produce the
+//! // same `usize` when `into_usize` is later called
+//! unsafe impl Key for NicheKey {
+//!     fn into_usize(self) -> usize {
+//!         self.0 as usize
+//!     }
+//!
+//!     fn try_from_usize(int: usize) -> Option<Self> {
+//!         if int < NICHE {
+//!             // The value isn't in our niche range, so we're good to go
+//!             Some(Self(int as u32))
+//!         } else {
+//!             // The value interferes with our niche, so we return `None`
+//!             None
+//!         }
+//!     }
+//! }
+//!
+//! // To make sure we're upholding `Key`'s safety contract, let's make two small tests
+//! #[test]
+//! # fn a() {}
+//! fn value_in_range() {
+//!     let key = NicheKey::try_from_usize(0).unwrap();
+//!     assert_eq!(key.into_usize(), 0);
+//!
+//!     let key = NicheKey::try_from_usize(NICHE - 1).unwrap();
+//!     assert_eq!(key.into_usize(), NICHE - 1);
+//! }
+//! # value_in_range();
+//!
+//! #[test]
+//! # fn b() {}
+//! fn value_out_of_range() {
+//!     let key = NicheKey::try_from_usize(NICHE);
+//!     assert!(key.is_none());
+//!
+//!     let key = NicheKey::try_from_usize(u32::max_value() as usize);
+//!     assert!(key.is_none());
+//! }
+//! # value_out_of_range();
+//!
+//! // And now we're done and can make `Rodeo`s or `ThreadedRodeo`s that use our custom key!
+//! let mut rodeo: Rodeo<NicheKey> = Rodeo::new();
+//! let key = rodeo.get_or_intern("It works!");
+//! assert_eq!(rodeo.resolve(&key), "It works!");
+//! ```
+//!
 //! ## Benchmarks
 //!
 //! Benchmarks were gathered with [Criterion.rs](https://github.com/bheisler/criterion.rs)  
