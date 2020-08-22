@@ -1,6 +1,7 @@
 {
     "rust-analyzer.cargo.features": [
         "multi-threaded",
-        "serialize"
+        "serialize",
+        "inline-more"
     ]
 }

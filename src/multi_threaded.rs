@@ -832,6 +832,7 @@ where
     K: Copy + Eq + Hash + Serialize,
     H: Clone + BuildHasher,
 {
+    #[cfg_attr(feature = "inline-more", inline)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -852,6 +853,7 @@ where
     K: Key + Eq + Hash + Deserialize<'de>,
     S: BuildHasher + Clone + Default,
 {
+    #[cfg_attr(feature = "inline-more", inline)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -869,7 +871,7 @@ where
         let map = DashMap::with_capacity_and_hasher(capacity.strings, hasher.clone());
         let strings = DashMap::with_capacity_and_hasher(capacity.strings, hasher);
         let mut highest = 0;
-        let mut arena = Arena::new(capacity.bytes, capacity.bytes.get() * 2);
+        let mut arena = Arena::new(capacity.bytes, usize::max_value());
 
         for (string, key) in deser_map {
             if key.into_usize() > highest {

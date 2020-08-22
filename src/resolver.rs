@@ -252,6 +252,7 @@ compile! {
 
 #[cfg(feature = "serialize")]
 impl<K> Serialize for RodeoResolver<K> {
+    #[cfg_attr(feature = "inline-more", inline)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -263,6 +264,7 @@ impl<K> Serialize for RodeoResolver<K> {
 
 #[cfg(feature = "serialize")]
 impl<'de, K: Key> Deserialize<'de> for RodeoResolver<K> {
+    #[cfg_attr(feature = "inline-more", inline)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -277,7 +279,7 @@ impl<'de, K: Key> Deserialize<'de> for RodeoResolver<K> {
         };
 
         let mut strings = Vec::with_capacity(capacity.strings);
-        let mut arena = Arena::new(capacity.bytes, capacity.bytes.get() * 2);
+        let mut arena = Arena::new(capacity.bytes, usize::max_value());
 
         for string in vector {
             let allocated = unsafe {
@@ -300,7 +302,9 @@ impl<'de, K: Key> Deserialize<'de> for RodeoResolver<K> {
 #[cfg(test)]
 mod tests {
     mod single_threaded {
-        use crate::{Key, Rodeo, RodeoResolver, Spur};
+        #[cfg(feature = "serialize")]
+        use crate::RodeoResolver;
+        use crate::{Key, Rodeo, Spur};
 
         #[test]
         fn resolve() {
@@ -415,6 +419,23 @@ mod tests {
 
             assert!(resolver.contains_key(&key));
             assert!(!resolver.contains_key(&Spur::try_from_usize(10000).unwrap()));
+        }
+
+        #[test]
+        fn into_iterator() {
+            let rodeo = ["a", "b", "c", "d", "e"]
+                .iter()
+                .collect::<Rodeo>()
+                .into_resolver();
+
+            for ((key, string), (expected_key, expected_string)) in rodeo.into_iter().zip(
+                [(0usize, "a"), (1, "b"), (2, "c"), (3, "d"), (4, "e")]
+                    .iter()
+                    .copied(),
+            ) {
+                assert_eq!(key, Spur::try_from_usize(expected_key).unwrap());
+                assert_eq!(string, expected_string);
+            }
         }
 
         #[test]
@@ -661,6 +682,23 @@ mod tests {
 
             assert!(resolver.contains_key(&key));
             assert!(!resolver.contains_key(&Spur::try_from_usize(10000).unwrap()));
+        }
+
+        #[test]
+        fn into_iterator() {
+            let rodeo = ["a", "b", "c", "d", "e"]
+                .iter()
+                .collect::<ThreadedRodeo>()
+                .into_resolver();
+
+            for ((key, string), (expected_key, expected_string)) in rodeo.into_iter().zip(
+                [(0usize, "a"), (1, "b"), (2, "c"), (3, "d"), (4, "e")]
+                    .iter()
+                    .copied(),
+            ) {
+                assert_eq!(key, Spur::try_from_usize(expected_key).unwrap());
+                assert_eq!(string, expected_string);
+            }
         }
 
         #[test]

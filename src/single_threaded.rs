@@ -867,6 +867,7 @@ compile! {
 
 #[cfg(feature = "serialize")]
 impl<K, H> Serialize for Rodeo<K, H> {
+    #[cfg_attr(feature = "inline-more", inline)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -878,6 +879,7 @@ impl<K, H> Serialize for Rodeo<K, H> {
 
 #[cfg(feature = "serialize")]
 impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, S> {
+    #[cfg_attr(feature = "inline-more", inline)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -894,7 +896,7 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, S> {
         let hasher: S = Default::default();
         let mut strings = Vec::with_capacity(capacity.strings);
         let mut map = HashMap::with_capacity_and_hasher(capacity.strings, ());
-        let mut arena = Arena::new(capacity.bytes, capacity.bytes.get() * 2);
+        let mut arena = Arena::new(capacity.bytes, usize::max_value());
 
         for (key, string) in vector.into_iter().enumerate() {
             let allocated = unsafe {

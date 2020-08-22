@@ -324,4 +324,13 @@ mod tests {
             assert!(arena.store_str("dfgsagdfgsdf").is_none());
         }
     }
+
+    #[test]
+    fn allocate_too_much() {
+        let mut arena = Arena::new(NonZeroUsize::new(1).unwrap(), 10);
+
+        unsafe {
+            assert!(arena.store_str("abcdefghijklmnopqrstuvwxyz").is_none());
+        }
+    }
 }
