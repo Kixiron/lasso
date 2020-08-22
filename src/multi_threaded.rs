@@ -1335,8 +1335,7 @@ mod tests {
 
     #[test]
     fn from_iter() {
-        let rodeo: ThreadedRodeo =
-            ThreadedRodeo::from_iter(vec!["a", "b", "c", "d", "e"].into_iter());
+        let rodeo: ThreadedRodeo = ThreadedRodeo::from_iter(["a", "b", "c", "d", "e"].iter());
 
         assert!(rodeo.contains("a"));
         assert!(rodeo.contains("b"));
@@ -1350,7 +1349,7 @@ mod tests {
         let mut rodeo = ThreadedRodeo::default();
         assert!(rodeo.is_empty());
 
-        rodeo.extend(vec!["a", "b", "c", "d", "e"].into_iter());
+        rodeo.extend(["a", "b", "c", "d", "e"].iter());
         assert!(rodeo.contains("a"));
         assert!(rodeo.contains("b"));
         assert!(rodeo.contains("c"));

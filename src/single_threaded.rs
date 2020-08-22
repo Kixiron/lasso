@@ -1311,7 +1311,7 @@ mod tests {
 
     #[test]
     fn from_iter() {
-        let rodeo: Rodeo = Rodeo::from_iter(vec!["a", "b", "c", "d", "e"].into_iter());
+        let rodeo: Rodeo = Rodeo::from_iter(["a", "b", "c", "d", "e"].iter());
 
         assert!(rodeo.contains("a"));
         assert!(rodeo.contains("b"));
@@ -1325,7 +1325,7 @@ mod tests {
         let mut rodeo = Rodeo::default();
         assert!(rodeo.is_empty());
 
-        rodeo.extend(vec!["a", "b", "c", "d", "e"].into_iter());
+        rodeo.extend(["a", "b", "c", "d", "e"].iter());
         assert!(rodeo.contains("a"));
         assert!(rodeo.contains("b"));
         assert!(rodeo.contains("c"));
@@ -1335,13 +1335,13 @@ mod tests {
 
     #[test]
     fn into_iterator() {
-        let rodeo: Rodeo = Rodeo::from_iter(vec!["a", "b", "c", "d", "e"].into_iter());
+        let rodeo: Rodeo = Rodeo::from_iter(["a", "b", "c", "d", "e"].iter());
 
-        for ((key, string), (expected_key, expected_string)) in
-            rodeo
-                .into_iter()
-                .zip(vec![(0, "a"), (1, "b"), (2, "c"), (3, "d"), (4, "e")])
-        {
+        for ((key, string), (expected_key, expected_string)) in rodeo.into_iter().zip(
+            [(0usize, "a"), (1, "b"), (2, "c"), (3, "d"), (4, "e")]
+                .iter()
+                .copied(),
+        ) {
             assert_eq!(key, Spur::try_from_usize(expected_key).unwrap());
             assert_eq!(string, expected_string);
         }
