@@ -19,6 +19,10 @@ use std::sync::Mutex;
 #[cfg(debug_assertions)]
 macro_rules! index_unchecked_mut {
     ($slice:expr, $idx:expr) => {{
+        // Keeps unsafe required even when debug assertions are off
+        unsafe fn x() {}
+        x();
+
         let elem: &mut _ = &mut $slice[$idx];
         elem
     }};
@@ -48,7 +52,7 @@ pub struct ThreadedRodeo<K = Spur, S = RandomState> {
     /// Map that allows str to key resolution
     map: DashMap<&'static str, K, S>,
     /// Map that allows key to str resolution
-    strings: DashMap<K, &'static str, S>,
+    pub(crate) strings: DashMap<K, &'static str, S>,
     /// The current key value
     key: AtomicUsize,
     /// The arena where all strings are stored

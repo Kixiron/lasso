@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the `with_memory_limits`, `with_capacity_and_memory_limits` and `with_capacity_memory_limits_and_hasher` methods to `Rodeo` & `ThreadedRodeo` for creating interners with memory limits
 - Added `set_memory_limits` to `Rodeo` & `ThreadedRodeo` for in-flight modification of memory limits
 - Added `current_memory_usage` and `max_memory_usage` methods to `Rodeo` & `ThreadedRodeo` for introspection of current memory usage maximum memory usage
+- Added `FromIterator`, `Extend` and `IntoIterator` implementations for Rodeo
+- Added `ExactSizeIterator` implementations for `Iter` and `Strings`
+- Added `IntoIterator` implementations for `RodeoReader` and `RodeoResolver`
 
 ### Changed
 

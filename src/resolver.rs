@@ -204,6 +204,16 @@ impl<K> RodeoResolver<K> {
 unsafe impl<K: Send> Send for RodeoResolver<K> {}
 unsafe impl<K: Sync> Sync for RodeoResolver<K> {}
 
+impl<'a, K: Key> IntoIterator for &'a RodeoResolver<K> {
+    type Item = (K, &'a str);
+    type IntoIter = Iter<'a, K>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     mod single_threaded {

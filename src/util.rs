@@ -119,7 +119,7 @@ pub struct Iter<'a, K> {
 
 impl<'a, K> Iter<'a, K> {
     #[inline]
-    pub(crate) fn from_rodeo<H>(rodeo: &'a Rodeo<K, H>) -> Self {
+    pub(crate) fn from_rodeo<S>(rodeo: &'a Rodeo<K, S>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -127,7 +127,7 @@ impl<'a, K> Iter<'a, K> {
     }
 
     #[inline]
-    pub(crate) fn from_reader<H>(rodeo: &'a RodeoReader<K, H>) -> Self {
+    pub(crate) fn from_reader<S>(rodeo: &'a RodeoReader<K, S>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -164,6 +164,8 @@ where
         self.iter.size_hint()
     }
 }
+
+impl<'a, K: Key> ExactSizeIterator for Iter<'a, K> {}
 
 // #[derive(Debug)]
 // pub struct LockedIter<'a, K: Key> {
@@ -233,6 +235,8 @@ impl<'a, K> Iterator for Strings<'a, K> {
         self.iter.size_hint()
     }
 }
+
+impl<'a, K> ExactSizeIterator for Strings<'a, K> {}
 
 macro_rules! compile {
     ($(

@@ -7,7 +7,10 @@ use crate::{
     util::{Iter, Strings},
     Capacity, MemoryLimits,
 };
-use core::hash::{BuildHasher, Hash, Hasher};
+use core::{
+    hash::{BuildHasher, Hash, Hasher},
+    iter::FromIterator,
+};
 use hashbrown::{hash_map::RawEntryMut, HashMap};
 
 compile! {
@@ -585,7 +588,9 @@ where
     pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
         self.strings.get_unchecked(key.into_usize())
     }
+}
 
+impl<K, S> Rodeo<K, S> {
     /// Gets the number of interned strings
     ///
     /// # Example
@@ -751,6 +756,59 @@ impl Default for Rodeo<Spur, RandomState> {
 }
 
 unsafe impl<K: Send, S: Send> Send for Rodeo<K, S> {}
+
+impl<Str, K, S> FromIterator<Str> for Rodeo<K, S>
+where
+    Str: AsRef<str>,
+    K: Key,
+    S: BuildHasher + Default,
+{
+    #[inline]
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = Str>,
+    {
+        let iter = iter.into_iter();
+        let (lower, upper) = iter.size_hint();
+        let mut interner = Self::with_capacity_and_hasher(
+            Capacity::for_strings(upper.unwrap_or(lower)),
+            Default::default(),
+        );
+
+        for string in iter {
+            interner.get_or_intern(string.as_ref());
+        }
+
+        interner
+    }
+}
+
+impl<K, S, T> Extend<T> for Rodeo<K, S>
+where
+    K: Key,
+    S: BuildHasher,
+    T: AsRef<str>,
+{
+    #[inline]
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = T>,
+    {
+        for s in iter {
+            self.get_or_intern(s.as_ref());
+        }
+    }
+}
+
+impl<'a, K: Key, S> IntoIterator for &'a Rodeo<K, S> {
+    type Item = (K, &'a str);
+    type IntoIter = Iter<'a, K>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
 
 #[cfg(test)]
 mod tests {
