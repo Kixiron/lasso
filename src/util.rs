@@ -2,7 +2,7 @@ use crate::{key::Key, reader::RodeoReader, resolver::RodeoResolver, single_threa
 use core::{fmt, iter, marker::PhantomData, num::NonZeroUsize, slice};
 
 /// A continence type for an error from an interner
-pub type LassoResult<T> = std::result::Result<T, LassoError>;
+pub type LassoResult<T> = core::result::Result<T, LassoError>;
 
 /// An error encountered while using an interner
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
