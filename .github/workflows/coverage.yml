@@ -25,16 +25,10 @@ jobs:
             --exclude-files fuzzing/*
             --coveralls ${{ secrets.COVERALLS_TOKEN }}
             --features multi-threaded,serialize
-          out-type: "Lcov"
+          out-type: Lcov
 
       - name: Upload to Coveralls
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: ./lcov.info
-
-      - name: Archive code coverage results
-        uses: actions/upload-artifact@v1
-        with:
-          name: code-coverage-report
-          path: cobertura.xml
