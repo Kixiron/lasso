@@ -18,11 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `FromIterator`, `Extend` and `IntoIterator` implementations for Rodeo
 - Added `ExactSizeIterator` implementations for `Iter` and `Strings`
 - Added `IntoIterator` implementations for `RodeoReader` and `RodeoResolver`
+- Added the `inline-more` feature to enable inlining (off by default)
 
 ### Changed
 
 - Debug views of all interners now show their arenas
 - Made `Key::into_usize` safe
+- External apis are no longer `#[inline]` by default, for that use the `inline-more` feature
 
 ## [0.3.1] - 2020-07-24
 

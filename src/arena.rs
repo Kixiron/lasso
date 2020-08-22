@@ -29,7 +29,6 @@ pub(crate) struct Arena {
 
 impl Arena {
     /// Create a new Arena with the default bucket size of 4096 bytes
-    #[inline]
     pub fn new(capacity: NonZeroUsize, max_memory_usage: usize) -> Self {
         Self {
             // Allocate one bucket
@@ -64,7 +63,6 @@ impl Arena {
     ///
     /// The reference passed back must be dropped before the arena that created it is
     ///
-    #[inline]
     pub unsafe fn store_str(&mut self, string: &str) -> Option<&'static str> {
         let slice = string.as_bytes();
         // Ensure the length is at least 1, mainly for empty strings
@@ -201,7 +199,6 @@ impl Drop for Bucket {
 
 impl Bucket {
     /// Allocates a bucket with space for `capacity` items
-    #[inline]
     pub(crate) fn with_capacity(capacity: NonZeroUsize) -> Self {
         unsafe {
             debug_assert!(Layout::from_size_align(
@@ -232,13 +229,11 @@ impl Bucket {
     }
 
     /// Get the number of avaliable slots for the current bucket
-    #[inline]
     pub(crate) fn free_elements(&self) -> usize {
         self.capacity.get() - self.index
     }
 
     /// Returns whether the current bucket is full
-    #[inline]
     pub(crate) fn is_full(&self) -> bool {
         self.index == self.capacity.get()
     }
@@ -251,7 +246,6 @@ impl Bucket {
     /// the caller promises to forget the reference before the arena is dropped.
     /// Additionally, `slice` must be valid UTF-8 and should come from an `&str`
     ///
-    #[inline]
     pub(crate) unsafe fn push_slice(&mut self, slice: &[u8]) -> &'static str {
         debug_assert!(!self.is_full());
         debug_assert!(slice.len() <= self.capacity.get() - self.index);

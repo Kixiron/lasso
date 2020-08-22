@@ -1,7 +1,7 @@
 #![cfg_attr(feature = "no-std", no_std)]
 // `.copied()` was unstable in 1.34
 #![allow(clippy::map_clone)]
-#![warn(clippy::missing_inline_in_public_items)]
+#![cfg_attr(feature = "inline-more", warn(clippy::missing_inline_in_public_items))]
 #![deny(
     missing_docs,
     missing_debug_implementations,
@@ -49,6 +49,7 @@
 //!   * Automatically enables the following required features:
 //!     * `ahasher` - `no_std` hashing function
 //! * `serialize` - Implements `Serialize` and `Deserialize` for all `Spur` types
+//! * `inline-more` - Annotate external apis with `#[inline]`
 //!
 //! ## Example: Using Rodeo
 //!

@@ -39,6 +39,7 @@ To make use of [`ThreadedRodeo`], you must enable the `multi-threaded` feature.
   * Automatically enables the following required features:
     * `ahasher` - `no_std` hashing function
 * `serialize` - Implements `Serialize` and `Deserialize` for all `Spur` types
+* `inline-more` - Annotate external apis with `#[inline]`
 
 ## Example: Using Rodeo
 

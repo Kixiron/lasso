@@ -31,13 +31,13 @@ pub struct LargeSpur {
 }
 
 unsafe impl Key for LargeSpur {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn into_usize(self) -> usize {
         self.key.get() - 1
     }
 
     /// Returns `None` if `int` is greater than `usize::MAX - 1`
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn try_from_usize(int: usize) -> Option<Self> {
         if int < usize::max_value() {
             // Safety: The integer is less than the max value and then incremented by one, meaning that
@@ -54,7 +54,7 @@ unsafe impl Key for LargeSpur {
 }
 
 impl Default for LargeSpur {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self::try_from_usize(0).unwrap()
     }
@@ -74,13 +74,13 @@ pub struct Spur {
 }
 
 unsafe impl Key for Spur {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn into_usize(self) -> usize {
         self.key.get() as usize - 1
     }
 
     /// Returns `None` if `int` is greater than `usize::MAX - 1`
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn try_from_usize(int: usize) -> Option<Self> {
         if int < u32::max_value() as usize {
             // Safety: The integer is less than the max value and then incremented by one, meaning that
@@ -97,7 +97,7 @@ unsafe impl Key for Spur {
 }
 
 impl Default for Spur {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self::try_from_usize(0).unwrap()
     }
@@ -117,13 +117,13 @@ pub struct MiniSpur {
 }
 
 unsafe impl Key for MiniSpur {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn into_usize(self) -> usize {
         self.key.get() as usize - 1
     }
 
     /// Returns `None` if `int` is greater than `usize::MAX - 1`
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn try_from_usize(int: usize) -> Option<Self> {
         if int < u16::max_value() as usize {
             // Safety: The integer is less than the max value and then incremented by one, meaning that
@@ -140,7 +140,7 @@ unsafe impl Key for MiniSpur {
 }
 
 impl Default for MiniSpur {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self::try_from_usize(0).unwrap()
     }
@@ -160,13 +160,13 @@ pub struct MicroSpur {
 }
 
 unsafe impl Key for MicroSpur {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn into_usize(self) -> usize {
         self.key.get() as usize - 1
     }
 
     /// Returns `None` if `int` is greater than `usize::MAX - 1`
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn try_from_usize(int: usize) -> Option<Self> {
         if int < u8::max_value() as usize {
             // Safety: The integer is less than the max value and then incremented by one, meaning that
@@ -183,7 +183,7 @@ unsafe impl Key for MicroSpur {
 }
 
 impl Default for MicroSpur {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self::try_from_usize(0).unwrap()
     }

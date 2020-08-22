@@ -13,13 +13,13 @@ pub struct Capacity {
 impl Capacity {
     /// Create a new `Capacity` with the number of strings that the interner will hold
     /// and the number of bytes that the interner will hold
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn new(strings: usize, bytes: NonZeroUsize) -> Self {
         Self { strings, bytes }
     }
 
     /// Create a new `Capacity` with the number of strings that the interner will hold
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn for_strings(strings: usize) -> Self {
         Self {
             strings,
@@ -28,7 +28,7 @@ impl Capacity {
     }
 
     /// Create a new `Capacity` with the number of bytes that the interner will hold
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn for_bytes(bytes: NonZeroUsize) -> Self {
         Self {
             bytes,
@@ -37,7 +37,7 @@ impl Capacity {
     }
 
     /// Produces the smallest `Capacity` with enough room for zero strings and a single byte
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn minimal() -> Self {
         Self {
             strings: 0,
@@ -47,13 +47,13 @@ impl Capacity {
     }
 
     /// Returns the number of strings this capacity will allocate
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn strings(&self) -> usize {
         self.strings
     }
 
     /// Returns the number of bytes this capacity will allocate
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn bytes(&self) -> NonZeroUsize {
         self.bytes
     }
@@ -61,7 +61,7 @@ impl Capacity {
 
 /// Creates a `Capacity` that will hold 50 strings and 4096 bytes
 impl Default for Capacity {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self {
             strings: 50,
@@ -82,19 +82,19 @@ pub struct MemoryLimits {
 
 impl MemoryLimits {
     /// Create a new `MemoryLimits` with the number of bytes that the interner can allocate
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn new(max_memory_usage: usize) -> Self {
         Self { max_memory_usage }
     }
 
     /// Create a new `MemoryLimits` with the number of bytes that the interner can allocate
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn for_memory_usage(max_memory_usage: usize) -> Self {
         Self { max_memory_usage }
     }
 
     /// Returns the maximum memory usage this `MemoryLimits` can allocate
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn max_memory_usage(&self) -> usize {
         self.max_memory_usage
     }
@@ -102,7 +102,7 @@ impl MemoryLimits {
 
 /// Creates a `MemoryLimits` with `max_memory_usage` set to `usize::max_value()`
 impl Default for MemoryLimits {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self {
             max_memory_usage: usize::max_value(),
@@ -118,7 +118,7 @@ pub struct Iter<'a, K> {
 }
 
 impl<'a, K> Iter<'a, K> {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub(crate) fn from_rodeo<S>(rodeo: &'a Rodeo<K, S>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
@@ -126,7 +126,7 @@ impl<'a, K> Iter<'a, K> {
         }
     }
 
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub(crate) fn from_reader<S>(rodeo: &'a RodeoReader<K, S>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
@@ -134,7 +134,7 @@ impl<'a, K> Iter<'a, K> {
         }
     }
 
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<K>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
@@ -149,7 +149,7 @@ where
 {
     type Item = (K, &'a str);
 
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(key, string)| {
             (
@@ -159,7 +159,7 @@ where
         })
     }
 
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
     }
@@ -176,7 +176,7 @@ impl<'a, K: Key> ExactSizeIterator for Iter<'a, K> {}
 // }
 //
 // impl<'a, K: Key> LockedIter<'a, K> {
-//     #[inline]
+//     #[cfg_attr(feature = "inline-more", inline)]
 //     fn from_threaded<H: BuildHasher + Clone>(rodeo: &'a ThreadedRodeo<K, H>) -> Self {
 //         let guard = rodeo.strings.lock().unwrap();
 //
@@ -197,7 +197,7 @@ pub struct Strings<'a, K> {
 }
 
 impl<'a, K> Strings<'a, K> {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub(crate) fn from_rodeo<H>(rodeo: &'a Rodeo<K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
@@ -205,7 +205,7 @@ impl<'a, K> Strings<'a, K> {
         }
     }
 
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub(crate) fn from_reader<H>(rodeo: &'a RodeoReader<K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
@@ -213,7 +213,7 @@ impl<'a, K> Strings<'a, K> {
         }
     }
 
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<K>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
@@ -225,12 +225,12 @@ impl<'a, K> Strings<'a, K> {
 impl<'a, K> Iterator for Strings<'a, K> {
     type Item = &'a str;
 
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|&k| k)
     }
 
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
     }

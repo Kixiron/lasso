@@ -71,7 +71,7 @@ where
     /// assert_eq!("World!", rodeo.resolve(&world));
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn new() -> Self {
         Self::with_capacity_memory_limits_and_hasher(
             Capacity::default(),
@@ -94,7 +94,7 @@ where
     /// ```
     ///
     /// [`Capacity`]: crate::Capacity
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn with_capacity(capacity: Capacity) -> Self {
         Self::with_capacity_memory_limits_and_hasher(
             capacity,
@@ -121,7 +121,7 @@ where
     /// ```
     ///
     /// [`MemoryLimits`]: crate::MemoryLimits
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn with_memory_limits(memory_limits: MemoryLimits) -> Self {
         Self::with_capacity_memory_limits_and_hasher(
             Capacity::default(),
@@ -149,7 +149,7 @@ where
     ///
     /// [`Capacity`]: crate::Capacity
     /// [`MemoryLimits`]: crate::MemoryLimits
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn with_capacity_and_memory_limits(
         capacity: Capacity,
         memory_limits: MemoryLimits,
@@ -174,7 +174,7 @@ where
     /// let rodeo: Rodeo<Spur, RandomState> = Rodeo::with_hasher(RandomState::new());
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn with_hasher(hash_builder: S) -> Self {
         Self::with_capacity_memory_limits_and_hasher(
             Capacity::default(),
@@ -197,7 +197,7 @@ where
     /// ```
     ///
     /// [`Capacity`]: crate::Capacity
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn with_capacity_and_hasher(capacity: Capacity, hash_builder: S) -> Self {
         Self::with_capacity_memory_limits_and_hasher(
             capacity,
@@ -225,7 +225,7 @@ where
     ///
     /// [`Capacity`]: crate::Capacity
     /// [`MemoryLimits`]: crate::MemoryLimits
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn with_capacity_memory_limits_and_hasher(
         capacity: Capacity,
         memory_limits: MemoryLimits,
@@ -267,7 +267,7 @@ where
     /// ```
     ///
     /// [`Spur`]: crate::Spur
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn get_or_intern<T>(&mut self, val: T) -> K
     where
         T: AsRef<str>,
@@ -294,7 +294,7 @@ where
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn try_get_or_intern<T>(&mut self, val: T) -> Option<K>
     where
         T: AsRef<str>,
@@ -384,7 +384,7 @@ where
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn get_or_intern_static(&mut self, string: &'static str) -> K {
         self.try_get_or_intern_static(string)
             .expect("Failed to get or intern static string")
@@ -410,7 +410,7 @@ where
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn try_get_or_intern_static(&mut self, string: &'static str) -> Option<K> {
         let Self {
             map,
@@ -480,7 +480,7 @@ where
     /// assert_eq!(None, rodeo.get("This string isn't interned"));
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn get<T>(&self, val: T) -> Option<K>
     where
         T: AsRef<str>,
@@ -524,7 +524,7 @@ where
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn resolve<'a>(&'a self, key: &K) -> &'a str {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
@@ -550,7 +550,7 @@ where
     /// assert_eq!(Some("Strings of things with wings and dings"), rodeo.try_resolve(&key));
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
@@ -584,7 +584,7 @@ where
     /// }
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
         self.strings.get_unchecked(key.into_usize())
     }
@@ -604,7 +604,7 @@ impl<K, S> Rodeo<K, S> {
     /// assert_eq!(rodeo.len(), 1);
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn len(&self) -> usize {
         self.strings.len()
     }
@@ -620,7 +620,7 @@ impl<K, S> Rodeo<K, S> {
     /// assert!(rodeo.is_empty());
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -636,7 +636,7 @@ impl<K, S> Rodeo<K, S> {
     /// assert_eq!(rodeo.capacity(), 10);
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn capacity(&self) -> usize {
         self.strings.capacity()
     }
@@ -644,13 +644,13 @@ impl<K, S> Rodeo<K, S> {
     // TODO: Examples here
 
     /// Returns an iterator over the interned strings and their key values
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn iter(&self) -> Iter<'_, K> {
         Iter::from_rodeo(self)
     }
 
     /// Returns an iterator over the interned strings
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn strings(&self) -> Strings<'_, K> {
         Strings::from_rodeo(self)
     }
@@ -659,19 +659,19 @@ impl<K, S> Rodeo<K, S> {
     ///
     /// Note that setting the maximum memory usage to below the currently allocated
     /// memory will do nothing
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn set_memory_limits(&mut self, memory_limits: MemoryLimits) {
         self.arena.max_memory_usage = memory_limits.max_memory_usage;
     }
 
     /// Get the `Rodeo`'s currently allocated memory
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn current_memory_usage(&self) -> usize {
         self.arena.memory_usage()
     }
 
     /// Get the `Rodeo`'s current maximum of allocated memory
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn max_memory_usage(&self) -> usize {
         self.arena.max_memory_usage
     }
@@ -701,7 +701,7 @@ where
     /// ```
     ///
     /// [`RodeoReader`]: crate::RodeoReader
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
     pub fn into_reader(self) -> RodeoReader<K, S> {
         let Self {
@@ -734,7 +734,7 @@ where
     /// ```
     ///
     /// [`RodeoResolver`]: crate::RodeoResolver
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
     pub fn into_resolver(self) -> RodeoResolver<K> {
         let Rodeo { strings, arena, .. } = self;
@@ -749,7 +749,7 @@ where
 /// [`Spur`]: crate::Spur
 /// [`RandomState`]: index.html#cargo-features
 impl Default for Rodeo<Spur, RandomState> {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self::new()
     }
@@ -763,7 +763,7 @@ where
     K: Key,
     S: BuildHasher + Default,
 {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn from_iter<T>(iter: T) -> Self
     where
         T: IntoIterator<Item = Str>,
@@ -789,7 +789,7 @@ where
     S: BuildHasher,
     T: AsRef<str>,
 {
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn extend<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = T>,
@@ -804,7 +804,7 @@ impl<'a, K: Key, S> IntoIterator for &'a Rodeo<K, S> {
     type Item = (K, &'a str);
     type IntoIter = Iter<'a, K>;
 
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }

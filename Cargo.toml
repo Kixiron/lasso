@@ -19,6 +19,7 @@ multi-threaded = ["dashmap"]
 no-std = ["ahasher"]
 ahasher = ["ahash"]
 serialize = ["serde"]
+inline-more = []
 
 # Provides a concurrent hashmap, enabled with the `multi-threaded` feature
 [dependencies.dashmap]

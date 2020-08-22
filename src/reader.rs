@@ -71,7 +71,7 @@ impl<K, S> RodeoReader<K, S> {
     /// assert_eq!(None, rodeo.get("This string isn't interned"));
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn get<T>(&self, val: T) -> Option<K>
     where
         T: AsRef<str>,
@@ -121,7 +121,7 @@ impl<K, S> RodeoReader<K, S> {
     /// ```
     ///
     /// [`Key`]: crate::Key
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn resolve<'a>(&'a self, key: &K) -> &'a str
     where
         K: Key,
@@ -153,7 +153,7 @@ impl<K, S> RodeoReader<K, S> {
     /// ```
     ///
     /// [`Key`]: crate::Key
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str>
     where
         K: Key,
@@ -193,7 +193,7 @@ impl<K, S> RodeoReader<K, S> {
     /// ```
     ///
     /// [`Key`]: crate::Key
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str
     where
         K: Key,
@@ -216,7 +216,7 @@ impl<K, S> RodeoReader<K, S> {
     /// assert_eq!(rodeo.len(), 1);
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn len(&self) -> usize {
         self.strings.len()
     }
@@ -235,19 +235,19 @@ impl<K, S> RodeoReader<K, S> {
     /// assert!(rodeo.is_empty());
     /// ```
     ///
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Returns an iterator over the interned strings and their key values
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn iter(&self) -> Iter<'_, K> {
         Iter::from_reader(self)
     }
 
     /// Returns an iterator over the interned strings
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn strings(&self) -> Strings<'_, K> {
         Strings::from_reader(self)
     }
@@ -273,7 +273,7 @@ impl<K, S> RodeoReader<K, S> {
     /// ```
     ///
     /// [`RodeoResolver`]: crate::RodeoResolver
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
     pub fn into_resolver(self) -> RodeoResolver<K> {
         let RodeoReader { strings, arena, .. } = self;
@@ -291,7 +291,7 @@ impl<'a, K: Key, S> IntoIterator for &'a RodeoReader<K, S> {
     type Item = (K, &'a str);
     type IntoIter = Iter<'a, K>;
 
-    #[inline]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
