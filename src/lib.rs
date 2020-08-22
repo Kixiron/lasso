@@ -236,6 +236,41 @@
 //! assert_eq!(rodeo.resolve(&key), "It works!");
 //! ```
 //!
+//! ## Example: Creation using `FromIterator`
+//!
+//! ```rust
+//! use lasso::Rodeo;
+//! use core::iter::FromIterator;
+//!
+//! // Works for both `Rodeo` and `ThreadedRodeo`
+//! let rodeo: Rodeo = vec!["one string", "two string", "red string", "blue string"]
+//!     .into_iter()
+//!     .collect();
+//!
+//! assert!(rodeo.contains("one string"));
+//! assert!(rodeo.contains("two string"));
+//! assert!(rodeo.contains("red string"));
+//! assert!(rodeo.contains("blue string"));
+//! ```
+//!
+//! ```rust
+//! use lasso::Rodeo;
+//! use core::iter::FromIterator;
+//!
+//! // Works for both `Rodeo` and `ThreadedRodeo`
+//! let rodeo: Rodeo = Rodeo::from_iter(vec![
+//!     "one string",
+//!     "two string",
+//!     "red string",
+//!     "blue string",
+//! ]);
+//!
+//! assert!(rodeo.contains("one string"));
+//! assert!(rodeo.contains("two string"));
+//! assert!(rodeo.contains("red string"));
+//! assert!(rodeo.contains("blue string"));
+//! ```
+//!
 //! ## Benchmarks
 //!
 //! Benchmarks were gathered with [Criterion.rs](https://github.com/bheisler/criterion.rs)  
