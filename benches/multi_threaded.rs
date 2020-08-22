@@ -2,7 +2,7 @@ mod setup;
 
 use core::hash::BuildHasher;
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion, Throughput};
-use lasso::{Spur, ThreadedRodeo};
+use lasso::{Capacity, Spur, ThreadedRodeo};
 use setup::{bench_lines, INPUT, NUM_THREADS};
 use std::{
     sync::{atomic::AtomicBool, Arc, Barrier},
@@ -585,9 +585,12 @@ pub struct ThreadedRodeoFilledSetup<S: BuildHasher + Clone> {
 impl<S: BuildHasher + Clone> ThreadedRodeoFilledSetup<S> {
     pub fn new(hash_builder: S) -> Self {
         let lines = bench_lines();
-        let rodeo = ThreadedRodeo::with_capacity_and_hasher(lines.len(), hash_builder);
+        let rodeo = ThreadedRodeo::with_capacity_and_hasher(
+            Capacity::for_strings(lines.len()),
+            hash_builder,
+        );
         let keys = lines
-            .into_iter()
+            .iter()
             .map(|&line| rodeo.get_or_intern(line))
             .collect::<Vec<_>>();
 
@@ -631,7 +634,10 @@ impl<S: BuildHasher + Clone> ThreadedRodeoEmptySetup<S> {
     }
 
     pub fn empty_rodeo(&self) -> ThreadedRodeo<Spur, S> {
-        ThreadedRodeo::with_capacity_and_hasher(self.lines.len(), self.build_hasher.clone())
+        ThreadedRodeo::with_capacity_and_hasher(
+            Capacity::for_strings(self.lines.len()),
+            self.build_hasher.clone(),
+        )
     }
 
     pub fn lines(&self) -> &'static [&'static str] {
@@ -662,7 +668,6 @@ where
     for _ in 0..num_threads - 1 {
         let barrier = barrier.clone();
         let reader = Arc::clone(&reader);
-        let func = func.clone();
         let running = running.clone();
         let keys = keys.clone();
 

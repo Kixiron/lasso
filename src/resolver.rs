@@ -149,6 +149,31 @@ impl<K> RodeoResolver<K> {
         self.strings.get_unchecked(key.into_usize())
     }
 
+    /// Returns `true` if the given key exists in the current interner
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::Rodeo;
+    /// # use lasso::{Key, Spur};
+    ///
+    /// let mut rodeo = Rodeo::default();
+    /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
+    /// # let key_that_doesnt_exist = Spur::try_from_usize(1000).unwrap();
+    ///
+    /// let rodeo = rodeo.into_resolver();
+    /// assert!(rodeo.contains_key(&key));
+    /// assert!(!rodeo.contains_key(&key_that_doesnt_exist));
+    /// ```
+    ///
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn contains_key(&self, key: &K) -> bool
+    where
+        K: Key,
+    {
+        key.into_usize() < self.strings.len()
+    }
+
     /// Gets the number of interned strings
     ///
     /// # Example
@@ -322,6 +347,16 @@ mod tests {
         fn debug() {
             let resolver = Rodeo::default().into_resolver();
             println!("{:?}", resolver);
+        }
+
+        #[test]
+        fn contains_key() {
+            let mut rodeo = Rodeo::default();
+            let key = rodeo.get_or_intern("");
+            let resolver = rodeo.into_resolver();
+
+            assert!(resolver.contains_key(&key));
+            assert!(!resolver.contains_key(&Spur::try_from_usize(10000).unwrap()));
         }
     }
 
@@ -511,6 +546,16 @@ mod tests {
         fn debug() {
             let resolver = ThreadedRodeo::default().into_resolver();
             println!("{:?}", resolver);
+        }
+
+        #[test]
+        fn contains_key() {
+            let mut rodeo = ThreadedRodeo::default();
+            let key = rodeo.get_or_intern("");
+            let resolver = rodeo.into_resolver();
+
+            assert!(resolver.contains_key(&key));
+            assert!(!resolver.contains_key(&Spur::try_from_usize(10000).unwrap()));
         }
     }
 }

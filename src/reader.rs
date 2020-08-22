@@ -100,6 +100,58 @@ impl<K, S> RodeoReader<K, S> {
         entry.map(|(key, ())| *key)
     }
 
+    /// Returns `true` if the given string has been interned
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::Rodeo;
+    ///
+    /// // ThreadedRodeo is interchangeable for Rodeo here
+    /// let mut rodeo = Rodeo::default();
+    /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
+    ///
+    /// let rodeo = rodeo.into_reader();
+    /// assert!(rodeo.contains("Strings of things with wings and dings"));
+    ///
+    /// assert!(!rodeo.contains("This string isn't interned"));
+    /// ```
+    ///
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn contains<T>(&self, val: T) -> bool
+    where
+        T: AsRef<str>,
+        S: BuildHasher,
+        K: Key,
+    {
+        self.get(val).is_some()
+    }
+
+    /// Returns `true` if the given key exists in the current interner
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::Rodeo;
+    /// # use lasso::{Key, Spur};
+    ///
+    /// let mut rodeo = Rodeo::default();
+    /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
+    /// # let key_that_doesnt_exist = Spur::try_from_usize(1000).unwrap();
+    ///
+    /// let rodeo = rodeo.into_reader();
+    /// assert!(rodeo.contains_key(&key));
+    /// assert!(!rodeo.contains_key(&key_that_doesnt_exist));
+    /// ```
+    ///
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn contains_key(&self, key: &K) -> bool
+    where
+        K: Key,
+    {
+        key.into_usize() < self.strings.len()
+    }
+
     /// Resolves a string by its key. Only keys made by the current Resolver or the creator
     /// of the current Resolver may be used
     ///
@@ -426,6 +478,27 @@ mod tests {
             let reader = Rodeo::default().into_reader();
             println!("{:?}", reader);
         }
+
+        #[test]
+        fn contains() {
+            let mut rodeo = Rodeo::default();
+            rodeo.get_or_intern("");
+            let resolver = rodeo.into_reader();
+
+            assert!(resolver.contains(""));
+            assert!(resolver.contains(""));
+        }
+
+        #[test]
+        fn contains_key() {
+            let mut rodeo = Rodeo::default();
+            let key = rodeo.get_or_intern("");
+            let resolver = rodeo.into_reader();
+
+            assert!(resolver.contains(""));
+            assert!(resolver.contains_key(&key));
+            assert!(!resolver.contains_key(&Spur::try_from_usize(10000).unwrap()));
+        }
     }
 
     #[cfg(all(not(any(miri, feature = "no-std")), features = "multi-threaded"))]
@@ -587,6 +660,27 @@ mod tests {
         fn debug() {
             let reader = ThreadedRodeo::default().into_reader();
             println!("{:?}", reader);
+        }
+
+        #[test]
+        fn contains() {
+            let mut rodeo = ThreadedRodeo::default();
+            rodeo.get_or_intern("");
+            let resolver = rodeo.into_reader();
+
+            assert!(resolver.contains(""));
+            assert!(resolver.contains(""));
+        }
+
+        #[test]
+        fn contains_key() {
+            let mut rodeo = ThreadedRodeo::default();
+            let key = rodeo.get_or_intern("");
+            let resolver = rodeo.into_reader();
+
+            assert!(resolver.contains(""));
+            assert!(resolver.contains_key(&key));
+            assert!(!resolver.contains_key(&Spur::try_from_usize(10000).unwrap()));
         }
     }
 }

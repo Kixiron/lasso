@@ -507,6 +507,51 @@ where
         entry.map(|(key, ())| *key)
     }
 
+    /// Returns `true` if the given string has been interned
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::Rodeo;
+    ///
+    /// let mut rodeo = Rodeo::default();
+    ///
+    /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
+    /// assert!(rodeo.contains("Strings of things with wings and dings"));
+    ///
+    /// assert!(!rodeo.contains("This string isn't interned"));
+    /// ```
+    ///
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn contains<T>(&self, val: T) -> bool
+    where
+        T: AsRef<str>,
+    {
+        self.get(val).is_some()
+    }
+
+    /// Returns `true` if the given key exists in the current interner
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::Rodeo;
+    /// # use lasso::{Key, Spur};
+    ///
+    /// let mut rodeo = Rodeo::default();
+    /// # let key_that_doesnt_exist = Spur::try_from_usize(1000).unwrap();
+    ///
+    /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
+    /// assert!(rodeo.contains_key(&key));
+    ///
+    /// assert!(!rodeo.contains_key(&key_that_doesnt_exist));
+    /// ```
+    ///
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn contains_key(&self, key: &K) -> bool {
+        key.into_usize() < self.strings.len()
+    }
+
     /// Resolves a string by its key. Only keys made by the current Rodeo may be used
     ///
     /// # Panics
@@ -813,7 +858,7 @@ impl<'a, K: Key, S> IntoIterator for &'a Rodeo<K, S> {
 #[cfg(test)]
 mod tests {
     use crate::{hasher::RandomState, Capacity, Key, MemoryLimits, MicroSpur, Rodeo, Spur};
-    use core::num::NonZeroUsize;
+    use core::{iter::FromIterator, num::NonZeroUsize};
 
     compile! {
         if #[feature = "no-std"] {
@@ -1238,5 +1283,67 @@ mod tests {
 
         assert_eq!(rodeo.current_memory_usage(), 10);
         assert_eq!(rodeo.max_memory_usage(), 10);
+    }
+
+    #[test]
+    fn contains() {
+        let mut rodeo = Rodeo::default();
+
+        assert!(!rodeo.contains(""));
+        rodeo.get_or_intern("");
+
+        assert!(rodeo.contains(""));
+        assert!(rodeo.contains(""));
+    }
+
+    #[test]
+    fn contains_key() {
+        let mut rodeo = Rodeo::default();
+
+        assert!(!rodeo.contains(""));
+        let key = rodeo.get_or_intern("");
+
+        assert!(rodeo.contains(""));
+        assert!(rodeo.contains_key(&key));
+
+        assert!(!rodeo.contains_key(&Spur::try_from_usize(10000).unwrap()));
+    }
+
+    #[test]
+    fn from_iter() {
+        let rodeo: Rodeo = Rodeo::from_iter(vec!["a", "b", "c", "d", "e"].into_iter());
+
+        assert!(rodeo.contains("a"));
+        assert!(rodeo.contains("b"));
+        assert!(rodeo.contains("c"));
+        assert!(rodeo.contains("d"));
+        assert!(rodeo.contains("e"));
+    }
+
+    #[test]
+    fn extend() {
+        let mut rodeo = Rodeo::default();
+        assert!(rodeo.is_empty());
+
+        rodeo.extend(vec!["a", "b", "c", "d", "e"].into_iter());
+        assert!(rodeo.contains("a"));
+        assert!(rodeo.contains("b"));
+        assert!(rodeo.contains("c"));
+        assert!(rodeo.contains("d"));
+        assert!(rodeo.contains("e"));
+    }
+
+    #[test]
+    fn into_iterator() {
+        let rodeo: Rodeo = Rodeo::from_iter(vec!["a", "b", "c", "d", "e"].into_iter());
+
+        for ((key, string), (expected_key, expected_string)) in
+            rodeo
+                .into_iter()
+                .zip(vec![(0, "a"), (1, "b"), (2, "c"), (3, "d"), (4, "e")])
+        {
+            assert_eq!(key, Spur::try_from_usize(expected_key).unwrap());
+            assert_eq!(string, expected_string);
+        }
     }
 }

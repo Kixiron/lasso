@@ -62,7 +62,7 @@ impl<S: BuildHasher + Clone> RodeoFilledSetup<S> {
             hash_builder,
         );
         let keys = lines
-            .into_iter()
+            .iter()
             .map(|&line| rodeo.get_or_intern(line))
             .collect::<Vec<_>>();
 
@@ -128,7 +128,7 @@ impl<S: BuildHasher + Clone> ReaderFilledSetup<S> {
             hash_builder,
         );
         let keys = lines
-            .into_iter()
+            .iter()
             .map(|&line| rodeo.get_or_intern(line))
             .collect::<Vec<_>>();
         let reader = rodeo.into_reader();
@@ -184,7 +184,6 @@ where
     for _ in 0..num_threads - 1 {
         let barrier = barrier.clone();
         let reader = reader.clone();
-        let func = func.clone();
         let running = running.clone();
         let keys = keys.clone();
 
@@ -228,7 +227,6 @@ where
     for _ in 0..num_threads - 1 {
         let barrier = barrier.clone();
         let reader = reader.clone();
-        let func = func.clone();
         let running = running.clone();
         let keys = keys.clone();
 
@@ -262,6 +260,7 @@ pub struct ResolverFilledSetup {
 }
 
 impl ResolverFilledSetup {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let lines = bench_lines();
         let mut rodeo = Rodeo::with_capacity_and_hasher(
@@ -272,7 +271,7 @@ impl ResolverFilledSetup {
             std::collections::hash_map::RandomState::new(),
         );
         let keys = lines
-            .into_iter()
+            .iter()
             .map(|&line| rodeo.get_or_intern(line))
             .collect::<Vec<_>>();
         let resolver = rodeo.into_resolver();
