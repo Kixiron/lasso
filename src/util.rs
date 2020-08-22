@@ -54,22 +54,22 @@ impl LassoErrorKind {
     ///
     /// [`MemoryLimits`]: crate::MemoryLimits
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn is_memory_limit(&self) -> bool {
-        matches!(self, Self::MemoryLimitReached)
+    pub fn is_memory_limit(self) -> bool {
+        self == Self::MemoryLimitReached
     }
 
     /// A [`Key`] implementation returned `None`, meaning it could not produce any more keys
     ///
     /// [`Key`]: crate::Key
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn is_keyspace_exhaustion(&self) -> bool {
-        matches!(self, Self::KeySpaceExhaustion)
+    pub fn is_keyspace_exhaustion(self) -> bool {
+        self == Self::KeySpaceExhaustion
     }
 
     /// A memory allocation failed
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn is_failed_alloc(&self) -> bool {
-        matches!(self, Self::FailedAllocation)
+    pub fn is_failed_alloc(self) -> bool {
+        self == Self::FailedAllocation
     }
 }
 

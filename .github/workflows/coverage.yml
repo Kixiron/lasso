@@ -25,7 +25,6 @@ jobs:
             --exclude-files fuzzing/*
             --coveralls ${{ secrets.COVERALLS_TOKEN }}
             --features multi-threaded,serialize
-            -- --test-threads 1
           out-type: "Lcov"
 
       - name: Upload to Coveralls
