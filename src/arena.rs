@@ -95,7 +95,8 @@ impl Arena {
 
             // Safety: The new bucket will have exactly enough room for the string
             let allocated_string = unsafe { bucket.push_slice(slice) };
-            self.buckets.insert(self.buckets.len() - 2, bucket);
+            self.buckets
+                .insert(self.buckets.len().saturating_sub(2), bucket);
 
             Ok(allocated_string)
 
@@ -338,6 +339,15 @@ mod tests {
         unsafe {
             let err = arena.store_str("abcdefghijklmnopqrstuvwxyz").unwrap_err();
             assert!(err.kind().is_memory_limit());
+        }
+    }
+
+    #[test]
+    fn allocate_more_than_double() {
+        let mut arena = Arena::new(NonZeroUsize::new(1).unwrap(), 1000).unwrap();
+
+        unsafe {
+            assert!(arena.store_str("abcdefghijklmnopqrstuvwxyz").is_ok());
         }
     }
 }
