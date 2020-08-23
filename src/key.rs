@@ -1,6 +1,36 @@
 use core::num::{NonZeroU16, NonZeroU32, NonZeroU8, NonZeroUsize};
 #[cfg(feature = "serialize")]
-use serde::{Deserialize, Serialize};
+use serde::{
+    de::{Deserialize, Deserializer},
+    ser::{Serialize, Serializer},
+};
+
+macro_rules! impl_serde {
+    ($key:ident => $ty:ty) => {
+        #[cfg(feature = "serialize")]
+        impl Serialize for $key {
+            #[cfg_attr(feature = "inline-more", inline)]
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                self.key.serialize(serializer)
+            }
+        }
+
+        #[cfg(feature = "serialize")]
+        impl<'de> Deserialize<'de> for $key {
+            #[cfg_attr(feature = "inline-more", inline)]
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let key = <$ty>::deserialize(deserializer)?;
+                Ok(Self { key })
+            }
+        }
+    };
+}
 
 /// Types implementing this trait can be used as keys for all Rodeos
 ///
@@ -23,7 +53,6 @@ pub unsafe trait Key: Copy + Eq {
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct LargeSpur {
@@ -60,13 +89,14 @@ impl Default for LargeSpur {
     }
 }
 
+impl_serde!(LargeSpur => NonZeroUsize);
+
 /// The default key for every Rodeo, uses only 32bits of space
 ///
 /// Internally is a `NonZeroU32` to allow for space optimizations when stored inside of an [`Option`]
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Spur {
@@ -103,13 +133,14 @@ impl Default for Spur {
     }
 }
 
+impl_serde!(Spur => NonZeroU32);
+
 /// A miniature Key utilizing only 16 bits of space
 ///
 /// Internally is a `NonZeroU16` to allow for space optimizations when stored inside of an [`Option`]
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct MiniSpur {
@@ -146,13 +177,14 @@ impl Default for MiniSpur {
     }
 }
 
+impl_serde!(MiniSpur => NonZeroU16);
+
 /// A miniature Key utilizing only 8 bits of space
 ///
 /// Internally is a `NonZeroU8` to allow for space optimizations when stored inside of an [`Option`]
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct MicroSpur {
@@ -188,6 +220,8 @@ impl Default for MicroSpur {
         Self::try_from_usize(0).unwrap()
     }
 }
+
+impl_serde!(MicroSpur => NonZeroU8);
 
 #[cfg(test)]
 mod tests {

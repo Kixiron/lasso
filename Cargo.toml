@@ -39,7 +39,7 @@ version = "0.8.0"
 # Allows {de}serialization of Spurs
 [dependencies.serde]
 version = "1.0.114"
-features = ["derive"]
+default-features = false
 optional = true
 
 # Benchmarking
