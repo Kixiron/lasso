@@ -2,6 +2,7 @@ use crate::{
     arena::Arena,
     key::{Key, Spur},
     util::{Iter, Strings},
+    Rodeo, RodeoReader,
 };
 use core::marker::PhantomData;
 
@@ -236,6 +237,29 @@ impl<'a, K: Key> IntoIterator for &'a RodeoResolver<K> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+
+impl<K> Eq for RodeoResolver<K> {}
+
+impl<K> PartialEq<Self> for RodeoResolver<K> {
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn eq(&self, other: &Self) -> bool {
+        self.strings == other.strings
+    }
+}
+
+impl<K, S> PartialEq<RodeoReader<K, S>> for RodeoResolver<K> {
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn eq(&self, other: &RodeoReader<K, S>) -> bool {
+        self.strings == other.strings
+    }
+}
+
+impl<K, S> PartialEq<Rodeo<K, S>> for RodeoResolver<K> {
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn eq(&self, other: &Rodeo<K, S>) -> bool {
+        self.strings == other.strings
     }
 }
 
@@ -484,6 +508,40 @@ mod tests {
                 assert_eq!(correct_str, str1);
                 assert_eq!(correct_str, str2);
             }
+        }
+
+        #[test]
+        fn resolver_eq() {
+            let a = Rodeo::default();
+            let b = Rodeo::default();
+            assert_eq!(a.into_resolver(), b.into_resolver());
+
+            let mut a = Rodeo::default();
+            a.get_or_intern("a");
+            a.get_or_intern("b");
+            a.get_or_intern("c");
+            let mut b = Rodeo::default();
+            b.get_or_intern("a");
+            b.get_or_intern("b");
+            b.get_or_intern("c");
+            assert_eq!(a.into_resolver(), b.into_resolver());
+        }
+
+        #[test]
+        fn reader_eq() {
+            let a = Rodeo::default();
+            let b = Rodeo::default();
+            assert_eq!(a.into_reader(), b.into_resolver());
+
+            let mut a = Rodeo::default();
+            a.get_or_intern("a");
+            a.get_or_intern("b");
+            a.get_or_intern("c");
+            let mut b = Rodeo::default();
+            b.get_or_intern("a");
+            b.get_or_intern("b");
+            b.get_or_intern("c");
+            assert_eq!(a.into_reader(), b.into_resolver());
         }
     }
 

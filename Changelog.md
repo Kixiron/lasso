@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `FromIterator` and `Extend` implementations to `ThreadedRodeo`
 - Added the `.contains()` and the `.contains_key()` methods to `Rodeo`, `ThreadedRodeo`, `RodeoReader` and `RodeoResolver`
 - Implemented `Serialize` and `Deserialize` for `Rodeo`, `ThreadedRodeo`, `RodeoReader` and `RodeoResolver`
+- Added `Eq` and `PartialEq` implementations through the various interners
 
 ### Changed
 

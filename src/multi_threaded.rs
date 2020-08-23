@@ -4,7 +4,7 @@ use crate::{
     key::{Key, Spur},
     reader::RodeoReader,
     resolver::RodeoResolver,
-    Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits,
+    Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits, Rodeo,
 };
 use core::{
     fmt::{Debug, Formatter, Result as FmtResult},
@@ -767,7 +767,7 @@ where
 {
     #[cfg_attr(feature = "inline-more", inline)]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        f.debug_struct("Rodeo")
+        f.debug_struct("ThreadedRodeo")
             .field("map", &self.map)
             .field("strings", &self.strings)
             .field("arena", &self.arena)
@@ -818,6 +818,82 @@ where
         for s in iter {
             self.get_or_intern(s.as_ref());
         }
+    }
+}
+
+impl<K, S> Eq for ThreadedRodeo<K, S>
+where
+    K: Eq + Hash,
+    S: Clone + BuildHasher,
+{
+}
+
+impl<K, S> PartialEq<Self> for ThreadedRodeo<K, S>
+where
+    K: Eq + Hash,
+    S: Clone + BuildHasher,
+{
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn eq(&self, other: &Self) -> bool {
+        self.strings.len() == other.strings.len()
+            && self.strings.iter().all(|left| {
+                other
+                    .strings
+                    .get(&left.key())
+                    .map(|s| s.value() == left.value())
+                    == Some(true)
+            })
+    }
+}
+
+impl<K, S> PartialEq<Rodeo<K, S>> for ThreadedRodeo<K, S>
+where
+    K: Eq + Hash + Key,
+    S: Clone + BuildHasher,
+{
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn eq(&self, other: &Rodeo<K, S>) -> bool {
+        self.strings.len() == other.strings.len()
+            && other.strings.iter().enumerate().all(|(key, string)| {
+                K::try_from_usize(key)
+                    .and_then(|key| self.strings.get(&key))
+                    .map(|s| s.value() == string)
+                    == Some(true)
+            })
+    }
+}
+
+impl<K, S> PartialEq<RodeoReader<K, S>> for ThreadedRodeo<K, S>
+where
+    K: Eq + Hash + Key,
+    S: Clone + BuildHasher,
+{
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn eq(&self, other: &RodeoReader<K, S>) -> bool {
+        self.strings.len() == other.strings.len()
+            && other.strings.iter().enumerate().all(|(key, string)| {
+                K::try_from_usize(key)
+                    .and_then(|key| self.strings.get(&key))
+                    .map(|s| s.value() == string)
+                    == Some(true)
+            })
+    }
+}
+
+impl<K, S> PartialEq<RodeoResolver<K>> for ThreadedRodeo<K, S>
+where
+    K: Eq + Hash + Key,
+    S: Clone + BuildHasher,
+{
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn eq(&self, other: &RodeoResolver<K>) -> bool {
+        self.strings.len() == other.strings.len()
+            && other.strings.iter().enumerate().all(|(key, string)| {
+                K::try_from_usize(key)
+                    .and_then(|key| self.strings.get(&key))
+                    .map(|s| s.value() == string)
+                    == Some(true)
+            })
     }
 }
 
@@ -1481,5 +1557,73 @@ mod tests {
             assert_eq!(correct_str, deser.resolve(&correct_key));
             assert_eq!(correct_str, deser2.resolve(&correct_key));
         }
+    }
+
+    #[test]
+    fn threaded_rodeo_eq() {
+        let a = ThreadedRodeo::default();
+        let b = ThreadedRodeo::default();
+        assert_eq!(a, b);
+
+        let a = ThreadedRodeo::default();
+        a.get_or_intern("a");
+        a.get_or_intern("b");
+        a.get_or_intern("c");
+        let b = ThreadedRodeo::default();
+        b.get_or_intern("a");
+        b.get_or_intern("b");
+        b.get_or_intern("c");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn rodeo_eq() {
+        let a = ThreadedRodeo::default();
+        let b = Rodeo::default();
+        assert_eq!(a, b);
+
+        let a = ThreadedRodeo::default();
+        a.get_or_intern("a");
+        a.get_or_intern("b");
+        a.get_or_intern("c");
+        let mut b = Rodeo::default();
+        b.get_or_intern("a");
+        b.get_or_intern("b");
+        b.get_or_intern("c");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn resolver_eq() {
+        let a = ThreadedRodeo::default();
+        let b = Rodeo::default().into_resolver();
+        assert_eq!(a, b);
+
+        let a = ThreadedRodeo::default();
+        a.get_or_intern("a");
+        a.get_or_intern("b");
+        a.get_or_intern("c");
+        let mut b = Rodeo::default();
+        b.get_or_intern("a");
+        b.get_or_intern("b");
+        b.get_or_intern("c");
+        assert_eq!(a, b.into_resolver());
+    }
+
+    #[test]
+    fn reader_eq() {
+        let a = ThreadedRodeo::default();
+        let b = Rodeo::default().into_reader();
+        assert_eq!(a, b);
+
+        let a = ThreadedRodeo::default();
+        a.get_or_intern("a");
+        a.get_or_intern("b");
+        a.get_or_intern("c");
+        let mut b = Rodeo::default();
+        b.get_or_intern("a");
+        b.get_or_intern("b");
+        b.get_or_intern("c");
+        assert_eq!(a, b.into_reader());
     }
 }
