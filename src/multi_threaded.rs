@@ -807,8 +807,8 @@ where
 
 impl<K, S> Index<K> for ThreadedRodeo<K, S>
 where
-    K: Key,
-    S: BuildHasher,
+    K: Key + Hash,
+    S: BuildHasher + Clone,
 {
     type Output = str;
 
