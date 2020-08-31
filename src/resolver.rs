@@ -4,7 +4,7 @@ use crate::{
     util::{Iter, Strings},
     Rodeo, RodeoReader,
 };
-use core::marker::PhantomData;
+use core::{marker::PhantomData, ops::Index};
 
 compile! {
     if #[feature = "no-std"] {
@@ -240,6 +240,15 @@ impl<'a, K: Key> IntoIterator for &'a RodeoResolver<K> {
     }
 }
 
+impl<K: Key> Index<K> for RodeoResolver<K> {
+    type Output = str;
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn index(&self, idx: K) -> &Self::Output {
+        self.resolve(&idx)
+    }
+}
+
 impl<K> Eq for RodeoResolver<K> {}
 
 impl<K> PartialEq<Self> for RodeoResolver<K> {
@@ -461,6 +470,15 @@ mod tests {
                 assert_eq!(key, Spur::try_from_usize(expected_key).unwrap());
                 assert_eq!(string, expected_string);
             }
+        }
+
+        #[test]
+        fn index() {
+            let mut rodeo = Rodeo::default();
+            let key = rodeo.get_or_intern("A");
+
+            let resolver = rodeo.into_resolver();
+            assert_eq!("A", &resolver[key]);
         }
 
         #[test]
@@ -758,6 +776,15 @@ mod tests {
                 assert_eq!(key, Spur::try_from_usize(expected_key).unwrap());
                 assert_eq!(string, expected_string);
             }
+        }
+
+        #[test]
+        fn index() {
+            let rodeo = ThreadedRodeo::default();
+            let key = rodeo.intern("A");
+
+            let resolver = rodeo.into_resolver();
+            assert_eq!("A", &resolver[key]);
         }
 
         #[test]

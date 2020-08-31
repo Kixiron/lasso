@@ -6,7 +6,10 @@ use crate::{
     util::{Iter, Strings},
     Rodeo,
 };
-use core::hash::{BuildHasher, Hash, Hasher};
+use core::{
+    hash::{BuildHasher, Hash, Hasher},
+    ops::Index,
+};
 use hashbrown::HashMap;
 
 compile! {
@@ -350,6 +353,19 @@ impl<'a, K: Key, S> IntoIterator for &'a RodeoReader<K, S> {
     }
 }
 
+impl<K, S> Index<K> for RodeoReader<K, S>
+where
+    K: Key,
+    S: BuildHasher,
+{
+    type Output = str;
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn index(&self, idx: K) -> &Self::Output {
+        self.resolve(&idx)
+    }
+}
+
 impl<K, S> Eq for RodeoReader<K, S> {}
 
 impl<K, S> PartialEq<Self> for RodeoReader<K, S> {
@@ -648,6 +664,15 @@ mod tests {
         }
 
         #[test]
+        fn index() {
+            let mut rodeo = Rodeo::default();
+            let key = rodeo.get_or_intern("A");
+
+            let reader = rodeo.into_reader();
+            assert_eq!("A", &reader[key]);
+        }
+
+        #[test]
         #[cfg(feature = "serialize")]
         fn empty_serialize() {
             let rodeo = Rodeo::default().into_reader();
@@ -925,6 +950,15 @@ mod tests {
                 assert_eq!(key, Spur::try_from_usize(expected_key).unwrap());
                 assert_eq!(string, expected_string);
             }
+        }
+
+        #[test]
+        fn index() {
+            let rodeo = ThreadedRodeo::default();
+            let key = rodeo.intern("A");
+
+            let reader = rodeo.into_reader();
+            assert_eq!("A", &reader[key]);
         }
 
         #[test]

@@ -11,6 +11,7 @@ use core::{
     hash::{BuildHasher, Hash, Hasher},
     iter::{self, FromIterator},
     mem,
+    ops::Index,
     sync::atomic::{AtomicUsize, Ordering},
 };
 use dashmap::DashMap;
@@ -804,6 +805,19 @@ where
     }
 }
 
+impl<K, S> Index<K> for ThreadedRodeo<K, S>
+where
+    K: Key,
+    S: BuildHasher,
+{
+    type Output = str;
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn index(&self, idx: K) -> &Self::Output {
+        self.resolve(&idx)
+    }
+}
+
 impl<K, S, T> Extend<T> for ThreadedRodeo<K, S>
 where
     K: Key + Hash,
@@ -1505,6 +1519,14 @@ mod tests {
         assert!(rodeo.contains("c"));
         assert!(rodeo.contains("d"));
         assert!(rodeo.contains("e"));
+    }
+
+    #[test]
+    fn index() {
+        let rodeo = ThreadedRodeo::default();
+        let key = rodeo.get_or_intern("A");
+
+        assert_eq!("A", &rodeo[key]);
     }
 
     #[test]
