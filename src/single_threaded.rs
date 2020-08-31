@@ -10,6 +10,7 @@ use crate::{
 use core::{
     hash::{BuildHasher, Hash, Hasher},
     iter::FromIterator,
+    ops::Index,
 };
 use hashbrown::{hash_map::RawEntryMut, HashMap};
 
@@ -831,6 +832,19 @@ where
     }
 }
 
+impl<K, S> Index<K> for Rodeo<K, S>
+where
+    K: Key,
+    S: BuildHasher,
+{
+    type Output = str;
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn index(&self, idx: K) -> &Self::Output {
+        self.resolve(&idx)
+    }
+}
+
 impl<K, S, T> Extend<T> for Rodeo<K, S>
 where
     K: Key,
@@ -1446,6 +1460,14 @@ mod tests {
         assert!(rodeo.contains("c"));
         assert!(rodeo.contains("d"));
         assert!(rodeo.contains("e"));
+    }
+
+    #[test]
+    fn index() {
+        let mut rodeo = Rodeo::default();
+        let key = rodeo.get_or_intern("A");
+
+        assert_eq!("A", &rodeo[key]);
     }
 
     #[test]
