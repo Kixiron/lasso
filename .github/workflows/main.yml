@@ -305,36 +305,29 @@ jobs:
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
-          command: test
-          args: --target ${{ matrix.target }} --no-default-features
-
-      - name: No default features
-        if: ${{ !matrix.custom-features }}
-        uses: actions-rs/cargo@v1
-        with:
           command: miri
-          args: --target ${{ matrix.target }} --no-default-features
+          args: test --target ${{ matrix.target }} --no-default-features
 
       - name: Single threaded
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: miri
-          args: --target ${{ matrix.target }}
+          args: test --target ${{ matrix.target }}
 
       - name: Multi threaded
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: miri
-          args: --target ${{ matrix.target }} --features multi-threaded
+          args: test --target ${{ matrix.target }} --features multi-threaded
 
       - name: No std
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: miri
-          args: --target ${{ matrix.target }} --features no-std
+          args: test --target ${{ matrix.target }} --features no-std
 
       - name: Clean unused artifacts
         uses: actions-rs/cargo@v1
