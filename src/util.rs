@@ -194,7 +194,8 @@ impl Default for MemoryLimits {
 }
 
 /// An iterator over an interner's strings and keys
-#[derive(Debug)]
+#[derive(Clone, Debug)]
+#[must_use = "iterators are lazy and do nothing unless consumed"]
 pub struct Iter<'a, K> {
     iter: iter::Enumerate<slice::Iter<'a, &'a str>>,
     __key: PhantomData<K>,
@@ -226,6 +227,16 @@ impl<'a, K> Iter<'a, K> {
     }
 }
 
+fn iter_element<'a, K>((key, string): (usize, &&'a str)) -> (K, &'a str)
+where
+    K: Key,
+{
+    (
+        K::try_from_usize(key).unwrap_or_else(|| unreachable!()),
+        *string,
+    )
+}
+
 impl<'a, K> Iterator for Iter<'a, K>
 where
     K: Key,
@@ -234,12 +245,7 @@ where
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|(key, string)| {
-            (
-                K::try_from_usize(key).unwrap_or_else(|| unreachable!()),
-                *string,
-            )
-        })
+        self.iter.next().map(iter_element)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
@@ -248,7 +254,26 @@ where
     }
 }
 
+impl<'a, K> DoubleEndedIterator for Iter<'a, K>
+where
+    K: Key,
+{
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn next_back(&mut self) -> Option<(K, &'a str)> {
+        self.iter.next_back().map(iter_element)
+    }
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn nth_back(&mut self, n: usize) -> Option<(K, &'a str)> {
+        self.iter.nth_back(n).map(iter_element)
+    }
+}
+
+// iter::Enumerate is exact-size if its underlying iterator is exact-size, which slice::Iter is.
 impl<'a, K: Key> ExactSizeIterator for Iter<'a, K> {}
+
+// iter::Enumerate is fused if its underlying iterator is fused, which slice::Iter is.
+impl<'a, K: Key> iter::FusedIterator for Iter<'a, K> {}
 
 // #[derive(Debug)]
 // pub struct LockedIter<'a, K: Key> {
@@ -273,7 +298,8 @@ impl<'a, K: Key> ExactSizeIterator for Iter<'a, K> {}
 // }
 
 /// An iterator over an interner's strings
-#[derive(Debug)]
+#[derive(Clone, Debug)]
+#[must_use = "iterators are lazy and do nothing unless consumed"]
 pub struct Strings<'a, K> {
     iter: slice::Iter<'a, &'a str>,
     __key: PhantomData<K>,
@@ -310,7 +336,7 @@ impl<'a, K> Iterator for Strings<'a, K> {
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|&k| k)
+        self.iter.next().copied()
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
@@ -319,7 +345,26 @@ impl<'a, K> Iterator for Strings<'a, K> {
     }
 }
 
+impl<'a, K> DoubleEndedIterator for Strings<'a, K>
+where
+    K: Key,
+{
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn next_back(&mut self) -> Option<&'a str> {
+        self.iter.next_back().copied()
+    }
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn nth_back(&mut self, n: usize) -> Option<&'a str> {
+        self.iter.nth_back(n).copied()
+    }
+}
+
+// slice::Iter is exact-size.
 impl<'a, K> ExactSizeIterator for Strings<'a, K> {}
+
+// slice::Iter is fused.
+impl<'a, K: Key> iter::FusedIterator for Strings<'a, K> {}
 
 macro_rules! compile {
     ($(
