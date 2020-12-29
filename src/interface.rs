@@ -180,6 +180,8 @@ mod sealed {
 mod tests {
     use super::*;
     use crate::Spur;
+    #[cfg(feature = "no-std")]
+    use alloc::{boxed::Box, vec};
 
     const INTERNED_STRINGS: &[&str] = &["foo", "bar", "baz", "biz", "buzz", "bing"];
 
