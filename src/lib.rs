@@ -16,39 +16,40 @@
 //! [![Crates.io][8]][9]
 //!
 //! A multithreaded and single threaded string interner that allows strings to be cached with a minimal memory footprint,
-//! associating them with a unique [key] that can be used to retrieve them at any time. A [`Rodeo`] allows `O(1)`
-//! internment and resolution and can be turned into a [`RodeoReader`] to allow for contention-free resolutions
-//! with both key to str and str to key operations. It can also be turned into a [`RodeoResolver`] with only
+//! associating them with a unique [key] that can be used to retrieve them at any time. A [`struct@Rodeo`] allows `O(1)`
+//! internment and resolution and can be turned into a [`struct@RodeoReader`] to allow for contention-free resolutions
+//! with both key to str and str to key operations. It can also be turned into a [`struct@RodeoResolver`] with only
 //! key to str operations for the lowest possible memory usage.
 //!
 //! ## Which interner do I use?
 //!
-//! For single-threaded workloads [`Rodeo`] is encouraged, while multi-threaded applications should use [`ThreadedRodeo`].
+//! For single-threaded workloads [`struct@Rodeo`] is encouraged, while multi-threaded applications should use [`struct@ThreadedRodeo`].
 //! Both of these are the only way to intern strings, but most applications will hit a stage where they are done interning
-//! strings, and at that point is where the choice between [`RodeoReader`] and [`RodeoResolver`]. If the user needs to get
-//! keys for strings still, then they must use the [`RodeoReader`] (although they can still transfer into a  [`RodeoResolver`])
-//! at this point. For users who just need key to string resolution, the [`RodeoResolver`] gives contention-free access at the
-//! minimum possible memory usage. Note that to gain access to [`ThreadedRodeo`] the `multi-threaded` feature is required.
+//! strings, and at that point is where the choice between [`struct@RodeoReader`] and [`struct@RodeoResolver`]. If the user needs to get
+//! keys for strings still, then they must use the [`struct@RodeoReader`] (although they can still transfer into a  [`struct@RodeoResolver`])
+//! at this point. For users who just need key to string resolution, the [`struct@RodeoResolver`] gives contention-free access at the
+//! minimum possible memory usage. Note that to gain access to [`struct@ThreadedRodeo`] the `multi-threaded` feature is required.
 //!
 //! | Interner          | Thread-safe | Intern String | str to key | key to str | Contention Free | Memory Usage |
 //! |-------------------|:-----------:|:-------------:|:----------:|:----------:|:---------------:|:------------:|
-//! | [`Rodeo`]         |      ❌      |       ✅       |     ✅      |     ✅      |       N/A       |    Medium    |
-//! | [`ThreadedRodeo`] |      ✅      |       ✅       |     ✅      |     ✅      |        ❌        |     Most     |
-//! | [`RodeoReader`]   |      ✅      |       ❌       |     ✅      |     ✅      |        ✅        |    Medium    |
-//! | [`RodeoResolver`] |      ✅      |       ❌       |     ❌      |     ✅      |        ✅        |    Least     |
+//! | [`struct@Rodeo`]         |      ❌      |       ✅       |     ✅      |     ✅      |       N/A       |    Medium    |
+//! | [`struct@ThreadedRodeo`] |      ✅      |       ✅       |     ✅      |     ✅      |        ❌        |     Most     |
+//! | [`struct@RodeoReader`]   |      ✅      |       ❌       |     ✅      |     ✅      |        ✅        |    Medium    |
+//! | [`struct@RodeoResolver`] |      ✅      |       ❌       |     ❌      |     ✅      |        ✅        |    Least     |
 //!
 //! ## Cargo Features
 //!
-//! By default `lasso` has one dependency, `hashbrown`, and only [`Rodeo`] is exposed. Hashbrown is used since the [`raw_entry` api] is currently unstable in the standard library's hashmap.
+//! By default `lasso` has one dependency, `hashbrown`, and only [`struct@Rodeo`] is exposed. Hashbrown is used since the
+//! [`raw_entry` api] is currently unstable in the standard library's hashmap.
 //! The raw hashmap API is used for custom hashing within the hashmaps, which works to dramatically reduce memory usage
-//! To make use of [`ThreadedRodeo`], you must enable the `multi-threaded` feature.
+//! To make use of [`struct@ThreadedRodeo`], you must enable the `multi-threaded` feature.
 //!
-//! * `multi-threaded` - Enables [`ThreadedRodeo`], the interner for multi-threaded tasks
+//! * `multi-threaded` - Enables [`struct@ThreadedRodeo`], the interner for multi-threaded tasks
 //! * `ahasher` - Use [`ahash`]'s `RandomState` as the default hasher
-//! * `no-std` - Enables `no_std` + `alloc` support for [`Rodeo`] and [`ThreadedRodeo`]
+//! * `no-std` - Enables `no_std` + `alloc` support for [`struct@Rodeo`] and [`struct@ThreadedRodeo`]
 //!   * Automatically enables the following required features:
 //!     * `ahasher` - `no_std` hashing function
-//! * `serialize` - Implements `Serialize` and `Deserialize` for all `Spur` types and all interners
+//! * `serialize` - Implements `Serialize` and `Deserialize` for all [`struct@Spur`] types and all interners
 //! * `inline-more` - Annotate external apis with `#[inline]`
 //!
 //! ## Example: Using Rodeo
@@ -177,7 +178,7 @@
 //! ## Example: Making a custom-ranged key
 //!
 //! Sometimes you want your keys to only inhabit (or *not* inhabit) a certain range of values so that you can have custom [niches],
-//! meaning that an `[enum@Option]<[struct@Spur]>` is the same size as a [`struct@Spur`]. This allows you to pack more data into
+//! meaning that an [`enum@Option`]`<`[`struct@Spur`]`>` is the same size as a [`struct@Spur`]. This allows you to pack more data into
 //! what would otherwise be unused space, which can be critical for memory-sensitive applications.
 //!
 //! ```rust
@@ -416,11 +417,7 @@
 //! [8]: https://img.shields.io/crates/v/lasso.svg
 //! [9]: https://crates.io/crates/lasso
 //! [key]: crate::Key
-//! [niches]: https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization
-//! [`Rodeo`]: crate::Rodeo
-//! [`ThreadedRodeo`]: crate::ThreadedRodeo
-//! [`RodeoResolver`]: crate::RodeoResolver
-//! [`RodeoReader`]: crate::RodeoReader
+//! [niches]: https://rust-lang.github.io/unsafe-code-guidelines/layout/enums.html#discriminant-elision-on-option-like-enums
 //! [`hashbrown`]: https://crates.io/crates/hashbrown
 //! [`ahash`]: https://crates.io/crates/ahash
 //! [`raw_entry` api]: https://github.com/rust-lang/rust/issues/56167
