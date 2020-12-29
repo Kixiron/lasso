@@ -427,11 +427,13 @@
 mod util;
 
 mod arena;
+mod interface;
 mod key;
 mod reader;
 mod resolver;
 mod single_threaded;
 
+pub use interface::{Reader, Resolver};
 pub use key::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
 pub use reader::RodeoReader;
 pub use resolver::RodeoResolver;
