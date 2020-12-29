@@ -1,7 +1,8 @@
 #![cfg_attr(feature = "no-std", no_std)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(feature = "inline-more", warn(clippy::missing_inline_in_public_items))]
 // `.copied()` was unstable in 1.34
 #![allow(clippy::map_clone)]
-#![cfg_attr(feature = "inline-more", warn(clippy::missing_inline_in_public_items))]
 #![deny(
     missing_docs,
     missing_debug_implementations,
