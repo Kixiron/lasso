@@ -176,8 +176,9 @@
 //!
 //! ## Example: Making a custom-ranged key
 //!
-//! Sometimes you want your keys to only inhabit (or *not* inhabit) a certain range of values so that you can have custom [niches].
-//! This allows you to pack more data into what would otherwise be unused space, which can be critical for memory-sensitive applications.
+//! Sometimes you want your keys to only inhabit (or *not* inhabit) a certain range of values so that you can have custom [niches],
+//! meaning that an `[enum@Option]<[struct@Spur]>` is the same size as a [`struct@Spur`]. This allows you to pack more data into
+//! what would otherwise be unused space, which can be critical for memory-sensitive applications.
 //!
 //! ```rust
 //! use lasso::{Key, Rodeo};
@@ -415,6 +416,7 @@
 //! [8]: https://img.shields.io/crates/v/lasso.svg
 //! [9]: https://crates.io/crates/lasso
 //! [key]: crate::Key
+//! [niches]: https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization
 //! [`Rodeo`]: crate::Rodeo
 //! [`ThreadedRodeo`]: crate::ThreadedRodeo
 //! [`RodeoResolver`]: crate::RodeoResolver
