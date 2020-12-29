@@ -82,3 +82,4 @@ harness = false
 [package.metadata.docs.rs]
 features = ["multi-threaded", "serialize"]
 targets = ["x86_64-unknown-linux-gnu"]
+rustc-args = ["--cfg", "docsrs"]
