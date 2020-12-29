@@ -90,7 +90,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --all --document-private-items --no-deps
+          args: --all --document-private-items --no-deps --features multi-threaded
 
   clippy:
     name: Clippy
