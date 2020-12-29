@@ -1,7 +1,9 @@
 #[cfg(feature = "multi-threaded")]
 use crate::ThreadedRodeo;
 use crate::{Key, Rodeo, RodeoReader, RodeoResolver};
-use core::hash::{BuildHasher, Hash};
+use core::hash::BuildHasher;
+#[cfg(feature = "multi-threaded")]
+use core::hash::Hash;
 use sealed::Sealed;
 
 /// A generic interface that allows using any underlying interner for
@@ -169,7 +171,125 @@ mod sealed {
     impl<K, S> Sealed for Rodeo<K, S> {}
     impl<K> Sealed for RodeoResolver<K> {}
     impl<K, S> Sealed for RodeoReader<K, S> {}
+
+    #[cfg(feature = "multi-threaded")]
     impl<K, S> Sealed for ThreadedRodeo<K, S> {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Spur;
+
+    const INTERNED_STRINGS: &[&str] = &["foo", "bar", "baz", "biz", "buzz", "bing"];
+
+    fn filled_rodeo() -> Rodeo {
+        let mut rodeo = Rodeo::default();
+        for string in INTERNED_STRINGS.iter().copied() {
+            rodeo.try_get_or_intern_static(string).unwrap();
+        }
+
+        rodeo
+    }
+
+    #[cfg(feature = "multi-threaded")]
+    fn filled_threaded_rodeo() -> ThreadedRodeo {
+        let rodeo = ThreadedRodeo::default();
+        for string in INTERNED_STRINGS.iter().copied() {
+            rodeo.try_get_or_intern_static(string).unwrap();
+        }
+
+        rodeo
+    }
+
+    mod reader {
+        use super::*;
+
+        pub fn rodeo() -> Box<dyn Reader<Spur>> {
+            Box::new(filled_rodeo())
+        }
+
+        pub fn rodeo_reader() -> Box<dyn Reader<Spur>> {
+            Box::new(filled_rodeo().into_reader())
+        }
+
+        #[cfg(feature = "multi-threaded")]
+        pub fn threaded_rodeo() -> Box<dyn Reader<Spur>> {
+            Box::new(filled_threaded_rodeo())
+        }
+    }
+
+    #[test]
+    fn reader_implementations() {
+        #[allow(unused_mut)]
+        let mut readers = vec![reader::rodeo(), reader::rodeo_reader()];
+        #[cfg(feature = "multi-threaded")]
+        readers.push(reader::threaded_rodeo());
+
+        for reader in readers {
+            for (key, string) in INTERNED_STRINGS
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(i, s)| (Spur::try_from_usize(i).unwrap(), s))
+            {
+                assert!(reader.get(string).is_some());
+                assert!(reader.contains(string));
+
+                assert!(reader.contains_key(&key));
+                assert_eq!(reader.resolve(&key), string);
+                assert!(reader.try_resolve(&key).is_some());
+                assert_eq!(reader.try_resolve(&key), Some(string));
+            }
+        }
+    }
+
+    mod resolver {
+        use super::*;
+
+        pub fn rodeo() -> Box<dyn Resolver<Spur>> {
+            Box::new(filled_rodeo())
+        }
+
+        pub fn rodeo_reader() -> Box<dyn Resolver<Spur>> {
+            Box::new(filled_rodeo().into_reader())
+        }
+
+        pub fn rodeo_resolver() -> Box<dyn Resolver<Spur>> {
+            Box::new(filled_rodeo().into_resolver())
+        }
+
+        #[cfg(feature = "multi-threaded")]
+        pub fn threaded_rodeo() -> Box<dyn Resolver<Spur>> {
+            Box::new(filled_threaded_rodeo())
+        }
+    }
+
+    #[test]
+    fn resolver_implementations() {
+        #[allow(unused_mut)]
+        let mut resolvers = vec![
+            resolver::rodeo(),
+            resolver::rodeo_reader(),
+            resolver::rodeo_resolver(),
+        ];
+        #[cfg(feature = "multi-threaded")]
+        resolvers.push(resolver::threaded_rodeo());
+
+        for resolver in resolvers {
+            for (key, string) in INTERNED_STRINGS
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(i, s)| (Spur::try_from_usize(i).unwrap(), s))
+            {
+                assert!(resolver.contains_key(&key));
+                assert_eq!(resolver.resolve(&key), string);
+                assert!(resolver.try_resolve(&key).is_some());
+                assert_eq!(resolver.try_resolve(&key), Some(string));
+            }
+        }
+    }
 }
 
 // TODO: Figure out an interface that suits both `Rodeo`'s required mutability
