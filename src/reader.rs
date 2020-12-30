@@ -308,7 +308,7 @@ impl<K, S> RodeoReader<K, S> {
         Strings::from_reader(self)
     }
 
-    /// Consumes the current rodeo, making it into a [`RodeoResolver`], allowing
+    /// Consumes the current rodeo and makes it into a [`RodeoResolver`], allowing
     /// contention-free access from multiple threads with the lowest possible memory consumption
     ///
     /// # Example

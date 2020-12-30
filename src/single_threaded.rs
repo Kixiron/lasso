@@ -363,7 +363,7 @@ where
 
     /// Get the key for a static string, interning it if it does not yet exist
     ///
-    /// This will not reallocate or copy the given string but will instead just store it
+    /// This will not reallocate or copy the given string
     ///
     /// # Panics
     ///
@@ -395,7 +395,7 @@ where
 
     /// Get the key for a static string, interning it if it does not yet exist
     ///
-    /// This will not reallocate or copy the given string but will instead just store it
+    /// This will not reallocate or copy the given string
     ///
     /// # Example
     ///
@@ -533,7 +533,12 @@ where
     {
         self.get(val).is_some()
     }
+}
 
+impl<K, S> Rodeo<K, S>
+where
+    K: Key,
+{
     /// Returns `true` if the given key exists in the current interner
     ///
     /// # Example
@@ -726,11 +731,7 @@ impl<K, S> Rodeo<K, S> {
     }
 }
 
-impl<K, S> Rodeo<K, S>
-where
-    K: Key + Default,
-    S: BuildHasher + Clone,
-{
+impl<K, S> Rodeo<K, S> {
     /// Consumes the current Rodeo, returning a [`RodeoReader`] to allow contention-free access of the interner
     /// from multiple threads
     ///

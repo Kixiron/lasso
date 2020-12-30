@@ -24,7 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented `Serialize` and `Deserialize` for `Rodeo`, `ThreadedRodeo`, `RodeoReader` and `RodeoResolver`
 - Added `Eq` and `PartialEq` implementations through the various interners
 - Added `Index` implementations for all interners
-- Added the `Reader` and `Resolver` traits
+- Added the `Interner`, `Reader` and `Resolver` traits
+- Loosened trait bounds on `Rodeo` methods
 
 ### Changed
 

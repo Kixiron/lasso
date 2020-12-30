@@ -120,7 +120,7 @@ impl<K> RodeoResolver<K> {
         }
     }
 
-    /// Resolves a string by its key without bounds checking
+    /// Resolves a string by its key without preforming bounds checks
     ///
     /// # Safety
     ///
