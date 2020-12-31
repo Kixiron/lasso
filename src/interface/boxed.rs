@@ -99,4 +99,9 @@ where
     fn contains_key(&self, key: &K) -> bool {
         (&**self).contains_key(key)
     }
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn len(&self) -> usize {
+        (&**self).len()
+    }
 }

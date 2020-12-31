@@ -75,6 +75,7 @@ fn interner_implementations() {
             }
         }
 
+        assert_eq!(interner.len(), INTERNED_STRINGS.len());
         for string in UNINTERNED_STRINGS.iter().copied() {
             let key = interner.get_or_intern(string);
             assert_eq!(interner.try_get_or_intern(string), Ok(key));
@@ -93,6 +94,10 @@ fn interner_implementations() {
                 assert_eq!(interner.resolve_unchecked(&key), string);
             }
         }
+        assert_eq!(
+            interner.len(),
+            INTERNED_STRINGS.len() + UNINTERNED_STRINGS.len(),
+        );
 
         let reader = interner.into_reader();
         for (key, string) in INTERNED_STRINGS
@@ -114,6 +119,12 @@ fn interner_implementations() {
                 assert_eq!(reader.resolve_unchecked(&key), string);
             }
         }
+
+        assert_eq!(
+            reader.len(),
+            INTERNED_STRINGS.len() + UNINTERNED_STRINGS.len(),
+        );
+        assert!(!reader.is_empty());
     }
 }
 
@@ -160,6 +171,9 @@ fn reader_implementations() {
                 assert_eq!(reader.resolve_unchecked(&key), string);
             }
         }
+
+        assert_eq!(reader.len(), INTERNED_STRINGS.len());
+        assert!(!reader.is_empty());
     }
 }
 
@@ -211,5 +225,8 @@ fn resolver_implementations() {
                 assert_eq!(resolver.resolve_unchecked(&key), string);
             }
         }
+
+        assert_eq!(resolver.len(), INTERNED_STRINGS.len());
+        assert!(!resolver.is_empty());
     }
 }

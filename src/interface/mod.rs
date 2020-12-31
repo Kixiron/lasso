@@ -106,6 +106,15 @@ pub trait Resolver<K>: Sealed {
 
     /// Returns `true` if the current interner contains the given key
     fn contains_key(&self, key: &K) -> bool;
+
+    /// Gets the number of currently interned strings
+    fn len(&self) -> usize;
+
+    /// Returns `true` if there are no currently interned strings
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 mod sealed {
