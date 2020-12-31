@@ -1,6 +1,8 @@
 //! Implementations of [`Interner`], [`Reader`] and [`Resolver`] for [`Rodeo`]
 
 use crate::{Interner, Key, LassoResult, Reader, Resolver, Rodeo, RodeoResolver};
+#[cfg(feature = "no-std")]
+use alloc::boxed::Box;
 use core::hash::BuildHasher;
 
 impl<K, S> Interner<K> for Rodeo<K, S>
