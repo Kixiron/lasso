@@ -1,31 +1,31 @@
-//! Implementations of [`Interner`], [`Reader`] and [`Resolver`] for [`Rodeo`]
+use super::{Interner, Reader, Resolver};
+use crate::{Key, LassoResult, RodeoResolver};
+#[cfg(feature = "no-std")]
+use alloc::boxed::Box;
 
-use crate::{Interner, Key, LassoResult, Reader, Resolver, Rodeo, RodeoResolver};
-use core::hash::BuildHasher;
-
-impl<K, S> Interner<K> for Rodeo<K, S>
+impl<K, I> Interner<K> for Box<I>
 where
     K: Key,
-    S: BuildHasher,
+    I: Interner<K> + ?Sized + 'static,
 {
     #[cfg_attr(feature = "inline-more", inline)]
     fn get_or_intern(&mut self, val: &str) -> K {
-        self.get_or_intern(val)
+        (&mut **self).get_or_intern(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn try_get_or_intern(&mut self, val: &str) -> LassoResult<K> {
-        self.try_get_or_intern(val)
+        (&mut **self).try_get_or_intern(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn get_or_intern_static(&mut self, val: &'static str) -> K {
-        self.get_or_intern_static(val)
+        (&mut **self).get_or_intern_static(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn try_get_or_intern_static(&mut self, val: &'static str) -> LassoResult<K> {
-        self.try_get_or_intern_static(val)
+        self.try_get_or_intern(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
@@ -34,7 +34,7 @@ where
     where
         Self: 'static,
     {
-        Box::new(self).into_reader_boxed()
+        I::into_reader_boxed(self)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
@@ -43,29 +43,29 @@ where
     where
         Self: 'static,
     {
-        Box::new(Rodeo::into_reader(*self))
+        (*self).into_reader()
     }
 }
 
-impl<K, S> Reader<K> for Rodeo<K, S>
+impl<K, I> Reader<K> for Box<I>
 where
     K: Key,
-    S: BuildHasher,
+    I: Reader<K> + ?Sized + 'static,
 {
     #[cfg_attr(feature = "inline-more", inline)]
     fn get(&self, val: &str) -> Option<K> {
-        self.get(val)
+        (&**self).get(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn contains(&self, val: &str) -> bool {
-        self.contains(val)
+        (&**self).contains(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
     fn into_resolver(self) -> RodeoResolver<K> {
-        self.into_resolver()
+        I::into_resolver_boxed(self)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
@@ -75,27 +75,28 @@ where
     }
 }
 
-impl<K, S> Resolver<K> for Rodeo<K, S>
+impl<K, I> Resolver<K> for Box<I>
 where
     K: Key,
+    I: Resolver<K> + ?Sized + 'static,
 {
     #[cfg_attr(feature = "inline-more", inline)]
     fn resolve<'a>(&'a self, key: &K) -> &'a str {
-        self.resolve(key)
+        (&**self).resolve(key)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
-        self.try_resolve(key)
+        (&**self).try_resolve(key)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
-        self.resolve_unchecked(key)
+        (&**self).resolve_unchecked(key)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn contains_key(&self, key: &K) -> bool {
-        self.contains_key(key)
+        (&**self).contains_key(key)
     }
 }

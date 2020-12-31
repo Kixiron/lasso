@@ -28,6 +28,24 @@ where
     fn try_get_or_intern_static(&mut self, val: &'static str) -> LassoResult<K> {
         (&*self).try_get_or_intern_static(val)
     }
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    #[must_use]
+    fn into_reader(self) -> Box<dyn Reader<K>>
+    where
+        Self: 'static,
+    {
+        Box::new(self).into_reader_boxed()
+    }
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    #[must_use]
+    fn into_reader_boxed(self: Box<Self>) -> Box<dyn Reader<K>>
+    where
+        Self: 'static,
+    {
+        Box::new(ThreadedRodeo::into_reader(*self))
+    }
 }
 
 impl<K, S> Reader<K> for ThreadedRodeo<K, S>
@@ -49,6 +67,12 @@ where
     #[must_use]
     fn into_resolver(self) -> RodeoResolver<K> {
         self.into_resolver()
+    }
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    #[must_use]
+    fn into_resolver_boxed(self: Box<Self>) -> RodeoResolver<K> {
+        (*self).into_resolver()
     }
 }
 

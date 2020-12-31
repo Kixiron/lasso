@@ -1,3 +1,4 @@
+mod boxed;
 mod rodeo;
 mod rodeo_reader;
 mod rodeo_resolver;
@@ -5,6 +6,8 @@ mod tests;
 mod threaded_rodeo;
 
 use crate::{LassoResult, Rodeo, RodeoReader, RodeoResolver};
+#[cfg(feature = "no-std")]
+use alloc::boxed::Box;
 use sealed::Sealed;
 
 /// A generic interface over any underlying interner, allowing storing and accessing
@@ -39,6 +42,21 @@ pub trait Interner<K>: Reader<K> + Resolver<K> + Sealed {
     ///
     /// This will not reallocate or copy the given string
     fn try_get_or_intern_static(&mut self, val: &'static str) -> LassoResult<K>;
+
+    /// Consumes the current [`Interner`] and converts it into a [`RodeoReader`] to allow
+    /// contention-free access of the interner from multiple threads
+    #[must_use]
+    fn into_reader(self) -> Box<dyn Reader<K>>
+    where
+        Self: 'static;
+
+    /// An implementation detail to allow calling [`Interner::into_reader()`] on dynamically
+    /// dispatched interners
+    #[doc(hidden)]
+    #[must_use]
+    fn into_reader_boxed(self: Box<Self>) -> Box<dyn Reader<K>>
+    where
+        Self: 'static;
 }
 
 /// A generic interface that allows using any underlying interner for
@@ -53,7 +71,14 @@ pub trait Reader<K>: Resolver<K> + Sealed {
 
     /// Consumes the current [`Reader`] and makes it into a [`RodeoResolver`], allowing
     /// contention-free access from multiple threads with the lowest possible memory consumption
+    #[must_use]
     fn into_resolver(self) -> RodeoResolver<K>;
+
+    /// An implementation detail to allow calling [`Reader::into_resolver()`] on dynamically
+    /// dispatched readers
+    #[doc(hidden)]
+    #[must_use]
+    fn into_resolver_boxed(self: Box<Self>) -> RodeoResolver<K>;
 }
 
 /// A generic interface that allows using any underlying interner only
@@ -99,4 +124,6 @@ mod sealed {
 
     #[cfg(feature = "multi-threaded")]
     impl<K, S> Sealed for crate::ThreadedRodeo<K, S> {}
+
+    impl<I: ?Sized> Sealed for Box<I> {}
 }

@@ -23,6 +23,12 @@ where
     fn into_resolver(self) -> RodeoResolver<K> {
         self.into_resolver()
     }
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    #[must_use]
+    fn into_resolver_boxed(self: Box<Self>) -> RodeoResolver<K> {
+        (*self).into_resolver()
+    }
 }
 
 impl<K, S> Resolver<K> for RodeoReader<K, S>
