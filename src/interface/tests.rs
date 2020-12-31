@@ -93,6 +93,27 @@ fn interner_implementations() {
                 assert_eq!(interner.resolve_unchecked(&key), string);
             }
         }
+
+        let reader = interner.into_reader();
+        for (key, string) in INTERNED_STRINGS
+            .iter()
+            .chain(UNINTERNED_STRINGS.iter())
+            .copied()
+            .enumerate()
+            .map(|(i, s)| (Spur::try_from_usize(i).unwrap(), s))
+        {
+            assert!(reader.get(string).is_some());
+            assert!(reader.contains(string));
+
+            assert!(reader.contains_key(&key));
+            assert_eq!(reader.resolve(&key), string);
+            assert!(reader.try_resolve(&key).is_some());
+            assert_eq!(reader.try_resolve(&key), Some(string));
+
+            unsafe {
+                assert_eq!(reader.resolve_unchecked(&key), string);
+            }
+        }
     }
 }
 
