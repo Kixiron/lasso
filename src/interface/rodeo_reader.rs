@@ -1,6 +1,8 @@
 //! Implementations of [`Reader`] and [`Resolver`] for [`RodeoReader`]
 
 use crate::{Key, Reader, Resolver, RodeoReader, RodeoResolver};
+#[cfg(feature = "no-std")]
+use alloc::boxed::Box;
 use core::hash::BuildHasher;
 
 impl<K, S> Reader<K> for RodeoReader<K, S>

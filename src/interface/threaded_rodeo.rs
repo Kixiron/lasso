@@ -2,6 +2,8 @@
 #![cfg(feature = "multi-threaded")]
 
 use crate::{Interner, Key, LassoResult, Reader, Resolver, RodeoResolver, ThreadedRodeo};
+#[cfg(feature = "no-std")]
+use alloc::boxed::Box;
 use core::hash::{BuildHasher, Hash};
 
 impl<K, S> Interner<K> for ThreadedRodeo<K, S>
