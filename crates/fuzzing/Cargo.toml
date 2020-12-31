@@ -12,4 +12,4 @@ path = "src/rodeo.rs"
 version = "0.5.47"
 
 [dependencies.lasso]
-path = "../"
+path = "../../"

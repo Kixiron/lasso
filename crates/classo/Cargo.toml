@@ -1,0 +1,30 @@
+[package]
+name = "classo"
+version = "0.3.1"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Kixiron/lasso"
+documentation = "https://docs.rs/lasso"
+authors = ["Chase Wilson <me@chasewilson.dev>"]
+keywords = ["interner", "intern", "string", "str", "symbol"]
+description = """The C API for lasso, a multithreaded and single threaded string interner that allows strings
+to be cached with aminimal memory footprint, associating them with a unique key that can be used to retrieve
+them at any time.
+"""
+readme = "../../README.md"
+categories = ["data-structures", "concurrency", "no-std"]
+edition = "2018"
+build = "build.rs"
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = []
+no-std = ["lasso/no-std"]
+
+[dependencies]
+lasso = { path = "../../", version = "0.3.1" }
+libc = "0.2.81"
+
+[build-dependencies]
+cbindgen = "0.16.0"

@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `Index` implementations for all interners
 - Added the `Interner`, `Reader` and `Resolver` traits
 - Loosened trait bounds on `Rodeo` methods
+- (`classo`) Started on the `classo` crate to offer a C API
 
 ### Changed
 
