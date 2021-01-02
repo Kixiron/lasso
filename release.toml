@@ -10,11 +10,6 @@ replace = "{{version}}"
 
 [[pre-release-replacements]]
 file = "Changelog.md"
-search = "Unreleased"
-replace = "{{version}}"
-
-[[pre-release-replacements]]
-file = "Changelog.md"
 search = "\\.\\.\\.HEAD"
 replace = "...{{tag_name}}"
 
