@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.4.1] - 2021-01-03
+
 ### Changed
 
 - Updated dependencies to latest versions
@@ -136,7 +138,8 @@ This version really wouldn't be possible without the amazing work of @CAD97. The
 ## 0.1.0
 
 <!-- next-url -->
-[Unreleased]: https://github.com/Kixiron/lasso/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Kixiron/lasso/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/Kixiron/lasso/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Kixiron/lasso/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/Kixiron/lasso/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Kixiron/lasso/compare/v0.3.0
