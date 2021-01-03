@@ -5,14 +5,14 @@ mod rodeo_resolver;
 mod tests;
 mod threaded_rodeo;
 
-use crate::{LassoResult, Rodeo, RodeoReader, RodeoResolver};
+use crate::{LassoResult, Rodeo, RodeoReader, RodeoResolver, Spur};
 #[cfg(feature = "no-std")]
 use alloc::boxed::Box;
 use sealed::Sealed;
 
 /// A generic interface over any underlying interner, allowing storing and accessing
 /// interned strings
-pub trait Interner<K>: Reader<K> + Resolver<K> + Sealed {
+pub trait Interner<K = Spur>: Reader<K> + Resolver<K> + Sealed {
     /// Get the key for a string, interning it if it does not yet exist
     ///
     /// # Panics
@@ -62,7 +62,7 @@ pub trait Interner<K>: Reader<K> + Resolver<K> + Sealed {
 /// A generic interface that allows using any underlying interner for
 /// both its reading and resolution capabilities, allowing both
 /// `str -> key` and `key -> str` lookups
-pub trait Reader<K>: Resolver<K> + Sealed {
+pub trait Reader<K = Spur>: Resolver<K> + Sealed {
     /// Get a key for the given string value if it exists
     fn get(&self, val: &str) -> Option<K>;
 
@@ -83,7 +83,7 @@ pub trait Reader<K>: Resolver<K> + Sealed {
 
 /// A generic interface that allows using any underlying interner only
 /// for its resolution capabilities, allowing only `key -> str` lookups
-pub trait Resolver<K>: Sealed {
+pub trait Resolver<K = Spur>: Sealed {
     /// Resolves the given key into a string
     ///
     /// # Panics
