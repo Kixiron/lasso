@@ -23,22 +23,22 @@ inline-more = []
 
 # Provides a concurrent hashmap, enabled with the `multi-threaded` feature
 [dependencies.dashmap]
-version = "3.11.10"
+version = "4.0.1"
 features = ["raw-api"]
 optional = true
 
 # Provides a no_std hasher, enabled with the `no-std` feature
 [dependencies.ahash]
-version = "0.4.4"
+version = "0.6.2"
 optional = true
 
 # Provides the hashmap that all single-threaded interners use
 [dependencies.hashbrown]
-version = "0.9.0"
+version = "0.9.1"
 
 # Allows {de}serialization of Spurs
 [dependencies.serde]
-version = "1.0.115"
+version = "1.0.118"
 default-features = false
 optional = true
 
@@ -52,7 +52,7 @@ version = "1.4.0"
 
 # Cross-hash comparisons with benchmarking
 [dev-dependencies.ahash]
-version = "0.4.4"
+version = "0.6.2"
 
 # Cross-hash comparisons with benchmarking
 [dev-dependencies.fxhash]
@@ -60,7 +60,7 @@ version = "0.2.1"
 
 # Testing serialization
 [dev-dependencies.serde_json]
-version = "1.0.57"
+version = "1.0.61"
 
 [[bench]]
 name = "single_threaded"
