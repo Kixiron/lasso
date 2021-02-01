@@ -1,7 +1,7 @@
 //! Implementations of [`Interner`], [`Reader`] and [`Resolver`] for [`ThreadedRodeo`]
 #![cfg(feature = "multi-threaded")]
 
-use crate::{Interner, Key, LassoResult, Reader, Resolver, RodeoResolver, ThreadedRodeo};
+use crate::{Interner, Key, LassoResult, Reader, Resolver, ThreadedRodeo};
 #[cfg(feature = "no-std")]
 use alloc::boxed::Box;
 use core::hash::{BuildHasher, Hash};
@@ -67,14 +67,20 @@ where
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_resolver(self) -> RodeoResolver<K> {
-        self.into_resolver()
+    fn into_resolver(self) -> Box<dyn Resolver<K>>
+    where
+        Self: 'static,
+    {
+        Box::new(self.into_resolver())
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_resolver_boxed(self: Box<Self>) -> RodeoResolver<K> {
-        (*self).into_resolver()
+    fn into_resolver_boxed(self: Box<Self>) -> Box<dyn Resolver<K>>
+    where
+        Self: 'static,
+    {
+        Box::new(ThreadedRodeo::into_resolver(*self))
     }
 }
 

@@ -5,14 +5,13 @@ mod rodeo_resolver;
 mod tests;
 mod threaded_rodeo;
 
-use crate::{LassoResult, Rodeo, RodeoReader, RodeoResolver, Spur};
+use crate::{LassoResult, Spur};
 #[cfg(feature = "no-std")]
 use alloc::boxed::Box;
-use sealed::Sealed;
 
 /// A generic interface over any underlying interner, allowing storing and accessing
 /// interned strings
-pub trait Interner<K = Spur>: Reader<K> + Resolver<K> + Sealed {
+pub trait Interner<K = Spur>: Reader<K> + Resolver<K> {
     /// Get the key for a string, interning it if it does not yet exist
     ///
     /// # Panics
@@ -62,7 +61,7 @@ pub trait Interner<K = Spur>: Reader<K> + Resolver<K> + Sealed {
 /// A generic interface that allows using any underlying interner for
 /// both its reading and resolution capabilities, allowing both
 /// `str -> key` and `key -> str` lookups
-pub trait Reader<K = Spur>: Resolver<K> + Sealed {
+pub trait Reader<K = Spur>: Resolver<K> {
     /// Get a key for the given string value if it exists
     fn get(&self, val: &str) -> Option<K>;
 
@@ -72,18 +71,22 @@ pub trait Reader<K = Spur>: Resolver<K> + Sealed {
     /// Consumes the current [`Reader`] and makes it into a [`RodeoResolver`], allowing
     /// contention-free access from multiple threads with the lowest possible memory consumption
     #[must_use]
-    fn into_resolver(self) -> RodeoResolver<K>;
+    fn into_resolver(self) -> Box<dyn Resolver<K>>
+    where
+        Self: 'static;
 
     /// An implementation detail to allow calling [`Reader::into_resolver()`] on dynamically
     /// dispatched readers
     #[doc(hidden)]
     #[must_use]
-    fn into_resolver_boxed(self: Box<Self>) -> RodeoResolver<K>;
+    fn into_resolver_boxed(self: Box<Self>) -> Box<dyn Resolver<K>>
+    where
+        Self: 'static;
 }
 
 /// A generic interface that allows using any underlying interner only
 /// for its resolution capabilities, allowing only `key -> str` lookups
-pub trait Resolver<K = Spur>: Sealed {
+pub trait Resolver<K = Spur> {
     /// Resolves the given key into a string
     ///
     /// # Panics
@@ -115,24 +118,4 @@ pub trait Resolver<K = Spur>: Sealed {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-}
-
-mod sealed {
-    use super::*;
-
-    /// A [sealed trait] to protect against downstream implementations
-    ///
-    /// [sealed trait]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
-    pub trait Sealed {}
-
-    impl<K, S> Sealed for Rodeo<K, S> {}
-
-    impl<K> Sealed for RodeoResolver<K> {}
-
-    impl<K, S> Sealed for RodeoReader<K, S> {}
-
-    #[cfg(feature = "multi-threaded")]
-    impl<K, S> Sealed for crate::ThreadedRodeo<K, S> {}
-
-    impl<I: ?Sized> Sealed for Box<I> {}
 }

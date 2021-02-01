@@ -1,5 +1,5 @@
 use super::{Interner, Reader, Resolver};
-use crate::{Key, LassoResult, RodeoResolver};
+use crate::{Key, LassoResult};
 #[cfg(feature = "no-std")]
 use alloc::boxed::Box;
 
@@ -64,13 +64,19 @@ where
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_resolver(self) -> RodeoResolver<K> {
+    fn into_resolver(self) -> Box<dyn Resolver<K>>
+    where
+        Self: 'static,
+    {
         I::into_resolver_boxed(self)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_resolver_boxed(self: Box<Self>) -> RodeoResolver<K> {
+    fn into_resolver_boxed(self: Box<Self>) -> Box<dyn Resolver<K>>
+    where
+        Self: 'static,
+    {
         (*self).into_resolver()
     }
 }
