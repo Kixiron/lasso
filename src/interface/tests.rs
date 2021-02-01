@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use super::*;
-use crate::{Key, Spur};
+use crate::{Key, Rodeo, Spur};
 
 compile! {
     if #[feature = "multi-threaded"] {
@@ -124,7 +124,30 @@ fn interner_implementations() {
             reader.len(),
             INTERNED_STRINGS.len() + UNINTERNED_STRINGS.len(),
         );
-        assert!(!reader.is_empty());
+
+        let resolver = reader.into_resolver();
+        for (key, string) in INTERNED_STRINGS
+            .iter()
+            .chain(UNINTERNED_STRINGS.iter())
+            .copied()
+            .enumerate()
+            .map(|(i, s)| (Spur::try_from_usize(i).unwrap(), s))
+        {
+            assert!(resolver.contains_key(&key));
+            assert_eq!(resolver.resolve(&key), string);
+            assert!(resolver.try_resolve(&key).is_some());
+            assert_eq!(resolver.try_resolve(&key), Some(string));
+
+            unsafe {
+                assert_eq!(resolver.resolve_unchecked(&key), string);
+            }
+        }
+
+        assert_eq!(
+            resolver.len(),
+            INTERNED_STRINGS.len() + UNINTERNED_STRINGS.len(),
+        );
+        assert!(!resolver.is_empty());
     }
 }
 
@@ -174,6 +197,26 @@ fn reader_implementations() {
 
         assert_eq!(reader.len(), INTERNED_STRINGS.len());
         assert!(!reader.is_empty());
+
+        let resolver = reader.into_resolver();
+        for (key, string) in INTERNED_STRINGS
+            .iter()
+            .copied()
+            .enumerate()
+            .map(|(i, s)| (Spur::try_from_usize(i).unwrap(), s))
+        {
+            assert!(resolver.contains_key(&key));
+            assert_eq!(resolver.resolve(&key), string);
+            assert!(resolver.try_resolve(&key).is_some());
+            assert_eq!(resolver.try_resolve(&key), Some(string));
+
+            unsafe {
+                assert_eq!(resolver.resolve_unchecked(&key), string);
+            }
+        }
+
+        assert_eq!(resolver.len(), INTERNED_STRINGS.len());
+        assert!(!resolver.is_empty());
     }
 }
 
