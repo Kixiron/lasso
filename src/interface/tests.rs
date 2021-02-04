@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use super::*;
-use crate::{Key, Rodeo, Spur};
+use crate::{Key, Rodeo, RodeoReader, RodeoResolver, Spur};
 
 compile! {
     if #[feature = "multi-threaded"] {
@@ -13,8 +13,9 @@ compile! {
     }
 }
 
-const INTERNED_STRINGS: &[&str] = &["foo", "bar", "baz", "biz", "buzz", "bing"];
-const UNINTERNED_STRINGS: &[&str] = &["rodeo", "default", "string", "static", "unwrap", "array"];
+pub(crate) const INTERNED_STRINGS: &[&str] = &["foo", "bar", "baz", "biz", "buzz", "bing"];
+pub(crate) const UNINTERNED_STRINGS: &[&str] =
+    &["rodeo", "default", "string", "static", "unwrap", "array"];
 
 fn filled_rodeo() -> Rodeo {
     let mut rodeo = Rodeo::default();
@@ -26,7 +27,7 @@ fn filled_rodeo() -> Rodeo {
 }
 
 #[cfg(feature = "multi-threaded")]
-fn filled_threaded_rodeo() -> ThreadedRodeo {
+pub(crate) fn filled_threaded_rodeo() -> ThreadedRodeo {
     let rodeo = ThreadedRodeo::default();
     for string in INTERNED_STRINGS.iter().copied() {
         rodeo.try_get_or_intern_static(string).unwrap();
@@ -38,12 +39,14 @@ fn filled_threaded_rodeo() -> ThreadedRodeo {
 mod interner {
     use super::*;
 
-    pub fn rodeo() -> Box<dyn Interner<Spur>> {
+    pub fn rodeo(
+    ) -> Box<dyn IntoReaderAndResolver<Spur, Reader = RodeoReader, Resolver = RodeoResolver>> {
         Box::new(filled_rodeo())
     }
 
     #[cfg(feature = "multi-threaded")]
-    pub fn threaded_rodeo() -> Box<dyn Interner<Spur>> {
+    pub fn threaded_rodeo(
+    ) -> Box<dyn IntoReaderAndResolver<Spur, Reader = RodeoReader, Resolver = RodeoResolver>> {
         Box::new(filled_threaded_rodeo())
     }
 }
@@ -154,16 +157,16 @@ fn interner_implementations() {
 mod reader {
     use super::*;
 
-    pub fn rodeo() -> Box<dyn Reader<Spur>> {
+    pub fn rodeo() -> Box<dyn IntoResolver<Spur, Resolver = RodeoResolver>> {
         Box::new(filled_rodeo())
     }
 
-    pub fn rodeo_reader() -> Box<dyn Reader<Spur>> {
+    pub fn rodeo_reader() -> Box<dyn IntoResolver<Spur, Resolver = RodeoResolver>> {
         Box::new(filled_rodeo().into_reader())
     }
 
     #[cfg(feature = "multi-threaded")]
-    pub fn threaded_rodeo() -> Box<dyn Reader<Spur>> {
+    pub fn threaded_rodeo() -> Box<dyn IntoResolver<Spur, Resolver = RodeoResolver>> {
         Box::new(filled_threaded_rodeo())
     }
 }

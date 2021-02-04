@@ -433,7 +433,7 @@ mod reader;
 mod resolver;
 mod single_threaded;
 
-pub use interface::{Interner, Reader, Resolver};
+pub use interface::{Interner, IntoReader, IntoReaderAndResolver, IntoResolver, Reader, Resolver};
 pub use key::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
 pub use reader::RodeoReader;
 pub use resolver::RodeoResolver;

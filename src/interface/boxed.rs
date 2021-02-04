@@ -1,4 +1,4 @@
-use super::{Interner, Reader, Resolver};
+use super::{Interner, IntoReader, IntoResolver, Reader, Resolver};
 use crate::{Key, LassoResult};
 #[cfg(feature = "no-std")]
 use alloc::boxed::Box;
@@ -27,10 +27,18 @@ where
     fn try_get_or_intern_static(&mut self, val: &'static str) -> LassoResult<K> {
         self.try_get_or_intern(val)
     }
+}
+
+impl<K, I> IntoReader<K> for Box<I>
+where
+    K: Key,
+    I: IntoReader<K> + ?Sized + 'static,
+{
+    type Reader = <I as IntoReader<K>>::Reader;
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_reader(self) -> Box<dyn Reader<K>>
+    fn into_reader(self) -> Self::Reader
     where
         Self: 'static,
     {
@@ -39,7 +47,7 @@ where
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_reader_boxed(self: Box<Self>) -> Box<dyn Reader<K>>
+    fn into_reader_boxed(self: Box<Self>) -> Self::Reader
     where
         Self: 'static,
     {
@@ -61,10 +69,18 @@ where
     fn contains(&self, val: &str) -> bool {
         (&**self).contains(val)
     }
+}
+
+impl<K, I> IntoResolver<K> for Box<I>
+where
+    K: Key,
+    I: IntoResolver<K> + ?Sized + 'static,
+{
+    type Resolver = <I as IntoResolver<K>>::Resolver;
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_resolver(self) -> Box<dyn Resolver<K>>
+    fn into_resolver(self) -> Self::Resolver
     where
         Self: 'static,
     {
@@ -73,7 +89,7 @@ where
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_resolver_boxed(self: Box<Self>) -> Box<dyn Resolver<K>>
+    fn into_resolver_boxed(self: Box<Self>) -> Self::Resolver
     where
         Self: 'static,
     {

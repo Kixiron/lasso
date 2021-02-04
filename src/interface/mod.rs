@@ -3,14 +3,19 @@ mod rodeo;
 mod rodeo_reader;
 mod rodeo_resolver;
 mod tests;
+mod threaded_ref;
 mod threaded_rodeo;
 
-use crate::{LassoResult, Spur};
+use crate::{Key, LassoResult, Spur};
 #[cfg(feature = "no-std")]
 use alloc::boxed::Box;
 
 /// A generic interface over any underlying interner, allowing storing and accessing
 /// interned strings
+///
+/// Note that because single-threaded [`Rodeo`](crate::Rodeo)s require mutable access to use, this
+/// trait does so as well. For use with [`ThreadedRodeo`](crate::ThreadedRodeo), the trait is
+/// implemented for `&ThreadedRodeo` as well to allow access through shared references.
 pub trait Interner<K = Spur>: Reader<K> + Resolver<K> {
     /// Get the key for a string, interning it if it does not yet exist
     ///
@@ -41,11 +46,28 @@ pub trait Interner<K = Spur>: Reader<K> + Resolver<K> {
     ///
     /// This will not reallocate or copy the given string
     fn try_get_or_intern_static(&mut self, val: &'static str) -> LassoResult<K>;
+}
 
-    /// Consumes the current [`Interner`] and converts it into a [`RodeoReader`] to allow
+/// A generic interface over interners that can be turned into both a [`Reader`] and a [`Resolver`]
+/// directly.
+pub trait IntoReaderAndResolver<K = Spur>: IntoReader<K> + IntoResolver<K>
+where
+    K: Key,
+{
+}
+
+/// A generic interface over interners that can be turned into a [`Reader`].
+pub trait IntoReader<K = Spur>: Interner<K>
+where
+    K: Key,
+{
+    /// The type of [`Reader`] the interner will be converted into
+    type Reader: Reader<K>;
+
+    /// Consumes the current [`Interner`] and converts it into a [`Reader`] to allow
     /// contention-free access of the interner from multiple threads
     #[must_use]
-    fn into_reader(self) -> Box<dyn Reader<K>>
+    fn into_reader(self) -> Self::Reader
     where
         Self: 'static;
 
@@ -53,7 +75,7 @@ pub trait Interner<K = Spur>: Reader<K> + Resolver<K> {
     /// dispatched interners
     #[doc(hidden)]
     #[must_use]
-    fn into_reader_boxed(self: Box<Self>) -> Box<dyn Reader<K>>
+    fn into_reader_boxed(self: Box<Self>) -> Self::Reader
     where
         Self: 'static;
 }
@@ -67,11 +89,20 @@ pub trait Reader<K = Spur>: Resolver<K> {
 
     /// Returns `true` if the current interner contains the given string
     fn contains(&self, val: &str) -> bool;
+}
 
-    /// Consumes the current [`Reader`] and makes it into a [`RodeoResolver`], allowing
+/// A generic interface over [`Reader`]s that can be turned into a [`Resolver`].
+pub trait IntoResolver<K = Spur>: Reader<K>
+where
+    K: Key,
+{
+    /// The type of [`Resolver`] the reader will be converted into
+    type Resolver: Resolver<K>;
+
+    /// Consumes the current [`Reader`] and makes it into a [`Resolver`], allowing
     /// contention-free access from multiple threads with the lowest possible memory consumption
     #[must_use]
-    fn into_resolver(self) -> Box<dyn Resolver<K>>
+    fn into_resolver(self) -> Self::Resolver
     where
         Self: 'static;
 
@@ -79,7 +110,7 @@ pub trait Reader<K = Spur>: Resolver<K> {
     /// dispatched readers
     #[doc(hidden)]
     #[must_use]
-    fn into_resolver_boxed(self: Box<Self>) -> Box<dyn Resolver<K>>
+    fn into_resolver_boxed(self: Box<Self>) -> Self::Resolver
     where
         Self: 'static;
 }
