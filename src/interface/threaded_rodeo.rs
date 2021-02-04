@@ -1,7 +1,7 @@
 //! Implementations of [`Interner`], [`Reader`] and [`Resolver`] for [`ThreadedRodeo`]
 #![cfg(feature = "multi-threaded")]
 
-use crate::{Interner, Key, LassoResult, Reader, Resolver, ThreadedRodeo};
+use crate::*;
 #[cfg(feature = "no-std")]
 use alloc::boxed::Box;
 use core::hash::{BuildHasher, Hash};
@@ -30,23 +30,38 @@ where
     fn try_get_or_intern_static(&mut self, val: &'static str) -> LassoResult<K> {
         (&*self).try_get_or_intern_static(val)
     }
+}
+
+impl<K, S> IntoReaderAndResolver<K> for ThreadedRodeo<K, S>
+where
+    K: Key + Hash,
+    S: BuildHasher + Clone,
+{
+}
+
+impl<K, S> IntoReader<K> for ThreadedRodeo<K, S>
+where
+    K: Key + Hash,
+    S: BuildHasher + Clone,
+{
+    type Reader = RodeoReader<K, S>;
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_reader(self) -> Box<dyn Reader<K>>
+    fn into_reader(self) -> Self::Reader
     where
         Self: 'static,
     {
-        Box::new(self.into_reader())
+        self.into_reader()
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_reader_boxed(self: Box<Self>) -> Box<dyn Reader<K>>
+    fn into_reader_boxed(self: Box<Self>) -> Self::Reader
     where
         Self: 'static,
     {
-        Box::new(ThreadedRodeo::into_reader(*self))
+        ThreadedRodeo::into_reader(*self)
     }
 }
 
@@ -64,23 +79,31 @@ where
     fn contains(&self, val: &str) -> bool {
         self.contains(val)
     }
+}
+
+impl<K, S> IntoResolver<K> for ThreadedRodeo<K, S>
+where
+    K: Key + Hash,
+    S: BuildHasher + Clone,
+{
+    type Resolver = RodeoResolver<K>;
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_resolver(self) -> Box<dyn Resolver<K>>
+    fn into_resolver(self) -> Self::Resolver
     where
         Self: 'static,
     {
-        Box::new(self.into_resolver())
+        self.into_resolver()
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_resolver_boxed(self: Box<Self>) -> Box<dyn Resolver<K>>
+    fn into_resolver_boxed(self: Box<Self>) -> Self::Resolver
     where
         Self: 'static,
     {
-        Box::new(ThreadedRodeo::into_resolver(*self))
+        ThreadedRodeo::into_resolver(*self)
     }
 }
 

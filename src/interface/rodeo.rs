@@ -1,9 +1,10 @@
 //! Implementations of [`Interner`], [`Reader`] and [`Resolver`] for [`Rodeo`]
 
-use crate::{Interner, Key, LassoResult, Reader, Resolver, Rodeo};
+use crate::*;
 #[cfg(feature = "no-std")]
 use alloc::boxed::Box;
 use core::hash::BuildHasher;
+use interface::IntoReaderAndResolver;
 
 impl<K, S> Interner<K> for Rodeo<K, S>
 where
@@ -29,23 +30,38 @@ where
     fn try_get_or_intern_static(&mut self, val: &'static str) -> LassoResult<K> {
         self.try_get_or_intern_static(val)
     }
+}
+
+impl<K, S> IntoReaderAndResolver<K> for Rodeo<K, S>
+where
+    K: Key,
+    S: BuildHasher,
+{
+}
+
+impl<K, S> IntoReader<K> for Rodeo<K, S>
+where
+    K: Key,
+    S: BuildHasher,
+{
+    type Reader = RodeoReader<K, S>;
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_reader(self) -> Box<dyn Reader<K>>
+    fn into_reader(self) -> Self::Reader
     where
         Self: 'static,
     {
-        Box::new(self.into_reader())
+        self.into_reader()
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_reader_boxed(self: Box<Self>) -> Box<dyn Reader<K>>
+    fn into_reader_boxed(self: Box<Self>) -> Self::Reader
     where
         Self: 'static,
     {
-        Box::new(Rodeo::into_reader(*self))
+        Rodeo::into_reader(*self)
     }
 }
 
@@ -63,23 +79,31 @@ where
     fn contains(&self, val: &str) -> bool {
         self.contains(val)
     }
+}
+
+impl<K, S> IntoResolver<K> for Rodeo<K, S>
+where
+    K: Key,
+    S: BuildHasher,
+{
+    type Resolver = RodeoResolver<K>;
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_resolver(self) -> Box<dyn Resolver<K>>
+    fn into_resolver(self) -> Self::Resolver
     where
         Self: 'static,
     {
-        Box::new(self.into_resolver())
+        self.into_resolver()
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    fn into_resolver_boxed(self: Box<Self>) -> Box<dyn Resolver<K>>
+    fn into_resolver_boxed(self: Box<Self>) -> Self::Resolver
     where
         Self: 'static,
     {
-        Box::new(Rodeo::into_resolver(*self))
+        Rodeo::into_resolver(*self)
     }
 }
 
