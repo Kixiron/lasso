@@ -582,6 +582,18 @@ where
         self.strings.capacity()
     }
 
+    /// Returns an iterator over the interned strings and their key values
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn iter(&self) -> Iter<'_, K, S> {
+        Iter::new(self)
+    }
+
+    /// Returns an iterator over the interned strings
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn strings(&self) -> Strings<'_, K, S> {
+        Strings::new(self)
+    }
+
     /// Set the `ThreadedRodeo`'s maximum memory usage while in-flight
     ///
     /// Note that setting the maximum memory usage to below the currently allocated
@@ -993,6 +1005,89 @@ where
     }
 }
 
+/// An iterator over an interner's strings and keys
+#[must_use = "iterators are lazy and do nothing unless consumed"]
+pub struct Iter<'a, K, S> {
+    iter: dashmap::iter::Iter<'a, K, &'static str, S, DashMap<K, &'static str, S>>,
+}
+
+impl<'a, K, S> Iter<'a, K, S>
+where
+    K: Key + Hash,
+    S: BuildHasher + Clone,
+{
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub(crate) fn new(rodeo: &'a ThreadedRodeo<K, S>) -> Self {
+        Self {
+            iter: rodeo.strings.iter(),
+        }
+    }
+}
+
+impl<'a, K, S> Iterator for Iter<'a, K, S>
+where
+    K: Key + Hash,
+    S: BuildHasher + Clone,
+{
+    type Item = (K, &'a str);
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|r| (*r.key(), *r.value()))
+    }
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<K, S> Debug for Iter<'_, K, S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.debug_struct("Iter")
+            .field("iter", &format_args!(".."))
+            .finish()
+    }
+}
+
+/// An iterator over an interner's strings
+#[derive(Debug)]
+#[must_use = "iterators are lazy and do nothing unless consumed"]
+pub struct Strings<'a, K, S> {
+    iter: Iter<'a, K, S>,
+}
+
+impl<'a, K, S> Strings<'a, K, S>
+where
+    K: Key + Hash,
+    S: BuildHasher + Clone,
+{
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub(crate) fn new(rodeo: &'a ThreadedRodeo<K, S>) -> Self {
+        Self {
+            iter: Iter::new(rodeo),
+        }
+    }
+}
+
+impl<'a, K, S> Iterator for Strings<'a, K, S>
+where
+    K: Key + Hash,
+    S: BuildHasher + Clone,
+{
+    type Item = &'a str;
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|(_, v)| v)
+    }
+
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1339,6 +1434,48 @@ mod tests {
     fn debug() {
         let rodeo = ThreadedRodeo::default();
         println!("{:?}", rodeo);
+    }
+
+    #[test]
+    fn iter() {
+        let rodeo = ThreadedRodeo::default();
+        rodeo.get_or_intern_static("A");
+        rodeo.get_or_intern_static("B");
+        rodeo.get_or_intern_static("C");
+        let values: Vec<_> = rodeo.iter().map(|(k, v)| (k.into_usize(), v)).collect();
+        assert_eq!(values.len(), 3);
+        assert!(values.contains(&(0, "A")));
+        assert!(values.contains(&(1, "B")));
+        assert!(values.contains(&(2, "C")));
+    }
+
+    #[test]
+    fn strings() {
+        let rodeo = ThreadedRodeo::default();
+        rodeo.get_or_intern_static("A");
+        rodeo.get_or_intern_static("B");
+        rodeo.get_or_intern_static("C");
+        let strings: Vec<_> = rodeo.strings().collect();
+        assert_eq!(strings.len(), 3);
+        assert!(strings.contains(&"A"));
+        assert!(strings.contains(&"B"));
+        assert!(strings.contains(&"C"));
+    }
+
+    #[test]
+    #[cfg(not(any(miri, feature = "no-std")))]
+    fn debug_iter() {
+        let rodeo = ThreadedRodeo::default();
+        println!("{:?}", rodeo.iter());
+        println!("{:#?}", rodeo.iter());
+    }
+
+    #[test]
+    #[cfg(not(any(miri, feature = "no-std")))]
+    fn debug_strings() {
+        let rodeo = ThreadedRodeo::default();
+        println!("{:?}", rodeo.strings());
+        println!("{:#?}", rodeo.strings());
     }
 
     #[test]
