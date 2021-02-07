@@ -16,7 +16,7 @@ use hashbrown::{hash_map::RawEntryMut, HashMap};
 
 compile! {
     if #[feature = "no-std"] {
-        use alloc::{vec::Vec, string::String};
+        use alloc::vec::Vec;
     }
 }
 

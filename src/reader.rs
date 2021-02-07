@@ -14,7 +14,7 @@ use hashbrown::HashMap;
 
 compile! {
     if #[feature = "no-std"] {
-        use alloc::{vec::Vec, string::String};
+        use alloc::vec::Vec;
     }
 }
 
