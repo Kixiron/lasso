@@ -41,7 +41,7 @@ macro_rules! index_unchecked_mut {
 /// A concurrent string interner that caches strings quickly with a minimal memory footprint,
 /// returning a unique key to re-access it with `O(1)` internment and resolution.
 ///
-/// This struct is only avaliable with the `multi-threaded` feature!
+/// This struct is only available with the `multi-threaded` feature!
 /// By default ThreadedRodeo uses the [`Spur`] type for keys and [`RandomState`] as the hasher
 ///
 /// [`Spur`]: crate::Spur
@@ -338,7 +338,9 @@ where
             let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
                 .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
 
-            self.map.insert(string, key);
+            if let Some(key) = self.map.insert(string, key) {
+                return Ok(key);
+            }
             self.strings.insert(key, string);
 
             Ok(key)
@@ -413,7 +415,9 @@ where
             let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
                 .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
 
-            self.map.insert(string, key);
+            if let Some(key) = self.map.insert(string, key) {
+                return Ok(key);
+            }
             self.strings.insert(key, string);
 
             Ok(key)

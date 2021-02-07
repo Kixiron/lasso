@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented `Interner`, `Reader` and `Resolver` for `&ThreadedRodeo`
 - Added optional implementations of `Abomonation` for key types under the `abomonation` feature flag
 - Added optional implementations of `DeepSizeOf` for key types under the `deepsize` feature flag
+- Added iterators for `ThreadedRodeo`
 
 ### Changed
 
