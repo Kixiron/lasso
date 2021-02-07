@@ -323,12 +323,13 @@ jobs:
           command: miri
           args: test --target ${{ matrix.target }} --features multi-threaded -- -Zmiri-disable-isolation
 
-      - name: No std
-        if: ${{ !matrix.custom-features }}
-        uses: actions-rs/cargo@v1
-        with:
-          command: miri
-          args: test --target ${{ matrix.target }} --features no-std -- -Zmiri-disable-isolation
+      # TODO: Miri breaks on ahash since it uses bcrypt
+      # - name: No std
+      #   if: ${{ !matrix.custom-features }}
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: miri
+      #     args: test --target ${{ matrix.target }} --features no-std -- -Zmiri-disable-isolation
 
       - name: Clean unused artifacts
         uses: actions-rs/cargo@v1
