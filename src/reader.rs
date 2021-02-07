@@ -1,7 +1,7 @@
 use crate::{
     arena::Arena,
     hasher::RandomState,
-    key::{Key, Spur},
+    keys::{Key, Spur},
     resolver::RodeoResolver,
     util::{Iter, Strings},
     Rodeo,
@@ -14,7 +14,7 @@ use hashbrown::HashMap;
 
 compile! {
     if #[feature = "no-std"] {
-        use alloc::vec::Vec;
+        use alloc::{vec::Vec, string::String};
     }
 }
 

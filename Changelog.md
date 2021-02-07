@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Implemented `Interner`, `Reader` and `Resolver` for `&ThreadedRodeo`
+- Added optional implementations of `Abomonation` for key types under the `abomonation` feature flag
+- Added optional implementations of `DeepSizeOf` for key types under the `deepsize` feature flag
+
+### Changed
+
+- Moved the `.into_reader()` and `.into_resolver()` traits from `Interner` and `Reader` into the new `IntoReader`, `IntoResolver` and `IntoReaderAndResolver` traits
+- Updated dependencies
+
 ## [0.4.1] - 2021-01-03
 
 ### Changed

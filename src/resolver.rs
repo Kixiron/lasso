@@ -1,6 +1,6 @@
 use crate::{
     arena::Arena,
-    key::{Key, Spur},
+    keys::{Key, Spur},
     util::{Iter, Strings},
     Rodeo, RodeoReader,
 };
@@ -8,7 +8,7 @@ use core::{marker::PhantomData, ops::Index};
 
 compile! {
     if #[feature = "no-std"] {
-        use alloc::vec::Vec;
+        use alloc::{vec::Vec, string::String};
     }
 }
 

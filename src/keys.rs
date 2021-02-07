@@ -1,36 +1,4 @@
 use core::num::{NonZeroU16, NonZeroU32, NonZeroU8, NonZeroUsize};
-#[cfg(feature = "serialize")]
-use serde::{
-    de::{Deserialize, Deserializer},
-    ser::{Serialize, Serializer},
-};
-
-macro_rules! impl_serde {
-    ($key:ident => $ty:ty) => {
-        #[cfg(feature = "serialize")]
-        impl Serialize for $key {
-            #[cfg_attr(feature = "inline-more", inline)]
-            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: Serializer,
-            {
-                self.key.serialize(serializer)
-            }
-        }
-
-        #[cfg(feature = "serialize")]
-        impl<'de> Deserialize<'de> for $key {
-            #[cfg_attr(feature = "inline-more", inline)]
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                let key = <$ty>::deserialize(deserializer)?;
-                Ok(Self { key })
-            }
-        }
-    };
-}
 
 /// Types implementing this trait can be used as keys for all Rodeos
 ///
@@ -47,7 +15,7 @@ pub unsafe trait Key: Copy + Eq {
     fn try_from_usize(int: usize) -> Option<Self>;
 }
 
-/// The default key for every Rodeo, the same size as a `usize`
+/// A key type taking up `size_of::<usize>()` bytes of space (generally 4 or 8 bytes)
 ///
 /// Internally is a `NonZeroUsize` to allow for space optimizations when stored inside of an [`Option`]
 ///
@@ -88,8 +56,6 @@ impl Default for LargeSpur {
         Self::try_from_usize(0).unwrap()
     }
 }
-
-impl_serde!(LargeSpur => NonZeroUsize);
 
 /// The default key for every Rodeo, uses only 32bits of space
 ///
@@ -133,8 +99,6 @@ impl Default for Spur {
     }
 }
 
-impl_serde!(Spur => NonZeroU32);
-
 /// A miniature Key utilizing only 16 bits of space
 ///
 /// Internally is a `NonZeroU16` to allow for space optimizations when stored inside of an [`Option`]
@@ -176,8 +140,6 @@ impl Default for MiniSpur {
         Self::try_from_usize(0).unwrap()
     }
 }
-
-impl_serde!(MiniSpur => NonZeroU16);
 
 /// A miniature Key utilizing only 8 bits of space
 ///
@@ -221,7 +183,146 @@ impl Default for MicroSpur {
     }
 }
 
-impl_serde!(MicroSpur => NonZeroU8);
+macro_rules! impl_serde {
+    ($($key:ident => $ty:ident),* $(,)?) => {
+        #[cfg(feature = "serialize")]
+        mod __serde {
+            use super::{$($key),*};
+            use serde::{
+                de::{Deserialize, Deserializer},
+                ser::{Serialize, Serializer},
+            };
+            use core::num::{$($ty),*};
+
+            $(
+                impl Serialize for $key {
+                    #[cfg_attr(feature = "inline-more", inline)]
+                    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+                    where
+                        S: Serializer,
+                    {
+                        self.key.serialize(serializer)
+                    }
+                }
+
+                impl<'de> Deserialize<'de> for $key {
+                    #[cfg_attr(feature = "inline-more", inline)]
+                    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+                    where
+                        D: Deserializer<'de>,
+                    {
+                        let key = <$ty>::deserialize(deserializer)?;
+                        Ok(Self { key })
+                    }
+                }
+            )*
+        }
+    };
+}
+
+// Implement `Serialize` and `Deserialize` when the `serde` feature is enabled
+impl_serde! {
+    Spur => NonZeroU32,
+    MiniSpur => NonZeroU16,
+    MicroSpur => NonZeroU8,
+    LargeSpur => NonZeroUsize,
+}
+
+macro_rules! impl_deepsize {
+    ($($type:ident),* $(,)?) => {
+        #[cfg(feature = "deepsize")]
+        mod __deepsize {
+            use super::{$($type),*};
+            #[cfg(test)]
+            use super::Key;
+            use deepsize::{DeepSizeOf, Context};
+            use core::mem;
+
+            $(
+                impl DeepSizeOf for $type {
+                    fn deep_size_of_children(&self, _context: &mut Context) -> usize {
+                        0
+                    }
+
+                    fn deep_size_of(&self) -> usize {
+                        mem::size_of::<$type>()
+                    }
+                }
+            )*
+
+            #[test]
+            fn deepsize_implementations() {
+                $(
+                    assert_eq!(
+                        mem::size_of::<$type>(),
+                        $type::try_from_usize(0).unwrap().deep_size_of(),
+                    );
+                )*
+            }
+        }
+    };
+}
+
+// Implement `DeepSizeOf` when the `deepsize` feature is enabled
+impl_deepsize! {
+    Spur,
+    MiniSpur,
+    MicroSpur,
+    LargeSpur,
+}
+
+macro_rules! impl_abomonation {
+    ($($type:ident),* $(,)?) => {
+        #[cfg(all(feature = "abomonation", not(feature = "no-std")))]
+        mod __abomonation {
+            use super::{$($type),*};
+            #[cfg(test)]
+            use super::Key;
+            use abomonation::Abomonation;
+            use std::io::{self, Write};
+
+            $(
+                impl Abomonation for $type {
+                    unsafe fn entomb<W: Write>(&self, write: &mut W) -> io::Result<()> {
+                        self.key.entomb(write)
+                    }
+
+                    unsafe fn exhume<'a, 'b>(&'a mut self, bytes: &'b mut [u8]) -> Option<&'b mut [u8]> {
+                        self.key.exhume(bytes)
+                    }
+
+                    fn extent(&self) -> usize {
+                        self.key.extent()
+                    }
+                }
+            )*
+
+            #[test]
+            fn abomonation_implementations() {
+                let mut buf = Vec::new();
+
+                $(
+                    unsafe {
+                        let base = $type::try_from_usize(0).unwrap();
+
+                        abomonation::encode(&base, &mut buf).unwrap();
+                        assert_eq!(base, *abomonation::decode(&mut buf [..]).unwrap().0);
+                    }
+
+                    buf.clear();
+                )*
+            }
+        }
+    };
+}
+
+// Implement `Abomonation` when the `abomonation` feature is enabled
+impl_abomonation! {
+    Spur,
+    MiniSpur,
+    MicroSpur,
+    LargeSpur,
+}
 
 #[cfg(test)]
 mod tests {

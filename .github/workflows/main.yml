@@ -253,6 +253,7 @@ jobs:
     env:
       RUST_BACKTRACE: 1
       CARGO_INCREMENTAL: 0
+      MIRIFLAGS: "-Zmiri-disable-isolation"
 
     steps:
       - uses: actions/checkout@v2

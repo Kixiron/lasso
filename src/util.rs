@@ -1,4 +1,4 @@
-use crate::{key::Key, reader::RodeoReader, resolver::RodeoResolver, single_threaded::Rodeo};
+use crate::{keys::Key, reader::RodeoReader, resolver::RodeoResolver, single_threaded::Rodeo};
 use core::{fmt, iter, marker::PhantomData, num::NonZeroUsize, slice};
 
 /// A continence type for an error from an interner

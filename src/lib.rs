@@ -428,13 +428,13 @@ mod util;
 
 mod arena;
 mod interface;
-mod key;
+mod keys;
 mod reader;
 mod resolver;
 mod single_threaded;
 
 pub use interface::{Interner, IntoReader, IntoReaderAndResolver, IntoResolver, Reader, Resolver};
-pub use key::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
+pub use keys::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
 pub use reader::RodeoReader;
 pub use resolver::RodeoResolver;
 pub use single_threaded::Rodeo;

@@ -1,7 +1,7 @@
 #![cfg(feature = "multi-threaded")]
 
 use crate::{Interner, Key, Reader, Resolver, ThreadedRodeo};
-use std::hash::{BuildHasher, Hash};
+use core::hash::{BuildHasher, Hash};
 
 impl<K, S> Interner<K> for &ThreadedRodeo<K, S>
 where

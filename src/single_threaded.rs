@@ -1,7 +1,7 @@
 use crate::{
     arena::Arena,
     hasher::RandomState,
-    key::{Key, Spur},
+    keys::{Key, Spur},
     reader::RodeoReader,
     resolver::RodeoResolver,
     util::{Iter, Strings},
@@ -16,7 +16,7 @@ use hashbrown::{hash_map::RawEntryMut, HashMap};
 
 compile! {
     if #[feature = "no-std"] {
-        use alloc::vec::Vec;
+        use alloc::{vec::Vec, string::String};
     }
 }
 
@@ -1000,7 +1000,7 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, S> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{hasher::RandomState, Capacity, Key, MemoryLimits, MicroSpur, Rodeo, Spur};
+    use crate::{hasher::RandomState, keys::MicroSpur, Capacity, Key, MemoryLimits, Rodeo, Spur};
     use core::{iter::FromIterator, num::NonZeroUsize};
 
     compile! {
@@ -1040,10 +1040,13 @@ mod tests {
         let key = rodeo.get_or_intern("Test");
         assert_eq!("Test", rodeo.resolve(&key));
 
-        let mut rodeo: Rodeo<Spur, ahash::RandomState> =
-            Rodeo::with_hasher(ahash::RandomState::new());
-        let key = rodeo.get_or_intern("Test");
-        assert_eq!("Test", rodeo.resolve(&key));
+        #[cfg(not(miri))]
+        {
+            let mut rodeo: Rodeo<Spur, ahash::RandomState> =
+                Rodeo::with_hasher(ahash::RandomState::new());
+            let key = rodeo.get_or_intern("Test");
+            assert_eq!("Test", rodeo.resolve(&key));
+        }
     }
 
     #[test]
@@ -1065,22 +1068,27 @@ mod tests {
 
         assert_eq!(rodeo.len(), rodeo.capacity());
 
-        let mut rodeo: Rodeo<Spur, ahash::RandomState> =
-            Rodeo::with_capacity_and_hasher(Capacity::for_strings(10), ahash::RandomState::new());
-        assert_eq!(rodeo.capacity(), 10);
+        #[cfg(not(miri))]
+        {
+            let mut rodeo: Rodeo<Spur, ahash::RandomState> = Rodeo::with_capacity_and_hasher(
+                Capacity::for_strings(10),
+                ahash::RandomState::new(),
+            );
+            assert_eq!(rodeo.capacity(), 10);
 
-        rodeo.get_or_intern("Test");
-        rodeo.get_or_intern("Test1");
-        rodeo.get_or_intern("Test2");
-        rodeo.get_or_intern("Test3");
-        rodeo.get_or_intern("Test4");
-        rodeo.get_or_intern("Test5");
-        rodeo.get_or_intern("Test6");
-        rodeo.get_or_intern("Test7");
-        rodeo.get_or_intern("Test8");
-        rodeo.get_or_intern("Test9");
+            rodeo.get_or_intern("Test");
+            rodeo.get_or_intern("Test1");
+            rodeo.get_or_intern("Test2");
+            rodeo.get_or_intern("Test3");
+            rodeo.get_or_intern("Test4");
+            rodeo.get_or_intern("Test5");
+            rodeo.get_or_intern("Test6");
+            rodeo.get_or_intern("Test7");
+            rodeo.get_or_intern("Test8");
+            rodeo.get_or_intern("Test9");
 
-        assert_eq!(rodeo.len(), rodeo.capacity());
+            assert_eq!(rodeo.len(), rodeo.capacity());
+        }
     }
 
     #[test]
