@@ -18,22 +18,14 @@ use dashmap::DashMap;
 use hashbrown::{hash_map::RawEntryMut, HashMap};
 use std::sync::Mutex;
 
-#[cfg(debug_assertions)]
 macro_rules! index_unchecked_mut {
     ($slice:expr, $idx:expr) => {{
-        // Keeps unsafe required even when debug assertions are off
-        unsafe fn x() {}
-        x();
+        let elem: &mut _ = if cfg!(debug_assertions) {
+            &mut $slice[$idx]
+        } else {
+            $slice.get_unchecked_mut($idx)
+        };
 
-        let elem: &mut _ = &mut $slice[$idx];
-        elem
-    }};
-}
-
-#[cfg(not(debug_assertions))]
-macro_rules! index_unchecked_mut {
-    ($slice:expr, $idx:expr) => {{
-        let elem: &mut _ = $slice.get_unchecked_mut($idx);
         elem
     }};
 }
