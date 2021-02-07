@@ -1,7 +1,7 @@
 use crate::{
     arena::Arena,
     hasher::RandomState,
-    key::{Key, Spur},
+    keys::{Key, Spur},
     reader::RodeoReader,
     resolver::RodeoResolver,
     Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits, Rodeo,
