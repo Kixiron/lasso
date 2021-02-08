@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved the `.into_reader()` and `.into_resolver()` traits from `Interner` and `Reader` into the new `IntoReader`, `IntoResolver` and `IntoReaderAndResolver` traits
 - Updated dependencies
 
+### Fixed
+
+- Fixed race condition on key insertion for `ThreadedRodeo`
+
 ## [0.4.1] - 2021-01-03
 
 ### Changed

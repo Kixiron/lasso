@@ -316,23 +316,20 @@ where
         if let Some(key) = self.map.get(string_slice) {
             Ok(*key)
         } else {
-            let shard = self.map.determine_map(string_slice);
-            // Safety: The indices provided by DashMap always refer to a shard in it's shards
-            let shard = unsafe { self.map.shards().get_unchecked(shard) };
-
-            if let Some(key) = shard.read().get(string_slice) {
-                return Ok(*key.get());
-            }
-
             // Safety: The drop impl removes all references before the arena is dropped
             let string: &'static str =
                 unsafe { self.arena.lock().unwrap().store_str(string_slice)? };
-            let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
-                .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
 
-            if let Some(key) = self.map.insert(string, key) {
-                return Ok(key);
-            }
+            let make_new_key = || {
+                K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
+                    .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))
+            };
+
+            let key = *self
+                .map
+                .entry(string)
+                .or_try_insert_with(make_new_key)?
+                .value();
             self.strings.insert(key, string);
 
             Ok(key)
@@ -396,20 +393,16 @@ where
         if let Some(key) = self.map.get(string) {
             Ok(*key)
         } else {
-            let shard = self.map.determine_map(string);
-            // Safety: The indices provided by DashMap always refer to a shard in it's shards
-            let shard = unsafe { self.map.shards().get_unchecked(shard) };
+            let make_new_key = || {
+                K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
+                    .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))
+            };
 
-            if let Some(key) = shard.read().get(string) {
-                return Ok(*key.get());
-            }
-
-            let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
-                .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
-
-            if let Some(key) = self.map.insert(string, key) {
-                return Ok(key);
-            }
+            let key = *self
+                .map
+                .entry(string)
+                .or_try_insert_with(make_new_key)?
+                .value();
             self.strings.insert(key, string);
 
             Ok(key)
@@ -1091,7 +1084,10 @@ mod tests {
     use core::num::NonZeroUsize;
 
     #[cfg(not(any(miri, feature = "no-std")))]
-    use std::{sync::Arc, thread};
+    use std::{
+        sync::{Arc, Barrier},
+        thread,
+    };
 
     compile! {
         if #[feature = "no-std"] {
@@ -1780,5 +1776,65 @@ mod tests {
         b.get_or_intern("b");
         b.get_or_intern("c");
         assert_eq!(a, b.into_reader());
+    }
+
+    // Test for race conditions on key insertion
+    // https://github.com/Kixiron/lasso/issues/18
+    #[test]
+    #[cfg(not(any(miri, feature = "no-std")))]
+    fn get_or_intern_threaded_racy() {
+        const THREADS: usize = 10;
+
+        let mut handles = Vec::with_capacity(THREADS);
+        let barrier = Arc::new(Barrier::new(THREADS));
+        let rodeo = Arc::new(ThreadedRodeo::default());
+        let expected = Spur::try_from_usize(0).unwrap();
+
+        for _ in 0..THREADS {
+            let moved_rodeo = Arc::clone(&rodeo);
+            let moved_barrier = Arc::clone(&barrier);
+
+            handles.push(thread::spawn(move || {
+                moved_barrier.wait();
+                assert_eq!(expected, moved_rodeo.get_or_intern("A"));
+                assert_eq!(expected, moved_rodeo.get_or_intern("A"));
+                assert_eq!(expected, moved_rodeo.get_or_intern("A"));
+                assert_eq!(expected, moved_rodeo.get_or_intern("A"));
+            }));
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+    }
+
+    // Test for race conditions on key insertion
+    // https://github.com/Kixiron/lasso/issues/18
+    #[test]
+    #[cfg(not(any(miri, feature = "no-std")))]
+    fn get_or_intern_static_threaded_racy() {
+        const THREADS: usize = 10;
+
+        let mut handles = Vec::with_capacity(THREADS);
+        let barrier = Arc::new(Barrier::new(THREADS));
+        let rodeo = Arc::new(ThreadedRodeo::default());
+        let expected = Spur::try_from_usize(0).unwrap();
+
+        for _ in 0..THREADS {
+            let moved_rodeo = Arc::clone(&rodeo);
+            let moved_barrier = Arc::clone(&barrier);
+
+            handles.push(thread::spawn(move || {
+                moved_barrier.wait();
+                assert_eq!(expected, moved_rodeo.get_or_intern_static("A"));
+                assert_eq!(expected, moved_rodeo.get_or_intern_static("A"));
+                assert_eq!(expected, moved_rodeo.get_or_intern_static("A"));
+                assert_eq!(expected, moved_rodeo.get_or_intern_static("A"));
+            }));
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
     }
 }
