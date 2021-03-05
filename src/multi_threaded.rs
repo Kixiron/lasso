@@ -23,7 +23,7 @@ macro_rules! index_unchecked_mut {
         let elem: &mut _ = if cfg!(debug_assertions) {
             &mut $slice[$idx]
         } else {
-            &mut $slice.get_unchecked_mut($idx)
+            $slice.get_unchecked_mut($idx)
         };
 
         elem
