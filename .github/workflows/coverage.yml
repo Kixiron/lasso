@@ -26,6 +26,17 @@ jobs:
             --coveralls ${{ secrets.COVERALLS_TOKEN }}
             --features multi-threaded,serialize
           out-type: Lcov
+        if: github.ref == 'refs/heads/master'
+          
+      - name: Run cargo-tarpaulin for contributors
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          args: >-
+            --exclude-files benches/*
+            --exclude-files fuzzing/*
+            --features multi-threaded,serialize
+          out-type: Lcov
+        if: github.ref != 'refs/heads/master'
 
       - name: Upload to Coveralls
         uses: coverallsapp/github-action@master
