@@ -57,7 +57,7 @@ impl Default for LargeSpur {
     }
 }
 
-/// The default key for every Rodeo, uses only 32bits of space
+/// The default key for every Rodeo, uses only 32 bits of space
 ///
 /// Internally is a `NonZeroU32` to allow for space optimizations when stored inside of an [`Option`]
 ///
@@ -75,7 +75,7 @@ unsafe impl Key for Spur {
         self.key.get() as usize - 1
     }
 
-    /// Returns `None` if `int` is greater than `usize::MAX - 1`
+    /// Returns `None` if `int` is greater than `u32::MAX - 1`
     #[cfg_attr(feature = "inline-more", inline)]
     fn try_from_usize(int: usize) -> Option<Self> {
         if int < u32::max_value() as usize {
@@ -117,7 +117,7 @@ unsafe impl Key for MiniSpur {
         self.key.get() as usize - 1
     }
 
-    /// Returns `None` if `int` is greater than `usize::MAX - 1`
+    /// Returns `None` if `int` is greater than `u16::MAX - 1`
     #[cfg_attr(feature = "inline-more", inline)]
     fn try_from_usize(int: usize) -> Option<Self> {
         if int < u16::max_value() as usize {
@@ -159,12 +159,12 @@ unsafe impl Key for MicroSpur {
         self.key.get() as usize - 1
     }
 
-    /// Returns `None` if `int` is greater than `usize::MAX - 1`
+    /// Returns `None` if `int` is greater than `u8::MAX - 1`
     #[cfg_attr(feature = "inline-more", inline)]
     fn try_from_usize(int: usize) -> Option<Self> {
         if int < u8::max_value() as usize {
             // Safety: The integer is less than the max value and then incremented by one, meaning that
-            // is is impossible for a zero to inhabit the NonZeroU16
+            // is is impossible for a zero to inhabit the NonZeroU8
             unsafe {
                 Some(Self {
                     key: NonZeroU8::new_unchecked(int as u8 + 1),
