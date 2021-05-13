@@ -439,22 +439,14 @@ macro_rules! compile {
     (@inner ($($prev_metas:tt)*))=>{};
 }
 
-#[cfg(debug_assertions)]
 macro_rules! index_unchecked {
     ($slice:expr, $idx:expr) => {{
-        // Keeps unsafe required even when debug assertions are off
-        unsafe fn x() {}
-        x();
+        let elem: &_ = if cfg!(debug_assertions) {
+            $slice[$idx]
+        } else {
+            $slice.get_unchecked($idx)
+        };
 
-        let elem: &_ = $slice[$idx];
-        elem
-    }};
-}
-
-#[cfg(not(debug_assertions))]
-macro_rules! index_unchecked {
-    ($slice:expr, $idx:expr) => {{
-        let elem: &_ = $slice.get_unchecked($idx);
         elem
     }};
 }

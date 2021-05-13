@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- Fixed compile error in release mode when using the `serialize` feature
+
 ## [0.5.0] - 2021-02-19
 
 ### Added
