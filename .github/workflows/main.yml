@@ -307,21 +307,21 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: miri
-          args: test --target ${{ matrix.target }} --no-default-features -- -Zmiri-disable-isolation
+          args: test --target ${{ matrix.target }} --no-default-features
 
       - name: Single threaded
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: miri
-          args: test --target ${{ matrix.target }} -- -Zmiri-disable-isolation
+          args: test --target ${{ matrix.target }}
 
       - name: Multi threaded
         if: ${{ !matrix.custom-features }}
         uses: actions-rs/cargo@v1
         with:
           command: miri
-          args: test --target ${{ matrix.target }} --features multi-threaded -- -Zmiri-disable-isolation
+          args: test --target ${{ matrix.target }} --features multi-threaded
 
       # TODO: Miri breaks on ahash since it uses bcrypt
       # - name: No std
@@ -329,7 +329,7 @@ jobs:
       #   uses: actions-rs/cargo@v1
       #   with:
       #     command: miri
-      #     args: test --target ${{ matrix.target }} --features no-std -- -Zmiri-disable-isolation
+      #     args: test --target ${{ matrix.target }} --features no-std
 
       - name: Clean unused artifacts
         uses: actions-rs/cargo@v1
