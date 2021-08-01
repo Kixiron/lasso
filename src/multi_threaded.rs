@@ -496,7 +496,7 @@ where
     ///
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn resolve<'a>(&'a self, key: &K) -> &'a str {
-        &*self.strings.get(key).expect("Key out of bounds")
+        *self.strings.get(key).expect("Key out of bounds")
     }
 
     /// Resolves a string by its key, returning `None` if it is out of bounds. Only keys made by the current
@@ -854,7 +854,7 @@ where
             && self.strings.iter().all(|left| {
                 other
                     .strings
-                    .get(&left.key())
+                    .get(left.key())
                     .map(|s| s.value() == left.value())
                     == Some(true)
             })
@@ -1641,7 +1641,7 @@ mod tests {
 
     #[test]
     fn from_iter() {
-        let rodeo: ThreadedRodeo = ThreadedRodeo::from_iter(["a", "b", "c", "d", "e"].iter());
+        let rodeo: ThreadedRodeo = ["a", "b", "c", "d", "e"].iter().collect();
 
         assert!(rodeo.contains("a"));
         assert!(rodeo.contains("b"));

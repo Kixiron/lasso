@@ -1001,7 +1001,7 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, S> {
 #[cfg(test)]
 mod tests {
     use crate::{hasher::RandomState, keys::MicroSpur, Capacity, Key, MemoryLimits, Rodeo, Spur};
-    use core::{iter::FromIterator, num::NonZeroUsize};
+    use core::num::NonZeroUsize;
 
     compile! {
         if #[feature = "no-std"] {
@@ -1462,7 +1462,7 @@ mod tests {
 
     #[test]
     fn from_iter() {
-        let rodeo: Rodeo = Rodeo::from_iter(["a", "b", "c", "d", "e"].iter());
+        let rodeo: Rodeo = ["a", "b", "c", "d", "e"].iter().collect();
 
         assert!(rodeo.contains("a"));
         assert!(rodeo.contains("b"));
@@ -1494,7 +1494,7 @@ mod tests {
 
     #[test]
     fn into_iterator() {
-        let rodeo: Rodeo = Rodeo::from_iter(["a", "b", "c", "d", "e"].iter());
+        let rodeo: Rodeo = ["a", "b", "c", "d", "e"].iter().collect();
 
         for ((key, string), (expected_key, expected_string)) in rodeo.into_iter().zip(
             [(0usize, "a"), (1, "b"), (2, "c"), (3, "d"), (4, "e")]
