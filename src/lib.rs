@@ -74,6 +74,11 @@
 //! ## Example: Using ThreadedRodeo
 //!
 //! ```rust
+//! # // This keeps this doctest from running under miri since
+//! # // miri doesn't support threading
+//! # #[cfg(not(miri))]
+//! # {
+//! #
 //! # // This is hacky to the extreme, but it prevents failure of this doc test when
 //! # // run with `--no-default-features`
 //! #
@@ -135,6 +140,7 @@
 //!
 //! assert_eq!("Hello, world!", rodeo.resolve(&key));
 //! assert_eq!("Hello from the thread!", rodeo.resolve(&hello));
+//! # }
 //! ```
 //!
 //! ## Example: Creating a RodeoReader
