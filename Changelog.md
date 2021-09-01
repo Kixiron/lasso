@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Changed the `Debug` implementations of all key types to be more condensed
+
+### Added
+
+- Added an `.into_inner()` method to each key type that exposes the backing `NonZeroU*` it's made of
+
 ## [0.5.1] - 2021-06-01
 
 ### Fixed

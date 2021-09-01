@@ -1,4 +1,5 @@
 use core::num::{NonZeroU16, NonZeroU32, NonZeroU8, NonZeroUsize};
+use std::fmt::{self, Debug, Write};
 
 /// Types implementing this trait can be used as keys for all Rodeos
 ///
@@ -21,10 +22,18 @@ pub unsafe trait Key: Copy + Eq {
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct LargeSpur {
     key: NonZeroUsize,
+}
+
+impl LargeSpur {
+    /// Returns the [`NonZeroUsize`] backing the current `LargeSpur`
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub const fn into_inner(self) -> NonZeroUsize {
+        self.key
+    }
 }
 
 unsafe impl Key for LargeSpur {
@@ -57,16 +66,33 @@ impl Default for LargeSpur {
     }
 }
 
+impl Debug for LargeSpur {
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("LargeSpur(")?;
+        Debug::fmt(&self.key, f)?;
+        f.write_char(')')
+    }
+}
+
 /// The default key for every Rodeo, uses only 32 bits of space
 ///
 /// Internally is a `NonZeroU32` to allow for space optimizations when stored inside of an [`Option`]
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Spur {
     key: NonZeroU32,
+}
+
+impl Spur {
+    /// Returns the [`NonZeroU32`] backing the current `Spur`
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub const fn into_inner(self) -> NonZeroU32 {
+        self.key
+    }
 }
 
 unsafe impl Key for Spur {
@@ -99,16 +125,33 @@ impl Default for Spur {
     }
 }
 
+impl Debug for Spur {
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Spur(")?;
+        Debug::fmt(&self.key, f)?;
+        f.write_char(')')
+    }
+}
+
 /// A miniature Key utilizing only 16 bits of space
 ///
 /// Internally is a `NonZeroU16` to allow for space optimizations when stored inside of an [`Option`]
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct MiniSpur {
     key: NonZeroU16,
+}
+
+impl MiniSpur {
+    /// Returns the [`NonZeroU16`] backing the current `MiniSpur`
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub const fn into_inner(self) -> NonZeroU16 {
+        self.key
+    }
 }
 
 unsafe impl Key for MiniSpur {
@@ -141,16 +184,33 @@ impl Default for MiniSpur {
     }
 }
 
+impl Debug for MiniSpur {
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("MiniSpur(")?;
+        Debug::fmt(&self.key, f)?;
+        f.write_char(')')
+    }
+}
+
 /// A miniature Key utilizing only 8 bits of space
 ///
 /// Internally is a `NonZeroU8` to allow for space optimizations when stored inside of an [`Option`]
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct MicroSpur {
     key: NonZeroU8,
+}
+
+impl MicroSpur {
+    /// Returns the [`NonZeroU8`] backing the current `MicroSpur`
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub const fn into_inner(self) -> NonZeroU8 {
+        self.key
+    }
 }
 
 unsafe impl Key for MicroSpur {
@@ -180,6 +240,15 @@ impl Default for MicroSpur {
     #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self::try_from_usize(0).unwrap()
+    }
+}
+
+impl Debug for MicroSpur {
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("MicroSpur(")?;
+        Debug::fmt(&self.key, f)?;
+        f.write_char(')')
     }
 }
 
