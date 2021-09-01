@@ -68,7 +68,7 @@ where
     /// # fn main() {}
     /// #
     /// # #[cfg(not(miri))]
-    /// # {
+    /// # fn main() {
     /// use lasso::{ThreadedRodeo, Spur};
     /// use std::{thread, sync::Arc};
     ///
