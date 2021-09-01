@@ -1,5 +1,7 @@
-use core::num::{NonZeroU16, NonZeroU32, NonZeroU8, NonZeroUsize};
-use std::fmt::{self, Debug, Write};
+use core::{
+    fmt::{self, Debug, Write},
+    num::{NonZeroU16, NonZeroU32, NonZeroU8, NonZeroUsize},
+};
 
 /// Types implementing this trait can be used as keys for all Rodeos
 ///
