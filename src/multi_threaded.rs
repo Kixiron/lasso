@@ -64,7 +64,11 @@ where
     /// # Example
     ///
     /// ```rust
+    /// # #![cfg(miri)]
+    /// # fn main() {}
+    /// #
     /// # #![cfg(not(miri))]
+    /// # {
     /// use lasso::{ThreadedRodeo, Spur};
     /// use std::{thread, sync::Arc};
     ///
@@ -80,6 +84,7 @@ where
     ///
     /// assert_eq!("Hello, ", lasso.resolve(&hello));
     /// assert_eq!("World!", lasso.resolve(&world));
+    /// # }
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
