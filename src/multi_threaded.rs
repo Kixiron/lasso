@@ -64,6 +64,7 @@ where
     /// # Example
     ///
     /// ```rust
+    /// # #![cfg(not(miri))]
     /// use lasso::{ThreadedRodeo, Spur};
     /// use std::{thread, sync::Arc};
     ///

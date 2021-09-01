@@ -132,10 +132,11 @@ jobs:
             os: ubuntu-latest
             target: i686-unknown-linux-gnu
 
+          # FIXME: OSX breaks randomly on CI
           # OSX
-          - name: x86_64-apple-darwin
-            os: macos-latest
-            target: x86_64-apple-darwin
+          # - name: x86_64-apple-darwin
+          #   os: macos-latest
+          #   target: x86_64-apple-darwin
 
     env:
       RUST_BACKTRACE: 1
@@ -245,10 +246,11 @@ jobs:
             os: ubuntu-latest
             target: i686-unknown-linux-gnu
 
+          # FIXME: OSX breaks randomly on CI
           # OSX
-          - name: x86_64-apple-darwin
-            os: macos-latest
-            target: x86_64-apple-darwin
+          # - name: x86_64-apple-darwin
+          #   os: macos-latest
+          #   target: x86_64-apple-darwin
 
     env:
       RUST_BACKTRACE: 1
