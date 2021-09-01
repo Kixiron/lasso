@@ -64,10 +64,10 @@ where
     /// # Example
     ///
     /// ```rust
-    /// # #![cfg(miri)]
+    /// # #[cfg(miri)]
     /// # fn main() {}
     /// #
-    /// # #![cfg(not(miri))]
+    /// # #[cfg(not(miri))]
     /// # {
     /// use lasso::{ThreadedRodeo, Spur};
     /// use std::{thread, sync::Arc};
