@@ -1,5 +1,3 @@
-#![allow(unused_unsafe)]
-
 use crate::{LassoError, LassoErrorKind, LassoResult};
 use alloc::alloc::{alloc, dealloc, Layout};
 use core::{
@@ -138,7 +136,7 @@ impl UniqueBucketRef {
     #[inline]
     const unsafe fn new(bucket: NonNull<AtomicBucket>) -> Self {
         Self {
-            bucket: BucketRef::new(bucket),
+            bucket: unsafe { BucketRef::new(bucket) },
         }
     }
 
@@ -202,10 +200,10 @@ impl UniqueBucketRef {
         }
 
         // Get a pointer to the start of the free data
-        let ptr = addr_of_mut!((*self.as_ptr())._data).cast::<u8>().add(len);
+        let ptr = unsafe { addr_of_mut!((*self.as_ptr())._data).cast::<u8>().add(len) };
 
         // Make the slice that we'll fill with the string's data
-        let target = slice::from_raw_parts_mut(ptr, slice.len());
+        let target = unsafe { slice::from_raw_parts_mut(ptr, slice.len()) };
         // Copy the data from the source string into the bucket's buffer
         target.copy_from_slice(slice);
 
@@ -215,7 +213,8 @@ impl UniqueBucketRef {
 
         // Create a string from that slice
         // Safety: The source string was valid utf8, so the created buffer will be as well
-        core::str::from_utf8_unchecked(target)
+
+        unsafe { core::str::from_utf8_unchecked(target) }
     }
 }
 
@@ -241,7 +240,7 @@ impl BucketRef {
     ///
     /// Must have exclusive access to the current bucket
     pub const unsafe fn into_unique(self) -> UniqueBucketRef {
-        UniqueBucketRef::new(self.bucket)
+        unsafe { UniqueBucketRef::new(self.bucket) }
     }
 
     #[inline]

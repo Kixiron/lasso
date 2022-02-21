@@ -249,7 +249,7 @@ impl<K, S> RodeoReader<K, S> {
     where
         K: Key,
     {
-        self.strings.get_unchecked(key.into_usize())
+        unsafe { self.strings.get_unchecked(key.into_usize()) }
     }
 
     /// Gets the number of interned strings

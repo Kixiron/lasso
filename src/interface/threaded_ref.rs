@@ -53,7 +53,7 @@ where
     }
 
     unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
-        ThreadedRodeo::resolve_unchecked(self, key)
+        unsafe { ThreadedRodeo::resolve_unchecked(self, key) }
     }
 
     fn contains_key(&self, key: &K) -> bool {
