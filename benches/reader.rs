@@ -1,6 +1,7 @@
 mod setup;
 
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion, Throughput};
+use fxhash::FxBuildHasher;
 use setup::{ReaderEmptySetup, ReaderFilledSetup, INPUT, NUM_THREADS};
 
 fn reader_std(c: &mut Criterion) {
@@ -290,8 +291,6 @@ fn reader_ahash_threaded(c: &mut Criterion) {
 }
 
 fn reader_fxhash(c: &mut Criterion) {
-    use fxhash::FxBuildHasher;
-
     let mut group = c.benchmark_group("RodeoReader 1 Thread (fxhash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
@@ -364,8 +363,6 @@ fn reader_fxhash(c: &mut Criterion) {
 }
 
 fn reader_fxhash_threaded(c: &mut Criterion) {
-    use fxhash::FxBuildHasher;
-
     let mut group = c.benchmark_group("RodeoReader 24 Thread (fxhash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
