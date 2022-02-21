@@ -893,6 +893,7 @@ impl<K, S> PartialEq<RodeoResolver<K>> for Rodeo<K, S> {
 
 compile! {
     if #[feature = "serialize"] {
+        use alloc::string::String;
         use core::num::NonZeroUsize;
         use serde::{
             de::{Deserialize, Deserializer},

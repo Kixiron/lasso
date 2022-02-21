@@ -270,6 +270,7 @@ impl<K, S> PartialEq<Rodeo<K, S>> for RodeoResolver<K> {
 compile! {
     if #[feature = "serialize"] {
         use crate::{Capacity, arenas::Arena};
+        use alloc::string::String;
         use core::num::NonZeroUsize;
         use serde::{
             de::{Deserialize, Deserializer},
