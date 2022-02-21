@@ -683,9 +683,9 @@ where
 
 criterion_group!(
     benches,
-    // rodeo_std,
-    // rodeo_ahash,
-    // rodeo_fxhash,
+    rodeo_std,
+    rodeo_ahash,
+    rodeo_fxhash,
     rodeo_std_threaded,
     rodeo_ahash_threaded,
     rodeo_fxhash_threaded
