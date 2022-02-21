@@ -1,5 +1,5 @@
 use crate::{
-    arena::Arena,
+    arenas::Arena,
     hasher::RandomState,
     keys::{Key, Spur},
     reader::RodeoReader,
@@ -7,18 +7,13 @@ use crate::{
     util::{Iter, Strings},
     Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits,
 };
+use alloc::vec::Vec;
 use core::{
     hash::{BuildHasher, Hash, Hasher},
     iter::FromIterator,
     ops::Index,
 };
 use hashbrown::{hash_map::RawEntryMut, HashMap};
-
-compile! {
-    if #[feature = "no-std"] {
-        use alloc::vec::Vec;
-    }
-}
 
 /// A string interner that caches strings quickly with a minimal memory footprint,
 /// returning a unique key to re-access it with `O(1)` times.

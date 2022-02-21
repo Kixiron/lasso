@@ -1,5 +1,5 @@
 use crate::{
-    arena::Arena,
+    arenas::LockfreeArena,
     hasher::RandomState,
     keys::{Key, Spur},
     resolver::RodeoResolver,
@@ -33,7 +33,7 @@ pub struct RodeoReader<K = Spur, S = RandomState> {
     map: HashMap<K, (), ()>,
     hasher: S,
     pub(crate) strings: Vec<&'static str>,
-    arena: Arena,
+    arena: LockfreeArena,
 }
 
 impl<K, S> RodeoReader<K, S> {
@@ -48,7 +48,7 @@ impl<K, S> RodeoReader<K, S> {
         map: HashMap<K, (), ()>,
         hasher: S,
         strings: Vec<&'static str>,
-        arena: Arena,
+        arena: LockfreeArena,
     ) -> Self {
         Self {
             map,

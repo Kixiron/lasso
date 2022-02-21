@@ -429,28 +429,25 @@
 //! [`ahash`]: https://crates.io/crates/ahash
 //! [`raw_entry` api]: https://github.com/rust-lang/rust/issues/56167
 
+extern crate alloc;
+
 #[macro_use]
 mod util;
-
-mod arena;
+mod arenas;
 mod interface;
 mod keys;
 mod reader;
 mod resolver;
-mod single_threaded;
+mod rodeo;
 
 pub use interface::{Interner, IntoReader, IntoReaderAndResolver, IntoResolver, Reader, Resolver};
 pub use keys::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
 pub use reader::RodeoReader;
 pub use resolver::RodeoResolver;
-pub use single_threaded::Rodeo;
+pub use rodeo::Rodeo;
 pub use util::{Capacity, Iter, LassoError, LassoErrorKind, LassoResult, MemoryLimits, Strings};
 
 compile! {
-    if #[feature = "no-std"] {
-        extern crate alloc;
-    }
-
     if #[all(feature = "multi-threaded", not(feature = "no-std"))] {
         mod multi_threaded;
         pub use multi_threaded::ThreadedRodeo;
