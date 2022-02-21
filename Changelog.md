@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Bumped MSRV to 1.58.1
 - Updated to 2021 edition
 - Interning empty strings no longer counts towards the memory limit of any interners. Empty strings now take up zero
   bytes and therefore will neither allocate nor cause methods to return errors or throw panics if the interner is out
