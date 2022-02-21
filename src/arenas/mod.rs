@@ -8,7 +8,7 @@ mod single_threaded;
 pub(crate) use lockfree::LockfreeArena;
 pub(crate) use single_threaded::Arena;
 
-use std::fmt::{self, Debug};
+use core::fmt::{self, Debug};
 
 /// A wrapper type to abstract over all arena types
 ///

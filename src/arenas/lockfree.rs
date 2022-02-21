@@ -17,6 +17,9 @@ use core::{
 /// An arena allocator that dynamically grows in size when needed, allocating memory in large chunks
 pub(crate) struct LockfreeArena {
     /// All the internal buckets, storing all allocated and unallocated items
+    // TODO: We could keep around a second list of buckets to store filled buckets
+    //       in to keep us from having to iterate over them, need more tests to
+    //       see what the impact of that is
     buckets: AtomicBucketList,
     /// The default capacity of each bucket
     ///
