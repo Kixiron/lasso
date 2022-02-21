@@ -58,8 +58,7 @@ impl AtomicBucketList {
             let exchange = self.head.compare_exchange_weak(
                 head_ptr,
                 bucket_ptr,
-                // TODO: I think it's correct, but should both failure and success orderings be acquire?
-                Ordering::Acquire,
+                Ordering::AcqRel,
                 Ordering::Acquire,
             );
 
