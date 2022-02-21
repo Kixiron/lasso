@@ -388,7 +388,7 @@ impl<K, S> PartialEq<Rodeo<K, S>> for RodeoReader<K, S> {
 
 compile! {
     if #[feature = "serialize"] {
-        use crate::Capacity;
+        use crate::{Capacity, arenas::Arena};
         use core::num::NonZeroUsize;
         use hashbrown::hash_map::RawEntryMut;
         use serde::{
@@ -485,7 +485,7 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for RodeoReader<K, 
             map,
             hasher,
             strings,
-            arena,
+            __arena: AnyArena::Arena(arena),
         })
     }
 }
