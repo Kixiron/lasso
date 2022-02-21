@@ -1,12 +1,10 @@
-// Unsafe blocks are used within unsafe functions for clarity on what is
-// unsafe code and why it's sound
 #![allow(unused_unsafe)]
 
 use crate::{
     arenas::bucket::Bucket, Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits,
 };
 use alloc::{format, vec, vec::Vec};
-use core::{cmp, fmt, num::NonZeroUsize};
+use core::{fmt, num::NonZeroUsize};
 
 /// An arena allocator that dynamically grows in size when needed, allocating memory in large chunks
 pub(crate) struct Arena {
@@ -55,11 +53,16 @@ impl Arena {
     /// The reference passed back must be dropped before the arena that created it is
     ///
     pub unsafe fn store_str(&mut self, string: &str) -> LassoResult<&'static str> {
+        // If the string is empty, simply return an empty string.
+        // This ensures that only strings with lengths greater
+        // than zero will be allocated within the arena
+        if string.is_empty() {
+            return Ok("");
+        }
+
         let slice = string.as_bytes();
-        // Ensure the length is at least 1, mainly for empty strings
-        // This theoretically wastes a single byte, but it shouldn't matter since
-        // the interner should ensure that only one empty string is ever interned
-        let len = cmp::max(slice.len(), 1);
+        let len = slice.len();
+        debug_assert_ne!(len, 0);
 
         if let Some(bucket) = self
             .buckets
@@ -67,7 +70,9 @@ impl Arena {
             .filter(|bucket| bucket.free_elements() >= len)
         {
             // Safety: The bucket found has enough room for the slice
-            return unsafe { Ok(bucket.push_slice(slice)) };
+            let allocated = bucket.push_slice(slice);
+
+            return Ok(allocated);
         }
 
         // SPEED: This portion of the code could be pulled into a cold path

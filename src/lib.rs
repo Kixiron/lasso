@@ -449,8 +449,11 @@ pub use util::{Capacity, Iter, LassoError, LassoErrorKind, LassoResult, MemoryLi
 
 compile! {
     if #[all(feature = "multi-threaded", not(feature = "no-std"))] {
-        mod multi_threaded;
-        pub use multi_threaded::ThreadedRodeo;
+        mod threaded_rodeo;
+
+        pub use threaded_rodeo::ThreadedRodeo;
+
+    // If the `multi-threaded` and `no-std` features are both active
     } else if #[all(feature = "multi-threaded", feature = "no-std")] {
         compile_error!("The `multi-threaded` and `no-std` features are not supported together");
     }

@@ -1,5 +1,5 @@
 use crate::{
-    arenas::Arena,
+    arenas::{AnyArena, Arena},
     hasher::RandomState,
     keys::{Key, Spur},
     reader::RodeoReader,
@@ -757,7 +757,7 @@ impl<K, S> Rodeo<K, S> {
         } = self;
 
         // Safety: No other references outside of `map` and `strings` to the interned strings exist
-        unsafe { RodeoReader::new(map, hasher, strings, arena) }
+        unsafe { RodeoReader::new(map, hasher, strings, AnyArena::Arena(arena)) }
     }
 
     /// Consumes the current Rodeo, returning a [`RodeoResolver`] to allow contention-free access of the interner
@@ -785,7 +785,7 @@ impl<K, S> Rodeo<K, S> {
         let Rodeo { strings, arena, .. } = self;
 
         // Safety: No other references to the strings exist
-        unsafe { RodeoResolver::new(strings, arena) }
+        unsafe { RodeoResolver::new(strings, AnyArena::Arena(arena)) }
     }
 }
 

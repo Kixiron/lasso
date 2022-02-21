@@ -1,3 +1,5 @@
+#![allow(unused_unsafe)]
+
 use crate::{LassoError, LassoErrorKind, LassoResult};
 use alloc::alloc::{alloc, dealloc, Layout};
 use core::{
@@ -8,7 +10,7 @@ use core::{
     sync::atomic::{AtomicPtr, Ordering},
 };
 
-pub struct AtomicBucketList {
+pub(super) struct AtomicBucketList {
     /// The first bucket in the list, will be null if the list currently
     /// has no buckets
     head: AtomicPtr<AtomicBucket>,
@@ -17,7 +19,7 @@ pub struct AtomicBucketList {
 impl AtomicBucketList {
     /// Create a new bucket list
     pub fn new(first_bucket_capacity: NonZeroUsize) -> LassoResult<Self> {
-        let mut bucket = AtomicBucket::with_capacity(first_bucket_capacity)?;
+        let bucket = AtomicBucket::with_capacity(first_bucket_capacity)?;
 
         Ok(Self {
             head: AtomicPtr::new(bucket.as_ptr()),
@@ -36,11 +38,12 @@ impl AtomicBucketList {
     }
 
     /// Returns `true` if there's no buckets within the current list
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    pub fn push_front(&self, bucket: NonNull<AtomicBucket>) {
+    pub fn push_front(&self, bucket: UniqueBucketRef) {
         let bucket_ptr = bucket.as_ptr();
         let mut head_ptr = self.head.load(Ordering::Acquire);
 
@@ -94,21 +97,187 @@ impl Drop for AtomicBucketList {
     }
 }
 
-pub struct AtomicBucketIter<'a> {
+pub(super) struct AtomicBucketIter<'a> {
     current: &'a AtomicPtr<AtomicBucket>,
 }
 
-impl Iterator for AtomicBucketIter<'_> {
-    type Item = NonNull<AtomicBucket>;
+impl<'a> Iterator for AtomicBucketIter<'a> {
+    type Item = (&'a AtomicPtr<AtomicBucket>, BucketRef);
 
     fn next(&mut self) -> Option<Self::Item> {
         let current = self.current.load(Ordering::Acquire);
 
         NonNull::new(current).map(|current| {
+            let parent = self.current;
+
             // Safety: `current` is valid and not null
             self.current = unsafe { &(*current.as_ptr()).next };
-            current
+
+            // Safety: `current` points to a valid bucket
+            (parent, unsafe { BucketRef::new(current) })
         })
+    }
+}
+
+/// A unique reference to an atomic bucket
+#[repr(transparent)]
+pub(super) struct UniqueBucketRef {
+    bucket: BucketRef,
+}
+
+impl UniqueBucketRef {
+    /// Create a new unique bucket ref
+    ///
+    /// # Safety
+    ///
+    /// The pointer must have exclusive, mutable and unique access to the pointed-to
+    /// bucket
+    #[inline]
+    const unsafe fn new(bucket: NonNull<AtomicBucket>) -> Self {
+        Self {
+            bucket: BucketRef::new(bucket),
+        }
+    }
+
+    #[inline]
+    pub const fn as_ptr(&self) -> *mut AtomicBucket {
+        self.bucket.as_ptr()
+    }
+
+    /// Get the current bucket's length
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.bucket.len()
+    }
+
+    /// Get the current bucket's capacity
+    #[inline]
+    pub fn capacity(&self) -> NonZeroUsize {
+        self.bucket.capacity()
+    }
+
+    /// Set the bucket's length
+    ///
+    /// # Safety
+    ///
+    /// `new_length` must be less than or equal to the current capacity
+    /// and all bytes up to `new_length` must be initialized and valid
+    /// utf-8
+    #[inline]
+    pub unsafe fn set_len(&mut self, new_length: usize) {
+        debug_assert!(
+            new_length <= self.capacity().get(),
+            "the bucket length {} should always be less than the bucket's capacity {}",
+            new_length,
+            self.capacity(),
+        );
+
+        // Safety: We have exclusive access to the bucket
+        unsafe {
+            addr_of_mut!((*self.as_ptr()).len).write(new_length);
+        }
+    }
+
+    /// Push a slice of bytes to the current bucket
+    ///
+    /// # Safety
+    ///
+    /// The returned `&'static str` (and all copies of it) must be dropped
+    /// before the current bucket is, as this bucket contains the backing
+    /// memory for the string.
+    /// Additionally, the underlying [`AtomicBucket`] must have enough room
+    /// to store the entire slice and the given slice must be valid utf-8 data.
+    ///
+    pub unsafe fn push_slice(&mut self, slice: &[u8]) -> &'static str {
+        let len = self.len();
+
+        if cfg!(debug_assertions) {
+            let capacity = self.capacity().get();
+
+            debug_assert_ne!(len, capacity);
+            debug_assert!(slice.len() <= capacity - len);
+        }
+
+        // Get a pointer to the start of the free data
+        let ptr = addr_of_mut!((*self.as_ptr())._data).cast::<u8>().add(len);
+
+        // Make the slice that we'll fill with the string's data
+        let target = slice::from_raw_parts_mut(ptr, slice.len());
+        // Copy the data from the source string into the bucket's buffer
+        target.copy_from_slice(slice);
+
+        // Increment the index so that the string we just added isn't overwritten
+        // Safety: All bytes are initialized and the length is <= capacity
+        unsafe { self.set_len(len + slice.len()) };
+
+        // Create a string from that slice
+        // Safety: The source string was valid utf8, so the created buffer will be as well
+        core::str::from_utf8_unchecked(target)
+    }
+}
+
+/// A reference to an [`AtomicBucket`]
+#[repr(transparent)]
+pub(super) struct BucketRef {
+    bucket: NonNull<AtomicBucket>,
+}
+
+impl BucketRef {
+    /// Create a new [`BucketRef`]
+    ///
+    /// # Safety
+    ///
+    /// `bucket` must be a valid pointer to an [`AtomicBucket`]
+    const unsafe fn new(bucket: NonNull<AtomicBucket>) -> Self {
+        Self { bucket }
+    }
+
+    /// Make a unique bucket out of the current bucket
+    ///
+    /// # Safety
+    ///
+    /// Must have exclusive access to the current bucket
+    pub const unsafe fn into_unique(self) -> UniqueBucketRef {
+        UniqueBucketRef::new(self.bucket)
+    }
+
+    #[inline]
+    pub const fn as_ptr(&self) -> *mut AtomicBucket {
+        self.bucket.as_ptr()
+    }
+
+    #[inline]
+    pub fn next_ptr(&self) -> &AtomicPtr<AtomicBucket> {
+        // Safety: `bucket` is a valid pointer to a bucket
+        unsafe { &(*self.as_ptr()).next }
+    }
+
+    /// Get the bucket's length
+    #[inline]
+    pub fn len(&self) -> usize {
+        // Safety: `bucket` is a valid pointer to a bucket
+        unsafe { (*self.as_ptr()).len }
+    }
+
+    /// Get the bucket's capacity
+    #[inline]
+    pub fn capacity(&self) -> NonZeroUsize {
+        // Safety: `bucket` is a valid pointer to a bucket
+        unsafe { (*self.as_ptr()).capacity }
+    }
+
+    /// Get the number of available slots for the current bucket
+    #[inline]
+    pub fn free_elements(&self) -> usize {
+        let (len, capacity) = (self.len(), self.capacity().get());
+        debug_assert!(
+            len <= capacity,
+            "the bucket length {} should always be less than the bucket's capacity {}",
+            len,
+            capacity,
+        );
+
+        capacity - len
     }
 }
 
@@ -116,21 +285,31 @@ impl Iterator for AtomicBucketIter<'_> {
 pub(super) struct AtomicBucket {
     /// The next bucket in the list, will be null if this is the last bucket
     next: AtomicPtr<Self>,
+
     /// The start of uninitialized memory within `items`
-    index: usize,
+    ///
+    /// Invariant: `len` will always be less than or equal to `capacity`
+    len: usize,
+
     /// The total number of bytes allocated within the bucket
     capacity: NonZeroUsize,
+
     /// The inline allocated data of this bucket
+    ///
+    /// Invariant: Never touch this field manually, it contains uninitialized data up
+    /// to the length of `capacity`
     _data: [u8; 0],
 }
 
 impl AtomicBucket {
     /// Allocates a bucket with space for `capacity` items
-    pub(crate) fn with_capacity(capacity: NonZeroUsize) -> LassoResult<NonNull<Self>> {
+    pub(crate) fn with_capacity(capacity: NonZeroUsize) -> LassoResult<UniqueBucketRef> {
         // Create the bucket's layout
         let layout = Self::layout(capacity)?;
+        debug_assert_ne!(layout.size(), 0);
 
         // Allocate memory for the bucket
+        // Safety: The given layout has a non-zero size
         let ptr = unsafe {
             NonNull::new(alloc(layout))
                 .ok_or_else(|| LassoError::new(LassoErrorKind::FailedAllocation))?
@@ -138,17 +317,21 @@ impl AtomicBucket {
         };
 
         // Write to the fields of the bucket
+        // Safety: We have exclusive access to the bucket and can write
+        //         to its uninitialized fields
         unsafe {
             let ptr = ptr.as_ptr();
 
             addr_of_mut!((*ptr).next).write(AtomicPtr::new(ptr::null_mut()));
-            addr_of_mut!((*ptr).index).write(0);
+            addr_of_mut!((*ptr).len).write(0);
             addr_of_mut!((*ptr).capacity).write(capacity);
 
-            // We leave the allocated data uninitialized
+            // We leave the allocated data uninitialized, future writers will
+            // initialize it as-needed
         }
 
-        Ok(ptr)
+        // Safety: We have exclusive access to the bucket
+        Ok(unsafe { UniqueBucketRef::new(ptr) })
     }
 
     /// Create the layout for a bucket
@@ -159,7 +342,7 @@ impl AtomicBucket {
     ///
     fn layout(capacity: NonZeroUsize) -> LassoResult<Layout> {
         let next = Layout::new::<AtomicPtr<Self>>();
-        let index = Layout::new::<usize>();
+        let len = Layout::new::<usize>();
         let cap = Layout::new::<NonZeroUsize>();
 
         // Safety: Align will always be a non-zero power of two and the
@@ -171,61 +354,11 @@ impl AtomicBucket {
             Layout::from_size_align_unchecked(size_of::<u8>() * capacity.get(), align_of::<u8>())
         };
 
-        next.extend(index)
+        next.extend(len)
             .and_then(|(layout, _)| layout.extend(cap))
             .and_then(|(layout, _)| layout.extend(data))
             .map(|(layout, _)| layout.pad_to_align())
             .map_err(|_| LassoError::new(LassoErrorKind::FailedAllocation))
-    }
-
-    /// Get the number of available slots for the current bucket
-    ///
-    /// # Safety: `this` must be a valid pointer
-    ///
-    pub(crate) unsafe fn free_elements(this: NonNull<Self>) -> usize {
-        let index = (*this.as_ptr()).index;
-        let capacity = (*this.as_ptr()).capacity.get();
-
-        capacity - index
-    }
-
-    /// Returns whether the current bucket is full
-    pub(crate) fn is_full(&self) -> bool {
-        self.index == self.capacity.get()
-    }
-
-    /// Push a slice to the current bucket, returning a pointer to it
-    ///
-    /// # Safety
-    ///
-    /// The current bucket must have room for all bytes of the slice and
-    /// the caller promises to forget the reference before the arena is dropped.
-    /// Additionally, `slice` must be valid UTF-8 and should come from an `&str`
-    ///
-    pub(crate) unsafe fn push_slice(this: NonNull<Self>, slice: &[u8]) -> &'static str {
-        let index = (*this.as_ptr()).index;
-
-        if cfg!(debug_assertions) {
-            let capacity = (*this.as_ptr()).capacity.get();
-
-            debug_assert_ne!(index, capacity);
-            debug_assert!(slice.len() <= capacity - index);
-        }
-
-        // Get a pointer to the start of the free data
-        let ptr = addr_of_mut!((*this.as_ptr())._data).cast::<u8>().add(index);
-
-        // Make the slice that we'll fill with the string's data
-        let target = slice::from_raw_parts_mut(ptr, slice.len());
-        // Copy the data from the source string into the bucket's buffer
-        target.copy_from_slice(slice);
-
-        // Increment the index so that the string we just added isn't overwritten
-        addr_of_mut!((*this.as_ptr()).index).write(index + slice.len());
-
-        // Create a string from that slice
-        // Safety: The source string was valid utf8, so the created buffer will be as well
-        core::str::from_utf8_unchecked(target)
     }
 }
 

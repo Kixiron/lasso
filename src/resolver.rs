@@ -1,16 +1,11 @@
 use crate::{
-    arenas::LockfreeArena,
+    arenas::AnyArena,
     keys::{Key, Spur},
     util::{Iter, Strings},
     Rodeo, RodeoReader,
 };
+use alloc::vec::Vec;
 use core::{marker::PhantomData, ops::Index};
-
-compile! {
-    if #[feature = "no-std"] {
-        use alloc::vec::Vec;
-    }
-}
 
 /// A read-only view of a [`Rodeo`] or [`ThreadedRodeo`] that allows contention-free access to interned strings
 /// with only key to string resolution
@@ -27,7 +22,7 @@ pub struct RodeoResolver<K = Spur> {
     ///
     /// This is not touched, but *must* be kept since every string in `self.strings`
     /// points to it
-    __arena: LockfreeArena,
+    __arena: AnyArena,
     /// The type of the key
     __key: PhantomData<K>,
 }
@@ -40,7 +35,7 @@ impl<K> RodeoResolver<K> {
     /// The references inside of `strings` must be absolutely unique, meaning
     /// that no other references to those strings exist
     ///
-    pub(crate) unsafe fn new(strings: Vec<&'static str>, arena: LockfreeArena) -> Self {
+    pub(crate) unsafe fn new(strings: Vec<&'static str>, arena: AnyArena) -> Self {
         Self {
             strings,
             __arena: arena,
