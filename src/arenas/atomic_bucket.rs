@@ -82,16 +82,20 @@ impl Drop for AtomicBucketList {
             let mut head_ptr = self.head.load(Ordering::Acquire);
 
             while !head_ptr.is_null() {
-                // Grab the next pointer
+                // Keep ahold of the current pointer so we can operate over it
+                let current_ptr = head_ptr;
+
+                // Grab the next pointer and set it to be the next in line for
+                // deallocation
                 head_ptr = (*head_ptr).next.load(Ordering::Acquire);
 
-                // Get the layout of the bucket to be deallocated
-                let capacity = (*head_ptr).capacity;
+                // Get the layout of the current bucket so we can deallocate it
+                let capacity = (*current_ptr).capacity;
                 let layout = AtomicBucket::layout(capacity)
                     .expect("buckets with invalid capacities can't be constructed");
 
                 // Deallocate all memory that the bucket allocated
-                dealloc(head_ptr.cast(), layout);
+                dealloc(current_ptr.cast(), layout);
             }
         }
     }

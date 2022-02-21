@@ -211,9 +211,13 @@ mod tests {
 
         unsafe {
             assert!(arena.store_str("0123456789").is_ok());
-            // A ZST takes up a single byte
-            let err = arena.store_str("").unwrap_err();
+
+            // ZSTs take up zero bytes
+            arena.store_str("").unwrap();
+
+            let err = arena.store_str("a").unwrap_err();
             assert!(err.kind().is_memory_limit());
+
             let err = arena.store_str("dfgsagdfgsdf").unwrap_err();
             assert!(err.kind().is_memory_limit());
         }
