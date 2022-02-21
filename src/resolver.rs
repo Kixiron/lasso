@@ -1,5 +1,5 @@
 use crate::{
-    arena::Arena,
+    arenas::LockfreeArena,
     keys::{Key, Spur},
     util::{Iter, Strings},
     Rodeo, RodeoReader,
@@ -27,7 +27,7 @@ pub struct RodeoResolver<K = Spur> {
     ///
     /// This is not touched, but *must* be kept since every string in `self.strings`
     /// points to it
-    __arena: Arena,
+    __arena: LockfreeArena,
     /// The type of the key
     __key: PhantomData<K>,
 }
@@ -40,7 +40,7 @@ impl<K> RodeoResolver<K> {
     /// The references inside of `strings` must be absolutely unique, meaning
     /// that no other references to those strings exist
     ///
-    pub(crate) unsafe fn new(strings: Vec<&'static str>, arena: Arena) -> Self {
+    pub(crate) unsafe fn new(strings: Vec<&'static str>, arena: LockfreeArena) -> Self {
         Self {
             strings,
             __arena: arena,

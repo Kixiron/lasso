@@ -1,5 +1,5 @@
 use crate::{
-    arena::Arena,
+    arenas::LockfreeArena,
     hasher::RandomState,
     keys::{Key, Spur},
     reader::RodeoReader,
@@ -1039,9 +1039,7 @@ where
 
 impl<K, S> Debug for Iter<'_, K, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        f.debug_struct("Iter")
-            .field("iter", &format_args!(".."))
-            .finish()
+        f.debug_struct("Iter").finish_non_exhaustive()
     }
 }
 
