@@ -41,6 +41,7 @@ version = "0.12.0"
 [dependencies.serde]
 version = "1.0.123"
 default-features = false
+features = ["alloc"]
 optional = true
 
 # Provides abomonation support for keys, enabled with the `abomonation` feature

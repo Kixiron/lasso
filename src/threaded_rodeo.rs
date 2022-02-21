@@ -962,7 +962,7 @@ where
         let map = DashMap::with_capacity_and_hasher(capacity.strings, hasher.clone());
         let strings = DashMap::with_capacity_and_hasher(capacity.strings, hasher);
         let mut highest = 0;
-        let mut arena = Arena::new(capacity.bytes, usize::max_value())
+        let arena = LockfreeArena::new(capacity.bytes, usize::max_value())
             .expect("failed to allocate memory for interner");
 
         for (string, key) in deser_map {
@@ -984,7 +984,7 @@ where
             map,
             strings,
             key: AtomicUsize::new(highest),
-            arena: Mutex::new(arena),
+            arena,
         })
     }
 }
