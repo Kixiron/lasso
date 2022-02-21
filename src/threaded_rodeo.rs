@@ -1,5 +1,5 @@
 use crate::{
-    arenas::LockfreeArena,
+    arenas::{AnyArena, LockfreeArena},
     hasher::RandomState,
     keys::{Key, Spur},
     reader::RodeoReader,
@@ -10,13 +10,11 @@ use core::{
     fmt::{Debug, Formatter, Result as FmtResult},
     hash::{BuildHasher, Hash, Hasher},
     iter::{self, FromIterator},
-    mem,
     ops::Index,
     sync::atomic::{AtomicUsize, Ordering},
 };
 use dashmap::DashMap;
 use hashbrown::{hash_map::RawEntryMut, HashMap};
-use std::sync::Mutex;
 
 macro_rules! index_unchecked_mut {
     ($slice:expr, $idx:expr) => {{
@@ -50,7 +48,7 @@ pub struct ThreadedRodeo<K = Spur, S = RandomState> {
     /// The current key value
     key: AtomicUsize,
     /// The arena where all strings are stored
-    arena: Mutex<Arena>,
+    arena: LockfreeArena,
 }
 
 // TODO: More parity functions with std::HashMap
@@ -254,10 +252,8 @@ where
             map: DashMap::with_capacity_and_hasher(strings, hash_builder.clone()),
             strings: DashMap::with_capacity_and_hasher(strings, hash_builder),
             key: AtomicUsize::new(0),
-            arena: Mutex::new(
-                Arena::new(bytes, max_memory_usage)
-                    .expect("failed to allocate memory for interner"),
-            ),
+            arena: LockfreeArena::new(bytes, max_memory_usage)
+                .expect("failed to allocate memory for interner"),
         }
     }
 
@@ -323,8 +319,7 @@ where
             Ok(*key)
         } else {
             // Safety: The drop impl removes all references before the arena is dropped
-            let string: &'static str =
-                unsafe { self.arena.lock().unwrap().store_str(string_slice)? };
+            let string: &'static str = unsafe { self.arena.store_str(string_slice)? };
 
             let make_new_key = || {
                 K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
@@ -595,19 +590,20 @@ where
     /// memory will do nothing
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn set_memory_limits(&self, memory_limits: MemoryLimits) {
-        self.arena.lock().unwrap().max_memory_usage = memory_limits.max_memory_usage;
+        self.arena
+            .set_max_memory_usage(memory_limits.max_memory_usage);
     }
 
     /// Get the `ThreadedRodeo`'s currently allocated memory
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn current_memory_usage(&self) -> usize {
-        self.arena.lock().unwrap().memory_usage()
+        self.arena.current_memory_usage()
     }
 
     /// Get the `ThreadedRodeo`'s current maximum of allocated memory
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn max_memory_usage(&self) -> usize {
-        self.arena.lock().unwrap().max_memory_usage
+        self.arena.get_max_memory_usage()
     }
 
     /// Consumes the current ThreadedRodeo, returning a [`RodeoReader`] to allow contention-free access of the interner
@@ -702,14 +698,7 @@ where
         };
 
         // Safety: No other references outside of `map` and `strings` to the interned strings exist
-        unsafe {
-            RodeoReader::new(
-                map,
-                hasher,
-                strings,
-                mem::take(&mut *self.arena.lock().unwrap()),
-            )
-        }
+        unsafe { RodeoReader::new(map, hasher, strings, AnyArena::Lockfree(self.arena)) }
     }
 
     /// Consumes the current ThreadedRodeo, returning a [`RodeoResolver`] to allow contention-free access of the interner
@@ -751,7 +740,7 @@ where
         unsafe {
             RodeoResolver::new(
                 strings.into_iter().map(|s| s.unwrap()).collect(),
-                mem::take(&mut *self.arena.lock().unwrap()),
+                AnyArena::Lockfree(self.arena),
             )
         }
     }

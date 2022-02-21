@@ -1,22 +1,17 @@
 use crate::{
-    arenas::LockfreeArena,
+    arenas::AnyArena,
     hasher::RandomState,
     keys::{Key, Spur},
     resolver::RodeoResolver,
     util::{Iter, Strings},
     Rodeo,
 };
+use alloc::vec::Vec;
 use core::{
     hash::{BuildHasher, Hash, Hasher},
     ops::Index,
 };
 use hashbrown::HashMap;
-
-compile! {
-    if #[feature = "no-std"] {
-        use alloc::vec::Vec;
-    }
-}
 
 /// A read-only view of a [`Rodeo`] or [`ThreadedRodeo`] that allows contention-free access to interned strings,
 /// both key to string resolution and string to key lookups
@@ -33,7 +28,7 @@ pub struct RodeoReader<K = Spur, S = RandomState> {
     map: HashMap<K, (), ()>,
     hasher: S,
     pub(crate) strings: Vec<&'static str>,
-    arena: LockfreeArena,
+    __arena: AnyArena,
 }
 
 impl<K, S> RodeoReader<K, S> {
@@ -48,13 +43,13 @@ impl<K, S> RodeoReader<K, S> {
         map: HashMap<K, (), ()>,
         hasher: S,
         strings: Vec<&'static str>,
-        arena: LockfreeArena,
+        arena: AnyArena,
     ) -> Self {
         Self {
             map,
             hasher,
             strings,
-            arena,
+            __arena: arena,
         }
     }
 
@@ -332,11 +327,13 @@ impl<K, S> RodeoReader<K, S> {
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
     pub fn into_resolver(self) -> RodeoResolver<K> {
-        let RodeoReader { strings, arena, .. } = self;
+        let RodeoReader {
+            strings, __arena, ..
+        } = self;
 
         // Safety: The current reader no longer contains references to the strings
         // in the vec given to RodeoResolver
-        unsafe { RodeoResolver::new(strings, arena) }
+        unsafe { RodeoResolver::new(strings, __arena) }
     }
 }
 
