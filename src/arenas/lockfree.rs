@@ -97,6 +97,13 @@ impl LockfreeArena {
 
         // Iterate over all of the buckets within the list while attempting to find one
         // that has enough space to fit our string within it
+        //
+        // This is a tradeoff between allocation speed and memory usage. As-is we prioritize
+        // allocation speed in exchange for potentially missing possible reuse situations
+        // and then allocating more memory than is strictly necessary. In practice this shouldn't
+        // really matter, but it's worth that the opposite tradeoff can be made by adding bounded
+        // retries within this loop, the worst-case performance suffers in exchange for potentially
+        // better memory usage.
         for (parent, bucket) in self.buckets.iter() {
             // If there's space in the given bucket for our string to be stored in it
             if bucket.free_elements() >= slice.len() {
@@ -108,8 +115,7 @@ impl LockfreeArena {
                 let exchange = parent.compare_exchange_weak(
                     bucket.as_ptr(),
                     next_bucket,
-                    // TODO: Is acquire the proper ordering for failure and success?
-                    Ordering::Acquire,
+                    Ordering::AcqRel,
                     Ordering::Acquire,
                 );
 
