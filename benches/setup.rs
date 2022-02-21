@@ -1,11 +1,16 @@
 #![allow(dead_code)]
 
-use core::hash::BuildHasher;
 use lasso::{Capacity, Rodeo, RodeoReader, RodeoResolver, Spur};
 use std::{
+    collections::hash_map::RandomState,
+    hash::BuildHasher,
     num::NonZeroUsize,
-    sync::{atomic::AtomicBool, Arc, Barrier},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Barrier,
+    },
     thread,
+    time::{Duration, Instant},
 };
 
 pub const NUM_THREADS: usize = 24;
@@ -161,19 +166,11 @@ impl<S: BuildHasher + Clone> ReaderFilledSetup<S> {
     }
 }
 
-pub fn run_reader_filled<F, S>(
-    func: F,
-    hash: S,
-    num_threads: usize,
-    iters: u64,
-) -> std::time::Duration
+pub fn run_reader_filled<F, S>(func: F, hash: S, num_threads: usize, iters: u64) -> Duration
 where
     F: FnOnce(&RodeoReader<Spur, S>, &[Spur]) + Send + 'static + Clone + Copy,
     S: 'static + BuildHasher + Clone + Send + Sync,
 {
-    use std::sync::atomic::Ordering;
-    use std::time::Instant;
-
     let setup = ReaderFilledSetup::new(hash);
     let keys = setup.keys().to_vec();
     let reader = Arc::new(setup.into_inner());
@@ -210,13 +207,10 @@ where
     time
 }
 
-pub fn run_resolver_filled<F>(func: F, num_threads: usize, iters: u64) -> std::time::Duration
+pub fn run_resolver_filled<F>(func: F, num_threads: usize, iters: u64) -> Duration
 where
     F: FnOnce(&RodeoResolver<Spur>, &[Spur]) + Send + 'static + Clone + Copy,
 {
-    use std::sync::atomic::Ordering;
-    use std::time::Instant;
-
     let setup = ResolverFilledSetup::new();
     let keys = setup.keys().to_vec();
     let reader = Arc::new(setup.into_inner());
@@ -268,7 +262,7 @@ impl ResolverFilledSetup {
                 lines.len(),
                 NonZeroUsize::new(lines.iter().map(|l| l.as_bytes().len()).sum()).unwrap(),
             ),
-            std::collections::hash_map::RandomState::new(),
+            RandomState::new(),
         );
         let keys = lines
             .iter()

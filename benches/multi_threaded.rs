@@ -1,17 +1,22 @@
 mod setup;
 
-use core::hash::BuildHasher;
+use ahash::RandomState as AhashRandomState;
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion, Throughput};
+use fxhash::FxBuildHasher;
 use lasso::{Capacity, Spur, ThreadedRodeo};
 use setup::{bench_lines, INPUT, NUM_THREADS};
 use std::{
-    sync::{atomic::AtomicBool, Arc, Barrier},
+    collections::hash_map::RandomState,
+    hash::BuildHasher,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Barrier,
+    },
     thread,
+    time::{Duration, Instant},
 };
 
 fn rodeo_std(c: &mut Criterion) {
-    use std::collections::hash_map::RandomState;
-
     let mut group = c.benchmark_group("ThreadedRodeo 1 Thread (std)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
@@ -115,8 +120,6 @@ fn rodeo_std(c: &mut Criterion) {
 }
 
 fn rodeo_std_threaded(c: &mut Criterion) {
-    use std::collections::hash_map::RandomState;
-
     let mut group = c.benchmark_group("ThreadedRodeo 24 Thread (std)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
@@ -199,12 +202,10 @@ fn rodeo_std_threaded(c: &mut Criterion) {
 }
 
 fn rodeo_ahash(c: &mut Criterion) {
-    use ahash::RandomState;
-
     let mut group = c.benchmark_group("ThreadedRodeo 1 Thread (ahash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
-    let setup = ThreadedRodeoEmptySetup::new(RandomState::default());
+    let setup = ThreadedRodeoEmptySetup::new(AhashRandomState::default());
     group.bench_function("get_or_intern (empty)", |b| {
         b.iter_batched(
             || setup.empty_rodeo(),
@@ -217,7 +218,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         )
     });
 
-    let mut setup = ThreadedRodeoFilledSetup::new(RandomState::default());
+    let mut setup = ThreadedRodeoFilledSetup::new(AhashRandomState::default());
     group.bench_function("get_or_intern (filled)", |b| {
         b.iter(|| {
             for &line in setup.lines() {
@@ -226,7 +227,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         })
     });
 
-    let setup = ThreadedRodeoEmptySetup::new(RandomState::default());
+    let setup = ThreadedRodeoEmptySetup::new(AhashRandomState::default());
     group.bench_function("try_get_or_intern (empty)", |b| {
         b.iter_batched(
             || setup.empty_rodeo(),
@@ -239,7 +240,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         )
     });
 
-    let mut setup = ThreadedRodeoFilledSetup::new(RandomState::default());
+    let mut setup = ThreadedRodeoFilledSetup::new(AhashRandomState::default());
     group.bench_function("try_get_or_intern (filled)", |b| {
         b.iter(|| {
             for &line in setup.lines() {
@@ -248,7 +249,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         })
     });
 
-    let setup = ThreadedRodeoEmptySetup::new(RandomState::default());
+    let setup = ThreadedRodeoEmptySetup::new(AhashRandomState::default());
     group.bench_function("get (empty)", |b| {
         b.iter_batched(
             || setup.empty_rodeo(),
@@ -261,7 +262,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         )
     });
 
-    let setup = ThreadedRodeoFilledSetup::new(RandomState::default());
+    let setup = ThreadedRodeoFilledSetup::new(AhashRandomState::default());
     group.bench_function("get (filled)", |b| {
         b.iter_batched(
             || setup.filled_rodeo(),
@@ -274,7 +275,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         )
     });
 
-    let setup = ThreadedRodeoFilledSetup::new(RandomState::default());
+    let setup = ThreadedRodeoFilledSetup::new(AhashRandomState::default());
     group.bench_function("resolve", |b| {
         b.iter_batched(
             || setup.filled_rodeo(),
@@ -287,7 +288,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         )
     });
 
-    let setup = ThreadedRodeoFilledSetup::new(RandomState::default());
+    let setup = ThreadedRodeoFilledSetup::new(AhashRandomState::default());
     group.bench_function("try_resolve", |b| {
         b.iter_batched(
             || setup.filled_rodeo(),
@@ -304,8 +305,6 @@ fn rodeo_ahash(c: &mut Criterion) {
 }
 
 fn rodeo_ahash_threaded(c: &mut Criterion) {
-    use ahash::RandomState;
-
     let mut group = c.benchmark_group("ThreadedRodeo 24 Thread (ahash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
@@ -319,7 +318,7 @@ fn rodeo_ahash_threaded(c: &mut Criterion) {
                 },
                 NUM_THREADS,
                 iters,
-                RandomState::new(),
+                AhashRandomState::new(),
             )
         })
     });
@@ -334,7 +333,7 @@ fn rodeo_ahash_threaded(c: &mut Criterion) {
                 },
                 NUM_THREADS,
                 iters,
-                RandomState::new(),
+                AhashRandomState::new(),
             )
         })
     });
@@ -349,7 +348,7 @@ fn rodeo_ahash_threaded(c: &mut Criterion) {
                 },
                 NUM_THREADS,
                 iters,
-                RandomState::new(),
+                AhashRandomState::new(),
             )
         })
     });
@@ -364,7 +363,7 @@ fn rodeo_ahash_threaded(c: &mut Criterion) {
                 },
                 NUM_THREADS,
                 iters,
-                RandomState::new(),
+                AhashRandomState::new(),
             )
         })
     });
@@ -379,7 +378,7 @@ fn rodeo_ahash_threaded(c: &mut Criterion) {
                 },
                 NUM_THREADS,
                 iters,
-                RandomState::new(),
+                AhashRandomState::new(),
             )
         })
     });
@@ -388,8 +387,6 @@ fn rodeo_ahash_threaded(c: &mut Criterion) {
 }
 
 fn rodeo_fxhash(c: &mut Criterion) {
-    use fxhash::FxBuildHasher;
-
     let mut group = c.benchmark_group("ThreadedRodeo 1 Thread (fxhash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
@@ -493,8 +490,6 @@ fn rodeo_fxhash(c: &mut Criterion) {
 }
 
 fn rodeo_fxhash_threaded(c: &mut Criterion) {
-    use fxhash::FxBuildHasher;
-
     let mut group = c.benchmark_group("ThreadedRodeo 24 Thread (fxhash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
@@ -645,19 +640,11 @@ impl<S: BuildHasher + Clone> ThreadedRodeoEmptySetup<S> {
     }
 }
 
-pub fn run_threaded_filled<F, S>(
-    func: F,
-    num_threads: usize,
-    iters: u64,
-    hash: S,
-) -> std::time::Duration
+pub fn run_threaded_filled<F, S>(func: F, num_threads: usize, iters: u64, hash: S) -> Duration
 where
     F: FnOnce(&ThreadedRodeo<Spur, S>, &[Spur]) + Send + 'static + Clone + Copy,
     S: BuildHasher + Clone + Send + Sync + 'static,
 {
-    use std::sync::atomic::Ordering;
-    use std::time::Instant;
-
     let setup = ThreadedRodeoFilledSetup::new(hash);
     let keys = setup.keys().to_vec();
     let reader = Arc::new(setup.into_inner());
@@ -696,9 +683,9 @@ where
 
 criterion_group!(
     benches,
-    rodeo_std,
-    rodeo_ahash,
-    rodeo_fxhash,
+    // rodeo_std,
+    // rodeo_ahash,
+    // rodeo_fxhash,
     rodeo_std_threaded,
     rodeo_ahash_threaded,
     rodeo_fxhash_threaded

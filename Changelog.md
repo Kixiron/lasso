@@ -10,11 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated to 2021 edition
 - Interning empty strings no longer counts towards the memory limit of any interners. Empty strings now take up zero
   bytes and therefore will neither allocate nor cause methods to return errors or throw panics if the interner is out
   of memory.
 - Changed `ThreadedRodeo` to use a new lockfree interner that no longer requires taking a mutex in order to allocate
   within it
+- Updated DashMap and Hashbrown dependencies
 
 ## [0.6.0] - 2021-09-01
 
