@@ -635,7 +635,7 @@ where
     ///
     #[cfg_attr(feature = "inline-more", inline)]
     pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
-        self.strings.get_unchecked(key.into_usize())
+        unsafe { self.strings.get_unchecked(key.into_usize()) }
     }
 }
 

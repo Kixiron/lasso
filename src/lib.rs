@@ -5,8 +5,9 @@
 #![allow(clippy::map_clone)]
 #![deny(
     missing_docs,
-    missing_debug_implementations,
-    clippy::missing_safety_doc
+    unsafe_op_in_unsafe_fn,
+    clippy::missing_safety_doc,
+    missing_debug_implementations
 )]
 
 //! [![CI][1]][0]

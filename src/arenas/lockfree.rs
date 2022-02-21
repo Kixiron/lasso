@@ -1,13 +1,8 @@
-// Unsafe blocks are used within unsafe functions for clarity on what is
-// unsafe code and why it's sound
-#![allow(unused_unsafe)]
-
 use crate::{
     arenas::atomic_bucket::{AtomicBucket, AtomicBucketList},
     Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits,
 };
 use core::{
-    self,
     fmt::{self, Debug},
     num::NonZeroUsize,
     sync::atomic::{AtomicUsize, Ordering},
@@ -122,7 +117,8 @@ impl LockfreeArena {
                 if exchange.is_ok() {
                     // Safety: We have exclusive access to the current bucket
                     let mut bucket = unsafe { bucket.into_unique() };
-                    let allocated = bucket.push_slice(slice);
+                    // Safety: The bucket has enough space for the slice
+                    let allocated = unsafe { bucket.push_slice(slice) };
 
                     // Put the bucket back into the arena's list
                     self.buckets.push_front(bucket);

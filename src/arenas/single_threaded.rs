@@ -1,5 +1,3 @@
-#![allow(unused_unsafe)]
-
 use crate::{
     arenas::bucket::Bucket, Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits,
 };
@@ -70,7 +68,7 @@ impl Arena {
             .filter(|bucket| bucket.free_elements() >= len)
         {
             // Safety: The bucket found has enough room for the slice
-            let allocated = bucket.push_slice(slice);
+            let allocated = unsafe { bucket.push_slice(slice) };
 
             return Ok(allocated);
         }

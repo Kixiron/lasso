@@ -65,19 +65,21 @@ impl Bucket {
         debug_assert!(!self.is_full());
         debug_assert!(slice.len() <= self.capacity.get() - self.index);
 
-        // Get a pointer to the start of free bytes
-        let ptr = self.items.as_ptr().add(self.index);
+        unsafe {
+            // Get a pointer to the start of free bytes
+            let ptr = self.items.as_ptr().add(self.index);
 
-        // Make the slice that we'll fill with the string's data
-        let target = slice::from_raw_parts_mut(ptr, slice.len());
-        // Copy the data from the source string into the bucket's buffer
-        target.copy_from_slice(slice);
-        // Increment the index so that the string we just made isn't overwritten
-        self.index += slice.len();
+            // Make the slice that we'll fill with the string's data
+            let target = slice::from_raw_parts_mut(ptr, slice.len());
+            // Copy the data from the source string into the bucket's buffer
+            target.copy_from_slice(slice);
+            // Increment the index so that the string we just made isn't overwritten
+            self.index += slice.len();
 
-        // Create a string from that slice
-        // Safety: The source string was valid utf8, so the created buffer will be as well
-        core::str::from_utf8_unchecked(target)
+            // Create a string from that slice
+            // Safety: The source string was valid utf8, so the created buffer will be as well
+            core::str::from_utf8_unchecked(target)
+        }
     }
 }
 

@@ -142,7 +142,7 @@ impl<K> RodeoResolver<K> {
     where
         K: Key,
     {
-        self.strings.get_unchecked(key.into_usize())
+        unsafe { self.strings.get_unchecked(key.into_usize()) }
     }
 
     /// Returns `true` if the given key exists in the current interner
