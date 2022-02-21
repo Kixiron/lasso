@@ -61,6 +61,27 @@ jobs:
           command: check
           args: --features no-std
 
+      - name: Serde
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --features serialize
+
+      - name: Serde Multi Threaded
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --features serialize,multi-threaded
+
+      - name: Serde No Std
+        if: ${{ !matrix.custom-features }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --features serialize,no-std
+
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
