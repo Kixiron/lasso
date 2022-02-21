@@ -1348,9 +1348,9 @@ mod tests {
         let string = rodeo.try_get_or_intern("0123456789").unwrap();
         assert_eq!(rodeo.resolve(&string), "0123456789");
 
-        assert!(rodeo.try_get_or_intern("").is_err());
-        assert!(rodeo.try_get_or_intern("").is_err());
-        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("1").is_err());
+        assert!(rodeo.try_get_or_intern("1").is_err());
+        assert!(rodeo.try_get_or_intern("1").is_err());
 
         assert_eq!(rodeo.resolve(&string), "0123456789");
     }
@@ -1367,7 +1367,7 @@ mod tests {
         let string = rodeo.get_or_intern("0123456789");
         assert_eq!(rodeo.resolve(&string), "0123456789");
 
-        rodeo.get_or_intern("");
+        rodeo.get_or_intern("1");
     }
 
     #[test]
@@ -1399,9 +1399,9 @@ mod tests {
         let string1 = rodeo.try_get_or_intern("0123456789").unwrap();
         assert_eq!(rodeo.resolve(&string1), "0123456789");
 
-        assert!(rodeo.try_get_or_intern("").is_err());
-        assert!(rodeo.try_get_or_intern("").is_err());
-        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("a").is_err());
+        assert!(rodeo.try_get_or_intern("a").is_err());
+        assert!(rodeo.try_get_or_intern("a").is_err());
 
         assert_eq!(rodeo.resolve(&string1), "0123456789");
 
@@ -1410,9 +1410,9 @@ mod tests {
         let string2 = rodeo.try_get_or_intern("9876543210").unwrap();
         assert_eq!(rodeo.resolve(&string2), "9876543210");
 
-        assert!(rodeo.try_get_or_intern("").is_err());
-        assert!(rodeo.try_get_or_intern("").is_err());
-        assert!(rodeo.try_get_or_intern("").is_err());
+        assert!(rodeo.try_get_or_intern("a").is_err());
+        assert!(rodeo.try_get_or_intern("a").is_err());
+        assert!(rodeo.try_get_or_intern("a").is_err());
 
         assert_eq!(rodeo.resolve(&string1), "0123456789");
         assert_eq!(rodeo.resolve(&string2), "9876543210");

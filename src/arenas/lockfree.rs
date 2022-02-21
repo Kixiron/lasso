@@ -6,7 +6,6 @@ use crate::{
     arenas::atomic_bucket::{AtomicBucket, AtomicBucketList},
     Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits,
 };
-use alloc::format;
 use core::{
     self,
     fmt::{self, Debug},
@@ -219,18 +218,29 @@ impl Default for LockfreeArena {
 
 impl Debug for LockfreeArena {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        struct TotalBuckets(usize);
+
+        impl Debug for TotalBuckets {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                if self.0 == 1 {
+                    f.write_str("...1 bucket")
+                } else {
+                    write!(f, "...{} buckets", self.0)
+                }
+            }
+        }
+
         f.debug_struct("Arena")
+            .field("buckets", &TotalBuckets(self.buckets.len()))
             .field(
-                "buckets",
-                &format!(
-                    "... {} bucket{}",
-                    self.buckets.len(),
-                    if self.buckets.len() == 1 { "" } else { "s" },
-                ),
+                "bucket_capacity",
+                &self.bucket_capacity.load(Ordering::Relaxed),
             )
-            .field("bucket_capacity", &self.bucket_capacity)
-            .field("memory_usage", &self.memory_usage)
-            .field("max_memory_usage", &self.max_memory_usage)
+            .field("memory_usage", &self.memory_usage.load(Ordering::Relaxed))
+            .field(
+                "max_memory_usage",
+                &self.max_memory_usage.load(Ordering::Relaxed),
+            )
             .finish()
     }
 }
@@ -285,9 +295,13 @@ mod tests {
 
         unsafe {
             assert!(arena.store_str("0123456789").is_ok());
-            // A ZST takes up a single byte
-            let err = arena.store_str("").unwrap_err();
+
+            // ZSTs take up zero bytes
+            arena.store_str("").unwrap();
+
+            let err = arena.store_str("a").unwrap_err();
             assert!(err.kind().is_memory_limit());
+
             let err = arena.store_str("dfgsagdfgsdf").unwrap_err();
             assert!(err.kind().is_memory_limit());
         }
