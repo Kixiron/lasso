@@ -112,7 +112,7 @@ impl LockfreeArena {
 
                 // Swap the parent pointer from pointing to the current bucket to
                 // pointing to the next bucket in the chain
-                let exchange = parent.compare_exchange_weak(
+                let exchange = parent.compare_exchange(
                     bucket.as_ptr(),
                     next_bucket,
                     Ordering::AcqRel,
