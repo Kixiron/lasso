@@ -26,7 +26,7 @@ use hashbrown::{hash_map::RawEntryMut, HashMap};
 pub struct Rodeo<K = Spur, S = RandomState> {
     /// Map that allows `str` -> `key` resolution
     ///
-    /// This must be a `HashMap` (for now) since `raw_api`s are only avaliable for maps and not sets.
+    /// This must be a `HashMap` (for now) since `raw_api`s are only available for maps and not sets.
     /// The value of the map is `()` since the key is symbolically hashed as the string it represents and
     /// the hasher is also `()` so that we only store one hasher, the custom one contained in the `Rodeo` itself
     ///
