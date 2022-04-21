@@ -91,6 +91,36 @@ pub trait Reader<K = Spur>: Resolver<K> {
     fn contains(&self, val: &str) -> bool;
 }
 
+impl<T, K> Reader<K> for &T
+where
+    T: Reader<K>,
+{
+    #[inline]
+    fn get(&self, val: &str) -> Option<K> {
+        <T as Reader<K>>::get(self, val)
+    }
+
+    #[inline]
+    fn contains(&self, val: &str) -> bool {
+        <T as Reader<K>>::contains(self, val)
+    }
+}
+
+impl<T, K> Reader<K> for &mut T
+where
+    T: Reader<K>,
+{
+    #[inline]
+    fn get(&self, val: &str) -> Option<K> {
+        <T as Reader<K>>::get(self, val)
+    }
+
+    #[inline]
+    fn contains(&self, val: &str) -> bool {
+        <T as Reader<K>>::contains(self, val)
+    }
+}
+
 /// A generic interface over [`Reader`]s that can be turned into a [`Resolver`].
 pub trait IntoResolver<K = Spur>: Reader<K>
 where
