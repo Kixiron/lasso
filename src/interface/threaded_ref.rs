@@ -1,6 +1,6 @@
 #![cfg(feature = "multi-threaded")]
 
-use crate::{Interner, Key, Reader, ThreadedRodeo};
+use crate::{Interner, Key, ThreadedRodeo};
 use core::hash::{BuildHasher, Hash};
 
 impl<K, S> Interner<K> for &ThreadedRodeo<K, S>
@@ -22,20 +22,6 @@ where
 
     fn try_get_or_intern_static(&mut self, val: &'static str) -> crate::LassoResult<K> {
         ThreadedRodeo::try_get_or_intern_static(self, val)
-    }
-}
-
-impl<K, S> Reader<K> for &ThreadedRodeo<K, S>
-where
-    K: Key + Hash,
-    S: BuildHasher + Clone,
-{
-    fn get(&self, val: &str) -> Option<K> {
-        ThreadedRodeo::get(self, val)
-    }
-
-    fn contains(&self, val: &str) -> bool {
-        ThreadedRodeo::contains(self, val)
     }
 }
 
