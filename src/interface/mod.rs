@@ -150,3 +150,63 @@ pub trait Resolver<K = Spur> {
         self.len() == 0
     }
 }
+
+impl<T, K> Resolver<K> for &T
+where
+    T: Resolver<K>,
+{
+    #[inline]
+    fn resolve<'a>(&'a self, key: &K) -> &'a str {
+        <T as Resolver<K>>::resolve(self, key)
+    }
+
+    #[inline]
+    fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
+        <T as Resolver<K>>::try_resolve(self, key)
+    }
+
+    #[inline]
+    unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
+        unsafe { <T as Resolver<K>>::resolve_unchecked(self, key) }
+    }
+
+    #[inline]
+    fn contains_key(&self, key: &K) -> bool {
+        <T as Resolver<K>>::contains_key(self, key)
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        <T as Resolver<K>>::len(self)
+    }
+}
+
+impl<T, K> Resolver<K> for &mut T
+where
+    T: Resolver<K>,
+{
+    #[inline]
+    fn resolve<'a>(&'a self, key: &K) -> &'a str {
+        <T as Resolver<K>>::resolve(self, key)
+    }
+
+    #[inline]
+    fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
+        <T as Resolver<K>>::try_resolve(self, key)
+    }
+
+    #[inline]
+    unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
+        unsafe { <T as Resolver<K>>::resolve_unchecked(self, key) }
+    }
+
+    #[inline]
+    fn contains_key(&self, key: &K) -> bool {
+        <T as Resolver<K>>::contains_key(self, key)
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        <T as Resolver<K>>::len(self)
+    }
+}

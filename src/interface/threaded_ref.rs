@@ -1,6 +1,6 @@
 #![cfg(feature = "multi-threaded")]
 
-use crate::{Interner, Key, Reader, Resolver, ThreadedRodeo};
+use crate::{Interner, Key, Reader, ThreadedRodeo};
 use core::hash::{BuildHasher, Hash};
 
 impl<K, S> Interner<K> for &ThreadedRodeo<K, S>
@@ -39,37 +39,10 @@ where
     }
 }
 
-impl<K, S> Resolver<K> for &ThreadedRodeo<K, S>
-where
-    K: Key + Hash,
-    S: BuildHasher + Clone,
-{
-    fn resolve<'a>(&'a self, key: &K) -> &'a str {
-        ThreadedRodeo::resolve(self, key)
-    }
-
-    fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
-        ThreadedRodeo::try_resolve(self, key)
-    }
-
-    unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
-        unsafe { ThreadedRodeo::resolve_unchecked(self, key) }
-    }
-
-    fn contains_key(&self, key: &K) -> bool {
-        ThreadedRodeo::contains_key(self, key)
-    }
-
-    fn len(&self) -> usize {
-        ThreadedRodeo::len(self)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::super::tests::{filled_threaded_rodeo, INTERNED_STRINGS, UNINTERNED_STRINGS};
-    use super::*;
-    use crate::{Key, Spur};
+    use crate::{Key, Resolver, Spur};
 
     #[test]
     fn threaded_rodeo_ref_trait_implementations() {
