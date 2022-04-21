@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   within it
 - Updated DashMap and Hashbrown dependencies
 
+### Added
+
+- Added blanket implementations of `Reader` and `Resolver` for `&T` and `&mut T` references to types that implement
+  those traits, and `Interner` likewise for `&mut T`
+
 ## [0.6.0] - 2021-09-01
 
 ### Changed
