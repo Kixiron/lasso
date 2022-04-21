@@ -47,6 +47,9 @@ const INLINE_SPUR_SIZE: usize = 24;
 const INLINE_CAPACITY: usize = INLINE_SPUR_SIZE - 2;
 
 // Ensure the sizes of everything are correct
+// Note: I've tried doing the song and dance to open this type
+//       up to niche optimization but I don't think rustc propagates
+//       niche info through unions
 const _: () = assert!(size_of::<InlineSpur>() == INLINE_SPUR_SIZE);
 const _: () = assert!(size_of::<InlineSpurInner>() == INLINE_SPUR_SIZE);
 const _: () = assert!(size_of::<InlineSpurDiscriminant>() == 1);
