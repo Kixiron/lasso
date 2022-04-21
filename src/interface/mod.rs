@@ -48,6 +48,31 @@ pub trait Interner<K = Spur>: Reader<K> + Resolver<K> {
     fn try_get_or_intern_static(&mut self, val: &'static str) -> LassoResult<K>;
 }
 
+impl<T, K> Interner<K> for &mut T
+where
+    T: Interner<K>,
+{
+    #[inline]
+    fn get_or_intern(&mut self, val: &str) -> K {
+        <T as Interner<K>>::get_or_intern(self, val)
+    }
+
+    #[inline]
+    fn try_get_or_intern(&mut self, val: &str) -> LassoResult<K> {
+        <T as Interner<K>>::try_get_or_intern(self, val)
+    }
+
+    #[inline]
+    fn get_or_intern_static(&mut self, val: &'static str) -> K {
+        <T as Interner<K>>::get_or_intern_static(self, val)
+    }
+
+    #[inline]
+    fn try_get_or_intern_static(&mut self, val: &'static str) -> LassoResult<K> {
+        <T as Interner<K>>::try_get_or_intern_static(self, val)
+    }
+}
+
 /// A generic interface over interners that can be turned into both a [`Reader`] and a [`Resolver`]
 /// directly.
 pub trait IntoReaderAndResolver<K = Spur>: IntoReader<K> + IntoResolver<K>
