@@ -2,6 +2,11 @@ use core::{
     fmt::{self, Debug, Write},
     num::{NonZeroU16, NonZeroU32, NonZeroU8, NonZeroUsize},
 };
+use std::{
+    cmp::Ordering,
+    hash::{Hash, Hasher},
+    mem::size_of,
+};
 
 /// Types implementing this trait can be used as keys for all Rodeos
 ///
@@ -11,11 +16,347 @@ use core::{
 ///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 pub unsafe trait Key: Copy + Eq {
+    /// If `true`, the key type can support inline strings
+    const SUPPORTS_INLINING: bool = false;
+
     /// Returns the `usize` that represents the current key
     fn into_usize(self) -> usize;
 
+    // fn try_into_inlined(&self) -> Option<&str>;
+
     /// Attempts to create a key from a `usize`, returning `None` if it fails
-    fn try_from_usize(int: usize) -> Option<Self>;
+    fn try_from_usize(key: usize) -> Option<Self>;
+
+    /// Attempts to create a key from either a key or an inlined string
+    #[inline]
+    fn try_from_inlined(_string: &str) -> Option<Self> {
+        None
+    }
+
+    /// Returns `true` if the current key is an inlined string
+    #[inline]
+    fn is_inline(&self) -> bool {
+        false
+    }
+}
+
+/// The total type size of [`InlineSpur`], 24 bytes
+const INLINE_SPUR_SIZE: usize = 24;
+
+/// The maximum capacity of an inlined key's string
+const INLINE_CAPACITY: usize = INLINE_SPUR_SIZE - 2;
+
+// Ensure the sizes of everything are correct
+const _: () = assert!(size_of::<InlineSpur>() == INLINE_SPUR_SIZE);
+const _: () = assert!(size_of::<InlineSpurInner>() == INLINE_SPUR_SIZE);
+const _: () = assert!(size_of::<InlineSpurDiscriminant>() == 1);
+const _: () = assert!(size_of::<InlineSpurKey>() == INLINE_SPUR_SIZE);
+const _: () = assert!(size_of::<InlineSpurStr>() == INLINE_SPUR_SIZE);
+
+/// A key type that supports inlining small strings
+///
+/// Small strings (strings with a byte length of <= 22) are inlined into the
+/// key instead of always being interned. Strings with a length of greater than
+/// 22 are interned like normal and have their key stored
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub struct InlineSpur {
+    inner: InlineSpurInner,
+}
+
+impl InlineSpur {
+    /// Returns `true` if the current spur is an interned key
+    #[inline]
+    pub const fn is_interned_key(&self) -> bool {
+        self.inner.discriminant().is_key()
+    }
+
+    /// Returns `true` if the current spur is an inlined string
+    #[inline]
+    pub const fn is_inlined_str(&self) -> bool {
+        self.inner.discriminant().is_inline()
+    }
+
+    #[inline]
+    const fn as_interned_key(&self) -> Option<LargeSpur> {
+        if let Some(interned) = self.inner.as_key() {
+            Some(interned.key)
+        } else {
+            None
+        }
+    }
+
+    /// Returns the contained string if the current spur is an inline string
+    // FIXME: This is *so* close to being const
+    #[inline]
+    pub fn as_inlined_str(&self) -> Option<&str> {
+        if let Some(inlined) = self.inner.as_inline() {
+            Some(inlined.as_str())
+        } else {
+            None
+        }
+    }
+
+    /// Create an empty [`InlineSpur`] that refers to an inlined empty string
+    #[inline]
+    const fn empty() -> Self {
+        Self {
+            inner: InlineSpurInner::inlined(0, [0; INLINE_CAPACITY]),
+        }
+    }
+}
+
+unsafe impl Key for InlineSpur {
+    const SUPPORTS_INLINING: bool = true;
+
+    #[inline]
+    fn into_usize(self) -> usize {
+        self.as_interned_key()
+            .expect("called `Key::into_usize()` on an inlined string")
+            .into_usize()
+    }
+
+    /// Returns `None` if `int` is greater than `usize::MAX - 1`
+    #[inline]
+    fn try_from_usize(key: usize) -> Option<Self> {
+        LargeSpur::try_from_usize(key).map(|key| Self {
+            inner: InlineSpurInner::key(key),
+        })
+    }
+
+    #[inline]
+    fn try_from_inlined(string: &str) -> Option<Self> {
+        if string.len() <= INLINE_CAPACITY {
+            debug_assert!(u8::try_from(string.len()).is_ok());
+
+            // Copy the given string into the key's buffer
+            let mut buf = [0; INLINE_CAPACITY];
+            buf[..string.len()].copy_from_slice(string.as_bytes());
+
+            // Create an inlined key from the given string
+            Some(Self {
+                inner: InlineSpurInner::inlined(string.len() as u8, buf),
+            })
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    fn is_inline(&self) -> bool {
+        self.is_inlined_str()
+    }
+}
+
+impl Default for InlineSpur {
+    #[inline]
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
+impl Debug for InlineSpur {
+    #[cfg_attr(feature = "inline-more", inline)]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("InlineSpur(")?;
+        match self.inner.discriminant() {
+            InlineSpurDiscriminant::Key => {
+                // Safety: We've checked that this is a key
+                Debug::fmt(unsafe { &self.inner.key.key }, f)?;
+            }
+
+            InlineSpurDiscriminant::Inline => {
+                // Safety: We've checked that this is an inlined string
+                let inlined = unsafe { &self.inner.inline };
+                Debug::fmt(inlined.as_str(), f)?;
+            }
+        }
+        f.write_char(')')
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+enum InlineSpurDiscriminant {
+    Key,
+    Inline,
+}
+
+impl InlineSpurDiscriminant {
+    #[inline]
+    const fn is_key(&self) -> bool {
+        matches!(self, Self::Key)
+    }
+
+    #[inline]
+    const fn is_inline(self) -> bool {
+        matches!(self, Self::Inline)
+    }
+}
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+struct InlineSpurKey {
+    discriminant: InlineSpurDiscriminant,
+    padding: [u8; Self::PADDING_LEN],
+    key: LargeSpur,
+}
+
+impl InlineSpurKey {
+    /// The length of the padding within `self.padding`
+    const PADDING_LEN: usize =
+        INLINE_SPUR_SIZE - size_of::<LargeSpur>() - size_of::<InlineSpurDiscriminant>();
+
+    #[inline]
+    const fn new(key: LargeSpur) -> Self {
+        Self {
+            discriminant: InlineSpurDiscriminant::Key,
+            padding: [0; Self::PADDING_LEN],
+            key,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+struct InlineSpurStr {
+    discriminant: InlineSpurDiscriminant,
+    length: u8,
+    buf: [u8; INLINE_CAPACITY],
+}
+
+impl InlineSpurStr {
+    #[inline]
+    const fn new(length: u8, buf: [u8; INLINE_CAPACITY]) -> Self {
+        Self {
+            discriminant: InlineSpurDiscriminant::Inline,
+            length,
+            buf,
+        }
+    }
+
+    // FIXME: This is *so* close to being const
+    #[inline]
+    fn as_str(&self) -> &str {
+        let bytes = &self.buf[..self.length as usize];
+        debug_assert!(core::str::from_utf8(bytes).is_ok());
+
+        // Safety: The bytes up to `length` are valid utf8
+        unsafe { core::str::from_utf8_unchecked(bytes) }
+    }
+}
+
+/// The underlying implementation of [`InlineSpur`]
+#[repr(C)]
+union InlineSpurInner {
+    /// View only the spur's discriminant
+    discriminant: InlineSpurDiscriminant,
+
+    /// An un-inlined key
+    key: InlineSpurKey,
+
+    /// An inlined string
+    inline: InlineSpurStr,
+
+    /// View the inner repr as a bag of bytes, all bytes are initialized
+    bytes: [u8; INLINE_SPUR_SIZE],
+}
+
+impl InlineSpurInner {
+    #[inline]
+    const fn key(key: LargeSpur) -> Self {
+        Self {
+            key: InlineSpurKey::new(key),
+        }
+    }
+
+    #[inline]
+    const fn inlined(length: u8, buf: [u8; INLINE_CAPACITY]) -> Self {
+        Self {
+            inline: InlineSpurStr::new(length, buf),
+        }
+    }
+
+    #[inline]
+    const fn discriminant(&self) -> InlineSpurDiscriminant {
+        // Safety: There's always a valid discriminant
+        unsafe { self.discriminant }
+    }
+
+    #[inline]
+    const fn as_bytes(&self) -> &[u8; INLINE_SPUR_SIZE] {
+        // Safety: It's always valid to interpret the spur as bytes
+        unsafe { &self.bytes }
+    }
+
+    #[inline]
+    const fn as_inline(&self) -> Option<&InlineSpurStr> {
+        if self.discriminant().is_inline() {
+            // Safety: We've checked that the discriminant is `Inline`
+            Some(unsafe { &self.inline })
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    const fn as_key(&self) -> Option<&InlineSpurKey> {
+        if self.discriminant().is_key() {
+            // Safety: We've checked that the discriminant is `Key`
+            Some(unsafe { &self.key })
+        } else {
+            None
+        }
+    }
+}
+
+impl Clone for InlineSpurInner {
+    #[inline]
+    fn clone(&self) -> Self {
+        // Directly copy the bytes of the spur into the new one
+        Self {
+            bytes: *self.as_bytes(),
+        }
+    }
+
+    #[inline]
+    fn clone_from(&mut self, source: &Self) {
+        self.bytes = *source.as_bytes();
+    }
+}
+
+impl Copy for InlineSpurInner {}
+
+impl PartialEq for InlineSpurInner {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        // Compare the raw bytes of each spur
+        self.as_bytes() == other.as_bytes()
+    }
+}
+
+impl Eq for InlineSpurInner {}
+
+impl PartialOrd for InlineSpurInner {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.as_bytes().partial_cmp(other.as_bytes())
+    }
+}
+
+impl Ord for InlineSpurInner {
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_bytes().cmp(other.as_bytes())
+    }
+}
+
+impl Hash for InlineSpurInner {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Hash the bytes of the spur
+        self.as_bytes().hash(state);
+    }
 }
 
 /// A key type taking up `size_of::<usize>()` bytes of space (generally 4 or 8 bytes)
@@ -39,20 +380,20 @@ impl LargeSpur {
 }
 
 unsafe impl Key for LargeSpur {
-    #[cfg_attr(feature = "inline-more", inline)]
+    #[inline]
     fn into_usize(self) -> usize {
         self.key.get() - 1
     }
 
     /// Returns `None` if `int` is greater than `usize::MAX - 1`
-    #[cfg_attr(feature = "inline-more", inline)]
-    fn try_from_usize(int: usize) -> Option<Self> {
-        if int < usize::max_value() {
+    #[inline]
+    fn try_from_usize(key: usize) -> Option<Self> {
+        if key < usize::max_value() {
             // Safety: The integer is less than the max value and then incremented by one, meaning that
             // is is impossible for a zero to inhabit the NonZeroUsize
             unsafe {
                 Some(Self {
-                    key: NonZeroUsize::new_unchecked(int + 1),
+                    key: NonZeroUsize::new_unchecked(key + 1),
                 })
             }
         } else {
@@ -62,7 +403,7 @@ unsafe impl Key for LargeSpur {
 }
 
 impl Default for LargeSpur {
-    #[cfg_attr(feature = "inline-more", inline)]
+    #[inline]
     fn default() -> Self {
         Self::try_from_usize(0).unwrap()
     }
@@ -91,27 +432,27 @@ pub struct Spur {
 
 impl Spur {
     /// Returns the [`NonZeroU32`] backing the current `Spur`
-    #[cfg_attr(feature = "inline-more", inline)]
+    #[inline]
     pub const fn into_inner(self) -> NonZeroU32 {
         self.key
     }
 }
 
 unsafe impl Key for Spur {
-    #[cfg_attr(feature = "inline-more", inline)]
+    #[inline]
     fn into_usize(self) -> usize {
         self.key.get() as usize - 1
     }
 
     /// Returns `None` if `int` is greater than `u32::MAX - 1`
-    #[cfg_attr(feature = "inline-more", inline)]
-    fn try_from_usize(int: usize) -> Option<Self> {
-        if int < u32::max_value() as usize {
+    #[inline]
+    fn try_from_usize(key: usize) -> Option<Self> {
+        if key < u32::max_value() as usize {
             // Safety: The integer is less than the max value and then incremented by one, meaning that
             // is is impossible for a zero to inhabit the NonZeroU32
             unsafe {
                 Some(Self {
-                    key: NonZeroU32::new_unchecked(int as u32 + 1),
+                    key: NonZeroU32::new_unchecked(key as u32 + 1),
                 })
             }
         } else {
@@ -121,7 +462,7 @@ unsafe impl Key for Spur {
 }
 
 impl Default for Spur {
-    #[cfg_attr(feature = "inline-more", inline)]
+    #[inline]
     fn default() -> Self {
         Self::try_from_usize(0).unwrap()
     }
@@ -150,27 +491,27 @@ pub struct MiniSpur {
 
 impl MiniSpur {
     /// Returns the [`NonZeroU16`] backing the current `MiniSpur`
-    #[cfg_attr(feature = "inline-more", inline)]
+    #[inline]
     pub const fn into_inner(self) -> NonZeroU16 {
         self.key
     }
 }
 
 unsafe impl Key for MiniSpur {
-    #[cfg_attr(feature = "inline-more", inline)]
+    #[inline]
     fn into_usize(self) -> usize {
         self.key.get() as usize - 1
     }
 
     /// Returns `None` if `int` is greater than `u16::MAX - 1`
-    #[cfg_attr(feature = "inline-more", inline)]
-    fn try_from_usize(int: usize) -> Option<Self> {
-        if int < u16::max_value() as usize {
+    #[inline]
+    fn try_from_usize(key: usize) -> Option<Self> {
+        if key < u16::max_value() as usize {
             // Safety: The integer is less than the max value and then incremented by one, meaning that
             // is is impossible for a zero to inhabit the NonZeroU16
             unsafe {
                 Some(Self {
-                    key: NonZeroU16::new_unchecked(int as u16 + 1),
+                    key: NonZeroU16::new_unchecked(key as u16 + 1),
                 })
             }
         } else {
@@ -180,7 +521,7 @@ unsafe impl Key for MiniSpur {
 }
 
 impl Default for MiniSpur {
-    #[cfg_attr(feature = "inline-more", inline)]
+    #[inline]
     fn default() -> Self {
         Self::try_from_usize(0).unwrap()
     }
@@ -209,27 +550,27 @@ pub struct MicroSpur {
 
 impl MicroSpur {
     /// Returns the [`NonZeroU8`] backing the current `MicroSpur`
-    #[cfg_attr(feature = "inline-more", inline)]
+    #[inline]
     pub const fn into_inner(self) -> NonZeroU8 {
         self.key
     }
 }
 
 unsafe impl Key for MicroSpur {
-    #[cfg_attr(feature = "inline-more", inline)]
+    #[inline]
     fn into_usize(self) -> usize {
         self.key.get() as usize - 1
     }
 
     /// Returns `None` if `int` is greater than `u8::MAX - 1`
     #[cfg_attr(feature = "inline-more", inline)]
-    fn try_from_usize(int: usize) -> Option<Self> {
-        if int < u8::max_value() as usize {
+    fn try_from_usize(key: usize) -> Option<Self> {
+        if key < u8::max_value() as usize {
             // Safety: The integer is less than the max value and then incremented by one, meaning that
             // is is impossible for a zero to inhabit the NonZeroU8
             unsafe {
                 Some(Self {
-                    key: NonZeroU8::new_unchecked(int as u8 + 1),
+                    key: NonZeroU8::new_unchecked(key as u8 + 1),
                 })
             }
         } else {
@@ -239,7 +580,7 @@ unsafe impl Key for MicroSpur {
 }
 
 impl Default for MicroSpur {
-    #[cfg_attr(feature = "inline-more", inline)]
+    #[inline]
     fn default() -> Self {
         Self::try_from_usize(0).unwrap()
     }

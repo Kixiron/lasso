@@ -305,11 +305,18 @@ where
 
         let string_slice: &str = val.as_ref();
 
+        // If the key type supports inline strings, attempt to create an inline key
+        // from the given string
+        if K::SUPPORTS_INLINING {
+            if let Some(inlined) = K::try_from_inlined(string_slice) {
+                return Ok(inlined);
+            }
+        }
+
         // Make a hash of the requested string
         let hash = {
             let mut state = hasher.build_hasher();
             string_slice.hash(&mut state);
-
             state.finish()
         };
 
@@ -417,11 +424,18 @@ where
             ..
         } = self;
 
+        // If the key type supports inline strings, attempt to create an inline key
+        // from the given string
+        if K::SUPPORTS_INLINING {
+            if let Some(inlined) = K::try_from_inlined(string) {
+                return Ok(inlined);
+            }
+        }
+
         // Make a hash of the requested string
         let hash = {
             let mut state = hasher.build_hasher();
             string.hash(&mut state);
-
             state.finish()
         };
 
@@ -486,11 +500,18 @@ where
     {
         let string_slice: &str = val.as_ref();
 
+        // If the key type supports inline strings, attempt to create an inline key
+        // from the given string
+        if K::SUPPORTS_INLINING {
+            if let Some(inlined) = K::try_from_inlined(string_slice) {
+                return Some(inlined);
+            }
+        }
+
         // Make a hash of the requested string
         let hash = {
             let mut state = self.hasher.build_hasher();
             string_slice.hash(&mut state);
-
             state.finish()
         };
 
@@ -553,7 +574,7 @@ where
     ///
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn contains_key(&self, key: &K) -> bool {
-        key.into_usize() < self.strings.len()
+        (K::SUPPORTS_INLINING && key.is_inline()) || key.into_usize() < self.strings.len()
     }
 
     /// Resolves a string by its key. Only keys made by the current Rodeo may be used
@@ -575,6 +596,10 @@ where
     ///
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn resolve<'a>(&'a self, key: &K) -> &'a str {
+        if K::SUPPORTS_INLINING && key.is_inline() {
+            // TODO: We'd have to require `key` to have the same lifetime as `self` which really sucks
+        }
+
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid

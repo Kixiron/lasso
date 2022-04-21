@@ -442,7 +442,7 @@ mod resolver;
 mod rodeo;
 
 pub use interface::{Interner, IntoReader, IntoReaderAndResolver, IntoResolver, Reader, Resolver};
-pub use keys::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
+pub use keys::{InlineSpur, Key, LargeSpur, MicroSpur, MiniSpur, Spur};
 pub use reader::RodeoReader;
 pub use resolver::RodeoResolver;
 pub use rodeo::Rodeo;
