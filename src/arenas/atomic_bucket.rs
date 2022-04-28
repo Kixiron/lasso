@@ -1,10 +1,10 @@
-use crate::{LassoError, LassoErrorKind, LassoResult};
+use crate::{leaky::ThinStrInner, LassoError, LassoErrorKind, LassoResult};
 use alloc::alloc::{alloc, dealloc, Layout};
 use core::{
+    cmp::max,
     mem::{align_of, size_of},
     num::NonZeroUsize,
     ptr::{self, addr_of_mut, NonNull},
-    slice,
     sync::atomic::{AtomicPtr, Ordering},
 };
 
@@ -70,11 +70,15 @@ impl AtomicBucketList {
             }
         }
     }
-}
 
-impl Drop for AtomicBucketList {
-    fn drop(&mut self) {
-        // Safety: We should have exclusive access to all buckets
+    /// Drops all buckets within the current list
+    ///
+    /// # Safety
+    ///
+    /// No pointers derived from the current list can be used after this
+    /// method is called
+    ///
+    pub(super) unsafe fn clear(&self) {
         unsafe {
             let mut head_ptr = self.head.load(Ordering::Acquire);
 
@@ -95,6 +99,13 @@ impl Drop for AtomicBucketList {
                 dealloc(current_ptr.cast(), layout);
             }
         }
+    }
+}
+
+impl Drop for AtomicBucketList {
+    // Safety: We should have exclusive access to all buckets
+    fn drop(&mut self) {
+        unsafe { self.clear() };
     }
 }
 
@@ -163,7 +174,8 @@ impl UniqueBucketRef {
     ///
     /// `new_length` must be less than or equal to the current capacity
     /// and all bytes up to `new_length` must be initialized and valid
-    /// utf-8
+    /// utf8
+    ///
     #[inline]
     pub unsafe fn set_len(&mut self, new_length: usize) {
         debug_assert!(
@@ -174,9 +186,7 @@ impl UniqueBucketRef {
         );
 
         // Safety: We have exclusive access to the bucket
-        unsafe {
-            addr_of_mut!((*self.as_ptr()).len).write(new_length);
-        }
+        unsafe { addr_of_mut!((*self.as_ptr()).len).write(new_length) };
     }
 
     /// Push a slice of bytes to the current bucket
@@ -187,7 +197,7 @@ impl UniqueBucketRef {
     /// before the current bucket is, as this bucket contains the backing
     /// memory for the string.
     /// Additionally, the underlying [`AtomicBucket`] must have enough room
-    /// to store the entire slice and the given slice must be valid utf-8 data.
+    /// to store the entire slice and the given slice must be valid utf8 data
     ///
     pub unsafe fn push_slice(&mut self, slice: &[u8]) -> &'static str {
         let len = self.len();
@@ -197,25 +207,90 @@ impl UniqueBucketRef {
 
             debug_assert_ne!(len, capacity);
             debug_assert!(slice.len() <= capacity - len);
+            debug_assert!(core::str::from_utf8(slice).is_ok());
         }
 
-        // Get a pointer to the start of the free data
-        let ptr = unsafe { addr_of_mut!((*self.as_ptr())._data).cast::<u8>().add(len) };
+        unsafe {
+            // Get a pointer to the start of the free data
+            let ptr = addr_of_mut!((*self.as_ptr())._data).cast::<u8>().add(len);
 
-        // Make the slice that we'll fill with the string's data
-        let target = unsafe { slice::from_raw_parts_mut(ptr, slice.len()) };
-        // Copy the data from the source string into the bucket's buffer
-        target.copy_from_slice(slice);
+            // Copy the data from the source string into the bucket's buffer
+            ptr::copy_nonoverlapping(slice.as_ptr(), ptr, slice.len());
 
-        // Increment the index so that the string we just added isn't overwritten
-        // Safety: All bytes are initialized and the length is <= capacity
-        unsafe { self.set_len(len + slice.len()) };
+            // Increment the index so that the string we just added isn't overwritten
+            // Safety: All bytes are initialized and the length is <= capacity
+            self.set_len(len + slice.len());
 
-        // Create a string from that slice
-        // Safety: The source string was valid utf8, so the created buffer will be as well
+            // Create a slice from the initialized data
+            let produced = core::slice::from_raw_parts(ptr as *const u8, slice.len());
+            debug_assert_eq!(produced, slice);
 
-        unsafe { core::str::from_utf8_unchecked(target) }
+            // Create a string from the newly initialized slice slice
+            // Safety: The source string was valid utf8, so the created buffer will be as well
+            core::str::from_utf8_unchecked(produced)
+        }
     }
+
+    /// Push a length-prefixed slice of bytes to the current bucket
+    ///
+    /// # Safety
+    ///
+    /// The returned `&'static str` (and all copies of it) must be dropped
+    /// before the current bucket is, as this bucket contains the backing
+    /// memory for the string.
+    /// Additionally, the underlying [`AtomicBucket`] must have enough room
+    /// to store the entire slice and the given slice must be valid utf8 data
+    ///
+    pub unsafe fn push_prefixed_slice(&mut self, slice: &[u8]) -> NonNull<ThinStrInner> {
+        let len = self.len();
+
+        if cfg!(debug_assertions) {
+            let capacity = self.capacity().get();
+
+            debug_assert_ne!(len, capacity);
+            debug_assert!(slice.len() <= capacity - len);
+            debug_assert!(core::str::from_utf8(slice).is_ok());
+        }
+
+        unsafe {
+            // Get a pointer to the start of the free data
+            let ptr = addr_of_mut!((*self.as_ptr())._data)
+                .cast::<u8>()
+                .add(len)
+                .cast::<ThinStrInner>();
+
+            // The pointer should already be aligned for a prefixed string
+            debug_assert_eq!(align_offset(ptr as usize, align_of::<ThinStrInner>()), 0);
+
+            // Write the slice's length as the header
+            addr_of_mut!((*ptr).length).write(slice.len());
+
+            // Get a pointer to the start of the prefixed string's bytes
+            let bytes_start = addr_of_mut!((*ptr)._data).cast::<u8>();
+
+            // Copy the data from the source string into the bucket's buffer
+            ptr::copy_nonoverlapping(slice.as_ptr(), bytes_start, slice.len());
+
+            // Re-align the pointer for the next prefixed string
+            let end_ptr = bytes_start as usize + slice.len();
+            let offset = align_offset(end_ptr, align_of::<ThinStrInner>());
+
+            // Increment the index so that the string we just added isn't overwritten
+            // Safety: The length is <= capacity
+            self.set_len(max(len + offset + slice.len(), self.capacity().get()));
+
+            // Create a pointer to the prefixed string
+            // Safety: The created pointer won't be null
+            debug_assert!(!ptr.is_null());
+            NonNull::new_unchecked(ptr)
+        }
+    }
+}
+
+/// Gets the offset required to align the given address to `alignment` bytes
+const fn align_offset(addr: usize, alignment: usize) -> usize {
+    debug_assert!(alignment.is_power_of_two());
+    alignment.wrapping_sub(addr) & (alignment - 1)
 }
 
 /// A reference to an [`AtomicBucket`]
@@ -270,7 +345,7 @@ impl BucketRef {
 
     /// Get the number of available slots for the current bucket
     #[inline]
-    pub fn free_elements(&self) -> usize {
+    pub fn free_bytes(&self) -> usize {
         let (len, capacity) = (self.len(), self.capacity().get());
         debug_assert!(
             len <= capacity,
@@ -288,8 +363,9 @@ pub(super) struct AtomicBucket {
     /// The next bucket in the list, will be null if this is the last bucket
     next: AtomicPtr<Self>,
 
-    /// The start of uninitialized memory within `items`
+    /// The start of (totally) uninitialized memory within `items`
     ///
+    /// This does **not** guarantee that all bytes less than len are initialized!
     /// Invariant: `len` will always be less than or equal to `capacity`
     len: usize,
 

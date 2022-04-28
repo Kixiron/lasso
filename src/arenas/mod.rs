@@ -4,8 +4,12 @@ mod single_threaded;
 #[cfg(feature = "multi-threaded")]
 mod atomic_bucket;
 #[cfg(feature = "multi-threaded")]
+mod concurrent_arena;
+#[cfg(feature = "multi-threaded")]
 mod lockfree;
 
+#[cfg(feature = "multi-threaded")]
+pub(crate) use concurrent_arena::{ConcurrentArena, InlineStrArena, ThinStrArena};
 #[cfg(feature = "multi-threaded")]
 pub(crate) use lockfree::LockfreeArena;
 pub(crate) use single_threaded::Arena;

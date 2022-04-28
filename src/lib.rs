@@ -442,7 +442,7 @@ mod resolver;
 mod rodeo;
 
 pub use interface::{Interner, IntoReader, IntoReaderAndResolver, IntoResolver, Reader, Resolver};
-pub use keys::{InlineSpur, Key, LargeSpur, MicroSpur, MiniSpur, Spur};
+pub use keys::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
 pub use reader::RodeoReader;
 pub use resolver::RodeoResolver;
 pub use rodeo::Rodeo;
@@ -451,8 +451,10 @@ pub use util::{Capacity, Iter, LassoError, LassoErrorKind, LassoResult, MemoryLi
 compile! {
     if #[all(feature = "multi-threaded", not(feature = "no-std"))] {
         mod threaded_rodeo;
+        mod leaky;
 
         pub use threaded_rodeo::ThreadedRodeo;
+        // pub use leaky::{LeakyRodeo, ThinStr, InlineStr};
 
     // If the `multi-threaded` and `no-std` features are both active
     } else if #[all(feature = "multi-threaded", feature = "no-std")] {

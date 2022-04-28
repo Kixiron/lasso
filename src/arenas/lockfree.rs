@@ -1,10 +1,12 @@
 use crate::{
     arenas::atomic_bucket::{AtomicBucket, AtomicBucketList},
+    leaky::ThinStrInner,
     Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits,
 };
 use core::{
     fmt::{self, Debug},
     num::NonZeroUsize,
+    ptr::NonNull,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -34,6 +36,11 @@ impl LockfreeArena {
             memory_usage: AtomicUsize::new(capacity.get()),
             max_memory_usage: AtomicUsize::new(max_memory_usage),
         })
+    }
+
+    pub unsafe fn clear(&self) {
+        unsafe { self.buckets.clear() };
+        self.memory_usage.store(0, Ordering::Relaxed);
     }
 
     #[inline]
@@ -101,7 +108,7 @@ impl LockfreeArena {
         // better memory usage.
         for (parent, bucket) in self.buckets.iter() {
             // If there's space in the given bucket for our string to be stored in it
-            if bucket.free_elements() >= slice.len() {
+            if bucket.free_bytes() >= slice.len() {
                 // Load the bucket that this bucket points to
                 let next_bucket = bucket.next_ptr().load(Ordering::Acquire);
 
@@ -200,6 +207,134 @@ impl LockfreeArena {
 
                 // Safety: The new bucket will have enough room for the string
                 let allocated_string = unsafe { bucket.push_slice(slice) };
+                self.buckets.push_front(bucket);
+
+                Ok(allocated_string)
+            }
+        }
+    }
+
+    /// Store a slice in the Arena, returning `None` if memory is exhausted
+    ///
+    /// # Safety
+    ///
+    /// `string`'s length must be greater than zero.
+    /// The reference passed back must be dropped before the arena that created it is.
+    ///
+    pub unsafe fn store_prefixed_str(&self, string: &str) -> LassoResult<NonNull<ThinStrInner>> {
+        let slice = string.as_bytes();
+        debug_assert_ne!(slice.len(), 0);
+
+        // Iterate over all of the buckets within the list while attempting to find one
+        // that has enough space to fit our string within it
+        //
+        // This is a tradeoff between allocation speed and memory usage. As-is we prioritize
+        // allocation speed in exchange for potentially missing possible reuse situations
+        // and then allocating more memory than is strictly necessary. In practice this shouldn't
+        // really matter, but it's worth that the opposite tradeoff can be made by adding bounded
+        // retries within this loop, the worst-case performance suffers in exchange for potentially
+        // better memory usage.
+        for (parent, bucket) in self.buckets.iter() {
+            // If there's space in the given bucket for our string to be stored in it
+            if bucket.free_bytes() >= slice.len() {
+                // Load the bucket that this bucket points to
+                let next_bucket = bucket.next_ptr().load(Ordering::Acquire);
+
+                // Swap the parent pointer from pointing to the current bucket to
+                // pointing to the next bucket in the chain
+                let exchange = parent.compare_exchange(
+                    bucket.as_ptr(),
+                    next_bucket,
+                    Ordering::AcqRel,
+                    Ordering::Acquire,
+                );
+
+                if exchange.is_ok() {
+                    // Safety: We have exclusive access to the current bucket
+                    let mut bucket = unsafe { bucket.into_unique() };
+                    // Safety: The bucket has enough space for the slice
+                    let allocated = unsafe { bucket.push_prefixed_slice(slice) };
+
+                    // Put the bucket back into the arena's list
+                    self.buckets.push_front(bucket);
+
+                    // Return the successfully allocated string
+                    return Ok(allocated);
+                }
+
+                // Otherwise the swap failed and we no longer have exclusive access to the
+                // current bucket. We could retry things, but I think it's better to
+                // instead continue on scanning since we want this to be a fast path
+            }
+        }
+
+        // If we couldn't find a pre-existing bucket with enough room in it, allocate our own bucket
+
+        let next_capacity = self.bucket_capacity.load(Ordering::Relaxed) * 2;
+        debug_assert_ne!(next_capacity, 0);
+
+        // If the current string's length is greater than the doubled current capacity, allocate a bucket exactly the
+        // size of the large string and push it back in the buckets vector. This ensures that obscenely large strings will
+        // not permanently affect the resource consumption of the interner
+        if slice.len() > next_capacity {
+            // Check that we haven't exhausted our memory limit
+            self.allocate_memory(slice.len())?;
+
+            // Safety: `len` will never be zero since we explicitly handled zero-length strings
+            //         at the beginning of the function
+            let non_zero_len = unsafe { NonZeroUsize::new_unchecked(slice.len()) };
+            debug_assert_ne!(slice.len(), 0);
+
+            let mut bucket = AtomicBucket::with_capacity(non_zero_len)?;
+
+            // Safety: The new bucket will have exactly enough room for the string and we have
+            //         exclusive access to the bucket since we just created it
+            let allocated_string = unsafe { bucket.push_prefixed_slice(slice) };
+            self.buckets.push_front(bucket);
+
+            Ok(allocated_string)
+        } else {
+            let memory_usage = self.current_memory_usage();
+            let max_memory_usage = self.get_max_memory_usage();
+
+            // If trying to use the doubled capacity will surpass our memory limit, just allocate as much as we can
+            if memory_usage + next_capacity > max_memory_usage {
+                let remaining_memory = max_memory_usage.saturating_sub(memory_usage);
+
+                // Check that we haven't exhausted our memory limit
+                self.allocate_memory(remaining_memory)?;
+
+                // Set the capacity to twice of what it currently is to allow for fewer allocations as more strings are interned
+                let mut bucket = AtomicBucket::with_capacity(
+                    NonZeroUsize::new(remaining_memory)
+                        .ok_or_else(|| LassoError::new(LassoErrorKind::MemoryLimitReached))?,
+                )?;
+
+                // Safety: The new bucket will have exactly enough room for the string and we have
+                //         exclusive access to the bucket since we just created it
+                let allocated_string = unsafe { bucket.push_prefixed_slice(slice) };
+                // TODO: Push the bucket to the back or something so that we can get it somewhat out
+                //       of the search path, reduce the `n` in the `O(n)` list traversal
+                self.buckets.push_front(bucket);
+
+                Ok(allocated_string)
+
+            // Otherwise just allocate a normal doubled bucket
+            } else {
+                // Check that we haven't exhausted our memory limit
+                self.allocate_memory(next_capacity)?;
+
+                // Set the capacity to twice of what it currently is to allow for fewer allocations as more strings are interned
+                self.set_bucket_capacity(next_capacity);
+
+                // Safety: `next_capacity` will never be zero
+                let capacity = unsafe { NonZeroUsize::new_unchecked(next_capacity) };
+                debug_assert_ne!(next_capacity, 0);
+
+                let mut bucket = AtomicBucket::with_capacity(capacity)?;
+
+                // Safety: The new bucket will have enough room for the string
+                let allocated_string = unsafe { bucket.push_prefixed_slice(slice) };
                 self.buckets.push_front(bucket);
 
                 Ok(allocated_string)
