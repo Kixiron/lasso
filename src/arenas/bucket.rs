@@ -77,7 +77,7 @@ impl Bucket {
             self.index += slice.len();
 
             // Create a string from that slice
-            // Safety: The source string was valid utf8, so the created buffer will be as well
+            // Safety: The source buffer was created by a call to V::as_bytes
             V::from_slice(target)
         }
     }

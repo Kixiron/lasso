@@ -413,6 +413,7 @@ impl Internable for str {
     }
 
     unsafe fn from_slice(slice: &[u8]) -> &Self {
+        // SAFETY: The source string was valid utf8, so the created buffer will be as well
         unsafe { core::str::from_utf8_unchecked(slice) }
     }
 
@@ -431,7 +432,8 @@ impl Internable for Path {
     }
 
     unsafe fn from_slice(slice: &[u8]) -> &Self {
-        unsafe { Path::new(core::str::from_utf8_unchecked(slice)) }
+        // SAFETY: The source buffer was created from a call to `OsStr::as_bytes`
+        unsafe { Path::new(OsStr::from_slice(slice)) }
     }
 
     fn is_empty(&self) -> bool {
@@ -449,6 +451,7 @@ impl Internable for OsStr {
     }
 
     unsafe fn from_slice(slice: &[u8]) -> &Self {
+        // SAFETY: The source string was valid utf8, so the created buffer will be as well
         unsafe { OsStr::new(core::str::from_utf8_unchecked(slice)) }
     }
 
