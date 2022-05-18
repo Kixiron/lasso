@@ -1,18 +1,11 @@
-use crate::{
-    arenas::{AnyArena, Arena},
-    hasher::RandomState,
-    keys::{Key, Spur},
-    reader::RodeoReader,
-    resolver::RodeoResolver,
-    util::{Iter, Strings},
-    Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits,
-};
+use crate::{arenas::{AnyArena, Arena}, hasher::RandomState, keys::{Key, Spur}, reader::RodeoReader, resolver::RodeoResolver, util::{Iter, Strings}, Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits, Internable};
 use alloc::vec::Vec;
 use core::{
-    hash::{BuildHasher, Hash, Hasher},
+    hash::{BuildHasher, Hasher},
     iter::FromIterator,
     ops::Index,
 };
+use core::marker::PhantomData;
 use hashbrown::{hash_map::RawEntryMut, HashMap};
 
 /// A string interner that caches strings quickly with a minimal memory footprint,
@@ -23,8 +16,8 @@ use hashbrown::{hash_map::RawEntryMut, HashMap};
 /// [`Spur`]: crate::Spur
 /// [`RandomState`]: https://doc.rust-lang.org/std/collections/hash_map/struct.RandomState.html
 #[derive(Debug)]
-pub struct Rodeo<K = Spur, S = RandomState> {
-    /// Map that allows `str` -> `key` resolution
+pub struct Rodeo<K = Spur, V: ?Sized + 'static = str, S = RandomState> {
+    /// Map that allows `V` -> `key` resolution
     ///
     /// This must be a `HashMap` (for now) since `raw_api`s are only available for maps and not sets.
     /// The value of the map is `()` since the key is symbolically hashed as the string it represents and
@@ -42,15 +35,17 @@ pub struct Rodeo<K = Spur, S = RandomState> {
     /// The hasher of the map. This is stored outside of the map so that we can use
     /// custom hashing on the keys of the map without the map itself trying to do something else
     hasher: S,
-    /// Vec that allows `key` -> `str` resolution
-    pub(crate) strings: Vec<&'static str>,
+    /// Vec that allows `key` -> `V` resolution
+    pub(crate) strings: Vec<&'static V>,
     /// The arena that holds all allocated strings
     arena: Arena,
+    phantom: PhantomData<V>,
 }
 
-impl<K> Rodeo<K, RandomState>
+impl<K, V> Rodeo<K, V, RandomState>
 where
     K: Key,
+    V: ?Sized + Internable,
 {
     /// Create a new Rodeo
     ///
@@ -154,9 +149,10 @@ where
     }
 }
 
-impl<K, S> Rodeo<K, S>
+impl<K, V, S> Rodeo<K, V, S>
 where
     K: Key,
+    V: ?Sized + Internable,
     S: BuildHasher,
 {
     /// Creates an empty Rodeo which will use the given hasher for its internal hashmap
@@ -167,7 +163,7 @@ where
     /// use lasso::{Spur, Rodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: Rodeo<Spur, RandomState> = Rodeo::with_hasher(RandomState::new());
+    /// let rodeo: Rodeo<Spur, str, RandomState> = Rodeo::with_hasher(RandomState::new());
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
@@ -189,7 +185,7 @@ where
     /// use lasso::{Spur, Capacity, Rodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: Rodeo<Spur, RandomState> = Rodeo::with_capacity_and_hasher(Capacity::for_strings(10), RandomState::new());
+    /// let rodeo: Rodeo<Spur, str, RandomState> = Rodeo::with_capacity_and_hasher(Capacity::for_strings(10), RandomState::new());
     /// ```
     ///
     /// [`Capacity`]: crate::Capacity
@@ -212,7 +208,7 @@ where
     /// use lasso::{Spur, Capacity, MemoryLimits, Rodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: Rodeo<Spur, RandomState> = Rodeo::with_capacity_memory_limits_and_hasher(
+    /// let rodeo: Rodeo<Spur, str, RandomState> = Rodeo::with_capacity_memory_limits_and_hasher(
     ///     Capacity::for_strings(10),
     ///     MemoryLimits::for_memory_usage(4096),
     ///     RandomState::new(),
@@ -236,6 +232,7 @@ where
             strings: Vec::with_capacity(strings),
             arena: Arena::new(bytes, max_memory_usage)
                 .expect("failed to allocate memory for interner"),
+            phantom: PhantomData,
         }
     }
 
@@ -267,7 +264,7 @@ where
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn get_or_intern<T>(&mut self, val: T) -> K
     where
-        T: AsRef<str>,
+        T: AsRef<V>,
     {
         self.try_get_or_intern(val)
             .expect("Failed to get or intern string")
@@ -294,16 +291,17 @@ where
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn try_get_or_intern<T>(&mut self, val: T) -> LassoResult<K>
     where
-        T: AsRef<str>,
+        T: AsRef<V>,
     {
         let Self {
             map,
             hasher,
             strings,
             arena,
+            phantom: _,
         } = self;
 
-        let string_slice: &str = val.as_ref();
+        let string_slice: &V = val.as_ref();
 
         // Make a hash of the requested string
         let hash = {
@@ -316,7 +314,7 @@ where
         // Get the map's entry that the string should occupy
         let entry = map.raw_entry_mut().from_hash(hash, |key| {
             // Safety: The index given by `key` will be in bounds of the strings vector
-            let key_string: &str = unsafe { index_unchecked!(strings, key.into_usize()) };
+            let key_string: &V = unsafe { index_unchecked!(strings, key.into_usize()) };
 
             // Compare the requested string against the key's string
             string_slice == key_string
@@ -341,7 +339,7 @@ where
 
                 // Insert the key with the hash of the string that it points to, reusing the hash we made earlier
                 entry.insert_with_hasher(hash, key, (), |key| {
-                    let key_string: &str = unsafe { index_unchecked!(strings, key.into_usize()) };
+                    let key_string: &V = unsafe { index_unchecked!(strings, key.into_usize()) };
 
                     let mut state = hasher.build_hasher();
                     key_string.hash(&mut state);
@@ -383,7 +381,7 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn get_or_intern_static(&mut self, string: &'static str) -> K {
+    pub fn get_or_intern_static(&mut self, string: &'static V) -> K {
         self.try_get_or_intern_static(string)
             .expect("Failed to get or intern static string")
     }
@@ -409,7 +407,7 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_get_or_intern_static(&mut self, string: &'static str) -> LassoResult<K> {
+    pub fn try_get_or_intern_static(&mut self, string: &'static V) -> LassoResult<K> {
         let Self {
             map,
             hasher,
@@ -428,7 +426,7 @@ where
         // Get the map's entry that the string should occupy
         let entry = map.raw_entry_mut().from_hash(hash, |key| {
             // Safety: The index given by `key` will be in bounds of the strings vector
-            let key_string: &str = unsafe { index_unchecked!(strings, key.into_usize()) };
+            let key_string: &V = unsafe { index_unchecked!(strings, key.into_usize()) };
 
             // Compare the requested string against the key's string
             string == key_string
@@ -449,7 +447,7 @@ where
 
                 // Insert the key with the hash of the string that it points to, reusing the hash we made earlier
                 entry.insert_with_hasher(hash, key, (), |key| {
-                    let key_string: &str = unsafe { index_unchecked!(strings, key.into_usize()) };
+                    let key_string: &V = unsafe { index_unchecked!(strings, key.into_usize()) };
 
                     let mut state = hasher.build_hasher();
                     key_string.hash(&mut state);
@@ -482,9 +480,9 @@ where
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn get<T>(&self, val: T) -> Option<K>
     where
-        T: AsRef<str>,
+        T: AsRef<V>,
     {
-        let string_slice: &str = val.as_ref();
+        let string_slice: &V = val.as_ref();
 
         // Make a hash of the requested string
         let hash = {
@@ -497,7 +495,7 @@ where
         // Get the map's entry that the string should occupy
         let entry = self.map.raw_entry().from_hash(hash, |key| {
             // Safety: The index given by `key` will be in bounds of the strings vector
-            let key_string: &str = unsafe { index_unchecked!(self.strings, key.into_usize()) };
+            let key_string: &V = unsafe { index_unchecked!(self.strings, key.into_usize()) };
 
             // Compare the requested string against the
             string_slice == key_string
@@ -524,15 +522,16 @@ where
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn contains<T>(&self, val: T) -> bool
     where
-        T: AsRef<str>,
+        T: AsRef<V>,
     {
         self.get(val).is_some()
     }
 }
 
-impl<K, S> Rodeo<K, S>
+impl<K, V, S> Rodeo<K, V, S>
 where
     K: Key,
+    V: ?Sized + Internable,
 {
     /// Returns `true` if the given key exists in the current interner
     ///
@@ -574,7 +573,7 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn resolve<'a>(&'a self, key: &K) -> &'a str {
+    pub fn resolve<'a>(&'a self, key: &K) -> &'a V {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid
@@ -600,7 +599,7 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
+    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a V> {
         // Safety: The call to get_unchecked's safety relies on the Key::into_usize impl
         // being symmetric and the caller having not fabricated a key. If the impl is sound
         // and symmetric, then it will succeed, as the usize used to create it is a valid
@@ -634,12 +633,12 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
+    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a V {
         unsafe { self.strings.get_unchecked(key.into_usize()) }
     }
 }
 
-impl<K, S> Rodeo<K, S> {
+impl<K, V: ?Sized, S> Rodeo<K, V, S> {
     /// Gets the number of interned strings
     ///
     /// # Example
@@ -694,13 +693,13 @@ impl<K, S> Rodeo<K, S> {
 
     /// Returns an iterator over the interned strings and their key values
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn iter(&self) -> Iter<'_, K> {
+    pub fn iter(&self) -> Iter<'_, K, V> {
         Iter::from_rodeo(self)
     }
 
     /// Returns an iterator over the interned strings
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn strings(&self) -> Strings<'_, K> {
+    pub fn strings(&self) -> Strings<'_, K, V> {
         Strings::from_rodeo(self)
     }
 
@@ -726,7 +725,7 @@ impl<K, S> Rodeo<K, S> {
     }
 }
 
-impl<K, S> Rodeo<K, S> {
+impl<K, V: ?Sized, S> Rodeo<K, V, S> {
     /// Consumes the current Rodeo, returning a [`RodeoReader`] to allow contention-free access of the interner
     /// from multiple threads
     ///
@@ -748,12 +747,13 @@ impl<K, S> Rodeo<K, S> {
     /// [`RodeoReader`]: crate::RodeoReader
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    pub fn into_reader(self) -> RodeoReader<K, S> {
+    pub fn into_reader(self) -> RodeoReader<K, V, S> {
         let Self {
             map,
             hasher,
             strings,
             arena,
+            phantom: _,
         } = self;
 
         // Safety: No other references outside of `map` and `strings` to the interned strings exist
@@ -781,7 +781,7 @@ impl<K, S> Rodeo<K, S> {
     /// [`RodeoResolver`]: crate::RodeoResolver
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    pub fn into_resolver(self) -> RodeoResolver<K> {
+    pub fn into_resolver(self) -> RodeoResolver<K, V> {
         let Rodeo { strings, arena, .. } = self;
 
         // Safety: No other references to the strings exist
@@ -793,19 +793,23 @@ impl<K, S> Rodeo<K, S> {
 ///
 /// [`Spur`]: crate::Spur
 /// [`RandomState`]: index.html#cargo-features
-impl Default for Rodeo<Spur, RandomState> {
+impl Default for Rodeo<Spur, str, RandomState>
+// where
+//     V: ?Sized + Internable,
+{
     #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self::new()
     }
 }
 
-unsafe impl<K: Send, S: Send> Send for Rodeo<K, S> {}
+unsafe impl<K: Send, V: ?Sized + Send, S: Send> Send for Rodeo<K, V, S> {}
 
-impl<Str, K, S> FromIterator<Str> for Rodeo<K, S>
+impl<Str, K, V, S> FromIterator<Str> for Rodeo<K, V, S>
 where
-    Str: AsRef<str>,
+    Str: AsRef<V>,
     K: Key,
+    V: ?Sized + Internable,
     S: BuildHasher + Default,
 {
     #[cfg_attr(feature = "inline-more", inline)]
@@ -821,19 +825,20 @@ where
         );
 
         for string in iter {
-            interner.get_or_intern(string.as_ref());
+            interner.get_or_intern(string);
         }
 
         interner
     }
 }
 
-impl<K, S> Index<K> for Rodeo<K, S>
+impl<K, V, S> Index<K> for Rodeo<K, V, S>
 where
     K: Key,
+    V: ?Sized + Internable,
     S: BuildHasher,
 {
-    type Output = str;
+    type Output = V;
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn index(&self, idx: K) -> &Self::Output {
@@ -841,11 +846,12 @@ where
     }
 }
 
-impl<K, S, T> Extend<T> for Rodeo<K, S>
+impl<K, V, S, T> Extend<T> for Rodeo<K, V, S>
 where
     K: Key,
+    V: ?Sized + Internable,
     S: BuildHasher,
-    T: AsRef<str>,
+    T: AsRef<V>,
 {
     #[cfg_attr(feature = "inline-more", inline)]
     fn extend<I>(&mut self, iter: I)
@@ -853,14 +859,14 @@ where
         I: IntoIterator<Item = T>,
     {
         for s in iter {
-            self.get_or_intern(s.as_ref());
+            self.get_or_intern(s);
         }
     }
 }
 
-impl<'a, K: Key, S> IntoIterator for &'a Rodeo<K, S> {
-    type Item = (K, &'a str);
-    type IntoIter = Iter<'a, K>;
+impl<'a, K: Key, V: ?Sized + Internable, S> IntoIterator for &'a Rodeo<K, V, S> {
+    type Item = (K, &'a V);
+    type IntoIter = Iter<'a, K, V>;
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn into_iter(self) -> Self::IntoIter {
@@ -868,32 +874,31 @@ impl<'a, K: Key, S> IntoIterator for &'a Rodeo<K, S> {
     }
 }
 
-impl<K, S> Eq for Rodeo<K, S> {}
+impl<K, V: ?Sized + Internable, S> Eq for Rodeo<K, V, S> {}
 
-impl<K, S> PartialEq<Self> for Rodeo<K, S> {
+impl<K, V: ?Sized + Internable, S> PartialEq<Self> for Rodeo<K, V, S> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn eq(&self, other: &Self) -> bool {
         self.strings == other.strings
     }
 }
 
-impl<K, S> PartialEq<RodeoReader<K, S>> for Rodeo<K, S> {
+impl<K, V: ?Sized + Internable, S> PartialEq<RodeoReader<K, V, S>> for Rodeo<K, V, S> {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn eq(&self, other: &RodeoReader<K, S>) -> bool {
+    fn eq(&self, other: &RodeoReader<K, V, S>) -> bool {
         self.strings == other.strings
     }
 }
 
-impl<K, S> PartialEq<RodeoResolver<K>> for Rodeo<K, S> {
+impl<K, V: ?Sized + Internable, S> PartialEq<RodeoResolver<K, V>> for Rodeo<K, V, S> {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn eq(&self, other: &RodeoResolver<K>) -> bool {
+    fn eq(&self, other: &RodeoResolver<K, V>) -> bool {
         self.strings == other.strings
     }
 }
 
 compile! {
     if #[feature = "serialize"] {
-        use alloc::string::String;
         use core::num::NonZeroUsize;
         use serde::{
             de::{Deserialize, Deserializer},
@@ -903,25 +908,31 @@ compile! {
 }
 
 #[cfg(feature = "serialize")]
-impl<K, H> Serialize for Rodeo<K, H> {
+impl<K, V, H> Serialize for Rodeo<K, V, H>
+where
+    V: ?Sized + Internable,
+{
     #[cfg_attr(feature = "inline-more", inline)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        // Serialize all of self as a `Vec<String>`
-        self.strings.serialize(serializer)
+        // Serialize all of self as a `Vec<Vec<u8>>`
+        self.strings.iter()
+            .map(|v| v.as_bytes())
+            .collect::<Vec<_>>()
+            .serialize(serializer)
     }
 }
 
 #[cfg(feature = "serialize")]
-impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, S> {
+impl<'de, K: Key, V: ?Sized + Internable, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, V, S> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let vector: Vec<String> = Vec::deserialize(deserializer)?;
+        let vector: Vec<Vec<u8>> = Vec::deserialize(deserializer)?;
         let capacity = {
             let total_bytes = vector.iter().map(|s| s.len()).sum::<usize>();
             let total_bytes =
@@ -939,7 +950,7 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, S> {
         for (key, string) in vector.into_iter().enumerate() {
             let allocated = unsafe {
                 arena
-                    .store_str(&string)
+                    .store_str(V::from_slice(&string))
                     .expect("failed to allocate enough memory")
             };
 
@@ -953,7 +964,7 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, S> {
             // Get the map's entry that the string should occupy
             let entry = map.raw_entry_mut().from_hash(hash, |key: &K| {
                 // Safety: The index given by `key` will be in bounds of the strings vector
-                let key_string: &str = unsafe { index_unchecked!(strings, key.into_usize()) };
+                let key_string: &V = unsafe { index_unchecked!(strings, key.into_usize()) };
 
                 // Compare the requested string against the key's string
                 allocated == key_string
@@ -973,7 +984,7 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, S> {
 
                     // Insert the key with the hash of the string that it points to, reusing the hash we made earlier
                     entry.insert_with_hasher(hash, key, (), |key| {
-                        let key_string: &str =
+                        let key_string: &V =
                             unsafe { index_unchecked!(strings, key.into_usize()) };
 
                         let mut state = hasher.build_hasher();
@@ -990,6 +1001,7 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, S> {
             hasher,
             strings,
             arena,
+            phantom: PhantomData,
         })
     }
 }
@@ -1032,13 +1044,13 @@ mod tests {
 
     #[test]
     fn with_hasher() {
-        let mut rodeo: Rodeo<Spur, RandomState> = Rodeo::with_hasher(RandomState::new());
+        let mut rodeo: Rodeo<Spur, str, RandomState> = Rodeo::with_hasher(RandomState::new());
         let key = rodeo.get_or_intern("Test");
         assert_eq!("Test", rodeo.resolve(&key));
 
         #[cfg(not(miri))]
         {
-            let mut rodeo: Rodeo<Spur, ahash::RandomState> =
+            let mut rodeo: Rodeo<Spur, str, ahash::RandomState> =
                 Rodeo::with_hasher(ahash::RandomState::new());
             let key = rodeo.get_or_intern("Test");
             assert_eq!("Test", rodeo.resolve(&key));
@@ -1047,7 +1059,7 @@ mod tests {
 
     #[test]
     fn with_capacity_and_hasher() {
-        let mut rodeo: Rodeo<Spur, RandomState> =
+        let mut rodeo: Rodeo<Spur, str, RandomState> =
             Rodeo::with_capacity_and_hasher(Capacity::for_strings(10), RandomState::new());
         assert_eq!(rodeo.capacity(), 10);
 
@@ -1066,7 +1078,7 @@ mod tests {
 
         #[cfg(not(miri))]
         {
-            let mut rodeo: Rodeo<Spur, ahash::RandomState> = Rodeo::with_capacity_and_hasher(
+            let mut rodeo: Rodeo<Spur, str, ahash::RandomState> = Rodeo::with_capacity_and_hasher(
                 Capacity::for_strings(10),
                 ahash::RandomState::new(),
             );
@@ -1373,7 +1385,7 @@ mod tests {
 
     #[test]
     fn with_capacity_memory_limits_and_hasher() {
-        let mut rodeo: Rodeo<Spur, RandomState> = Rodeo::with_capacity_memory_limits_and_hasher(
+        let mut rodeo: Rodeo<Spur, str, RandomState> = Rodeo::with_capacity_memory_limits_and_hasher(
             Capacity::default(),
             MemoryLimits::default(),
             RandomState::new(),

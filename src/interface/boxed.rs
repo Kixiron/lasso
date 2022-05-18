@@ -1,40 +1,42 @@
 use super::{Interner, IntoReader, IntoResolver, Reader, Resolver};
-use crate::{Key, LassoResult};
+use crate::{Internable, Key, LassoResult};
 #[cfg(feature = "no-std")]
 use alloc::boxed::Box;
 
-impl<K, I> Interner<K> for Box<I>
+impl<K, V, I> Interner<K, V> for Box<I>
 where
     K: Key,
-    I: Interner<K> + ?Sized + 'static,
+    V: ?Sized + Internable,
+    I: Interner<K, V> + ?Sized + 'static,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn get_or_intern(&mut self, val: &str) -> K {
+    fn get_or_intern(&mut self, val: &V) -> K {
         (&mut **self).get_or_intern(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn try_get_or_intern(&mut self, val: &str) -> LassoResult<K> {
+    fn try_get_or_intern(&mut self, val: &V) -> LassoResult<K> {
         (&mut **self).try_get_or_intern(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn get_or_intern_static(&mut self, val: &'static str) -> K {
+    fn get_or_intern_static(&mut self, val: &'static V) -> K {
         (&mut **self).get_or_intern_static(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn try_get_or_intern_static(&mut self, val: &'static str) -> LassoResult<K> {
+    fn try_get_or_intern_static(&mut self, val: &'static V) -> LassoResult<K> {
         self.try_get_or_intern(val)
     }
 }
 
-impl<K, I> IntoReader<K> for Box<I>
+impl<K, V, I> IntoReader<K, V> for Box<I>
 where
     K: Key,
-    I: IntoReader<K> + ?Sized + 'static,
+    V: ?Sized + Internable,
+    I: IntoReader<K, V> + ?Sized + 'static,
 {
-    type Reader = <I as IntoReader<K>>::Reader;
+    type Reader = <I as IntoReader<K, V>>::Reader;
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
@@ -55,28 +57,30 @@ where
     }
 }
 
-impl<K, I> Reader<K> for Box<I>
+impl<K, V, I> Reader<K, V> for Box<I>
 where
     K: Key,
-    I: Reader<K> + ?Sized + 'static,
+    V: ?Sized + Internable,
+    I: Reader<K, V> + ?Sized + 'static,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn get(&self, val: &str) -> Option<K> {
+    fn get(&self, val: &V) -> Option<K> {
         (&**self).get(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn contains(&self, val: &str) -> bool {
+    fn contains(&self, val: &V) -> bool {
         (&**self).contains(val)
     }
 }
 
-impl<K, I> IntoResolver<K> for Box<I>
+impl<K, V, I> IntoResolver<K, V> for Box<I>
 where
     K: Key,
-    I: IntoResolver<K> + ?Sized + 'static,
+    V: ?Sized + Internable,
+    I: IntoResolver<K, V> + ?Sized + 'static,
 {
-    type Resolver = <I as IntoResolver<K>>::Resolver;
+    type Resolver = <I as IntoResolver<K, V>>::Resolver;
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
@@ -97,23 +101,24 @@ where
     }
 }
 
-impl<K, I> Resolver<K> for Box<I>
+impl<K, V, I> Resolver<K, V> for Box<I>
 where
     K: Key,
-    I: Resolver<K> + ?Sized + 'static,
+    V: ?Sized + Internable,
+    I: Resolver<K, V> + ?Sized + 'static,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn resolve<'a>(&'a self, key: &K) -> &'a str {
+    fn resolve<'a>(&'a self, key: &K) -> &'a V {
         (&**self).resolve(key)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
+    fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a V> {
         (&**self).try_resolve(key)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
+    unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a V {
         unsafe { (&**self).resolve_unchecked(key) }
     }
 

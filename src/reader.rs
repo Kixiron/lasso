@@ -1,14 +1,7 @@
-use crate::{
-    arenas::AnyArena,
-    hasher::RandomState,
-    keys::{Key, Spur},
-    resolver::RodeoResolver,
-    util::{Iter, Strings},
-    Rodeo,
-};
+use crate::{arenas::AnyArena, hasher::RandomState, keys::{Key, Spur}, resolver::RodeoResolver, util::{Iter, Strings}, Rodeo, Internable};
 use alloc::vec::Vec;
 use core::{
-    hash::{BuildHasher, Hash, Hasher},
+    hash::{BuildHasher, Hasher},
     ops::Index,
 };
 use hashbrown::HashMap;
@@ -22,16 +15,16 @@ use hashbrown::HashMap;
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoReader<K = Spur, S = RandomState> {
+pub struct RodeoReader<K = Spur, V: ?Sized + 'static = str, S = RandomState> {
     // The logic behind this arrangement is more heavily documented inside of
     // `Rodeo` itself
     map: HashMap<K, (), ()>,
     hasher: S,
-    pub(crate) strings: Vec<&'static str>,
+    pub(crate) strings: Vec<&'static V>,
     __arena: AnyArena,
 }
 
-impl<K, S> RodeoReader<K, S> {
+impl<K, V: ?Sized, S> RodeoReader<K, V, S> {
     /// Creates a new RodeoReader
     ///
     /// # Safety
@@ -42,7 +35,7 @@ impl<K, S> RodeoReader<K, S> {
     pub(crate) unsafe fn new(
         map: HashMap<K, (), ()>,
         hasher: S,
-        strings: Vec<&'static str>,
+        strings: Vec<&'static V>,
         arena: AnyArena,
     ) -> Self {
         Self {
@@ -73,11 +66,12 @@ impl<K, S> RodeoReader<K, S> {
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn get<T>(&self, val: T) -> Option<K>
     where
-        T: AsRef<str>,
+        T: AsRef<V>,
         S: BuildHasher,
         K: Key,
+        V: Internable,
     {
-        let string_slice: &str = val.as_ref();
+        let string_slice: &V = val.as_ref();
 
         // Make a hash of the requested string
         let hash = {
@@ -90,7 +84,7 @@ impl<K, S> RodeoReader<K, S> {
         // Get the map's entry that the string should occupy
         let entry = self.map.raw_entry().from_hash(hash, |key| {
             // Safety: The index given by `key` will be in bounds of the strings vector
-            let key_string: &str = unsafe { index_unchecked!(self.strings, key.into_usize()) };
+            let key_string: &V = unsafe { index_unchecked!(self.strings, key.into_usize()) };
 
             // Compare the requested string against the key's string
             string_slice == key_string
@@ -119,9 +113,10 @@ impl<K, S> RodeoReader<K, S> {
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn contains<T>(&self, val: T) -> bool
     where
-        T: AsRef<str>,
+        T: AsRef<V>,
         S: BuildHasher,
         K: Key,
+        V: Internable,
     {
         self.get(val).is_some()
     }
@@ -173,7 +168,7 @@ impl<K, S> RodeoReader<K, S> {
     ///
     /// [`Key`]: crate::Key
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn resolve<'a>(&'a self, key: &K) -> &'a str
+    pub fn resolve<'a>(&'a self, key: &K) -> &'a V
     where
         K: Key,
     {
@@ -205,7 +200,7 @@ impl<K, S> RodeoReader<K, S> {
     ///
     /// [`Key`]: crate::Key
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str>
+    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a V>
     where
         K: Key,
     {
@@ -245,7 +240,7 @@ impl<K, S> RodeoReader<K, S> {
     ///
     /// [`Key`]: crate::Key
     #[cfg_attr(feature = "inline-more", inline)]
-    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str
+    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a V
     where
         K: Key,
     {
@@ -293,13 +288,13 @@ impl<K, S> RodeoReader<K, S> {
 
     /// Returns an iterator over the interned strings and their key values
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn iter(&self) -> Iter<'_, K> {
+    pub fn iter(&self) -> Iter<'_, K, V> {
         Iter::from_reader(self)
     }
 
     /// Returns an iterator over the interned strings
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn strings(&self) -> Strings<'_, K> {
+    pub fn strings(&self) -> Strings<'_, K, V> {
         Strings::from_reader(self)
     }
 
@@ -326,7 +321,7 @@ impl<K, S> RodeoReader<K, S> {
     /// [`RodeoResolver`]: crate::RodeoResolver
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    pub fn into_resolver(self) -> RodeoResolver<K> {
+    pub fn into_resolver(self) -> RodeoResolver<K, V> {
         let RodeoReader {
             strings, __arena, ..
         } = self;
@@ -337,12 +332,12 @@ impl<K, S> RodeoReader<K, S> {
     }
 }
 
-unsafe impl<K: Sync, S: Sync> Sync for RodeoReader<K, S> {}
-unsafe impl<K: Send, S: Send> Send for RodeoReader<K, S> {}
+unsafe impl<K: Sync, V: Sync, S: Sync> Sync for RodeoReader<K, V, S> {}
+unsafe impl<K: Send, V: Send, S: Send> Send for RodeoReader<K, V, S> {}
 
-impl<'a, K: Key, S> IntoIterator for &'a RodeoReader<K, S> {
-    type Item = (K, &'a str);
-    type IntoIter = Iter<'a, K>;
+impl<'a, K: Key, V: ?Sized + Internable, S> IntoIterator for &'a RodeoReader<K, V, S> {
+    type Item = (K, &'a V);
+    type IntoIter = Iter<'a, K, V>;
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn into_iter(self) -> Self::IntoIter {
@@ -350,12 +345,13 @@ impl<'a, K: Key, S> IntoIterator for &'a RodeoReader<K, S> {
     }
 }
 
-impl<K, S> Index<K> for RodeoReader<K, S>
+impl<K, V, S> Index<K> for RodeoReader<K, V, S>
 where
     K: Key,
+    V: ?Sized + Internable,
     S: BuildHasher,
 {
-    type Output = str;
+    type Output = V;
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn index(&self, idx: K) -> &Self::Output {
@@ -363,25 +359,25 @@ where
     }
 }
 
-impl<K, S> Eq for RodeoReader<K, S> {}
+impl<K, V: ?Sized + Internable, S> Eq for RodeoReader<K, V, S> {}
 
-impl<K, S> PartialEq<Self> for RodeoReader<K, S> {
+impl<K, V: ?Sized + Internable, S> PartialEq<Self> for RodeoReader<K, V, S> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn eq(&self, other: &Self) -> bool {
         self.strings == other.strings
     }
 }
 
-impl<K, S> PartialEq<RodeoResolver<K>> for RodeoReader<K, S> {
+impl<K, V: ?Sized + Internable, S> PartialEq<RodeoResolver<K, V>> for RodeoReader<K, V, S> {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn eq(&self, other: &RodeoResolver<K>) -> bool {
+    fn eq(&self, other: &RodeoResolver<K, V>) -> bool {
         self.strings == other.strings
     }
 }
 
-impl<K, S> PartialEq<Rodeo<K, S>> for RodeoReader<K, S> {
+impl<K, V: ?Sized + Internable, S> PartialEq<Rodeo<K, V, S>> for RodeoReader<K, V, S> {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn eq(&self, other: &Rodeo<K, S>) -> bool {
+    fn eq(&self, other: &Rodeo<K, V, S>) -> bool {
         self.strings == other.strings
     }
 }
@@ -389,7 +385,6 @@ impl<K, S> PartialEq<Rodeo<K, S>> for RodeoReader<K, S> {
 compile! {
     if #[feature = "serialize"] {
         use crate::{Capacity, arenas::Arena};
-        use alloc::string::String;
         use core::num::NonZeroUsize;
         use hashbrown::hash_map::RawEntryMut;
         use serde::{
@@ -400,25 +395,31 @@ compile! {
 }
 
 #[cfg(feature = "serialize")]
-impl<K, H> Serialize for RodeoReader<K, H> {
+impl<K, V, H> Serialize for RodeoReader<K, V, H>
+where
+    V: ?Sized + Internable
+{
     #[cfg_attr(feature = "inline-more", inline)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        // Serialize all of self as a `Vec<String>`
-        self.strings.serialize(serializer)
+        // Serialize all of self as a `Vec<Vec<u8>>`
+        self.strings.iter()
+            .map(|v| v.as_bytes())
+            .collect::<Vec<_>>()
+            .serialize(serializer)
     }
 }
 
 #[cfg(feature = "serialize")]
-impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for RodeoReader<K, S> {
+impl<'de, K: Key, V: ?Sized + Internable, S: BuildHasher + Default> Deserialize<'de> for RodeoReader<K, V, S> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let vector: Vec<String> = Vec::deserialize(deserializer)?;
+        let vector: Vec<Vec<u8>> = Vec::deserialize(deserializer)?;
         let capacity = {
             let total_bytes = vector.iter().map(|s| s.len()).sum::<usize>();
             let total_bytes =
@@ -436,7 +437,7 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for RodeoReader<K, 
         for (key, string) in vector.into_iter().enumerate() {
             let allocated = unsafe {
                 arena
-                    .store_str(&string)
+                    .store_str(V::from_slice(&string))
                     .expect("failed to allocate enough memory")
             };
 
@@ -450,7 +451,7 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for RodeoReader<K, 
             // Get the map's entry that the string should occupy
             let entry = map.raw_entry_mut().from_hash(hash, |key: &K| {
                 // Safety: The index given by `key` will be in bounds of the strings vector
-                let key_string: &str = unsafe { index_unchecked!(strings, key.into_usize()) };
+                let key_string: &V = unsafe { index_unchecked!(strings, key.into_usize()) };
 
                 // Compare the requested string against the key's string
                 allocated == key_string
@@ -470,7 +471,7 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for RodeoReader<K, 
 
                     // Insert the key with the hash of the string that it points to, reusing the hash we made earlier
                     entry.insert_with_hasher(hash, key, (), |key| {
-                        let key_string: &str =
+                        let key_string: &V =
                             unsafe { index_unchecked!(strings, key.into_usize()) };
 
                         let mut state = hasher.build_hasher();

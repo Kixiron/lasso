@@ -1,7 +1,4 @@
-use crate::{
-    arenas::atomic_bucket::{AtomicBucket, AtomicBucketList},
-    Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits,
-};
+use crate::{arenas::atomic_bucket::{AtomicBucket, AtomicBucketList}, Capacity, Internable, LassoError, LassoErrorKind, LassoResult, MemoryLimits};
 use core::{
     fmt::{self, Debug},
     num::NonZeroUsize,
@@ -79,12 +76,15 @@ impl LockfreeArena {
     ///
     /// The reference passed back must be dropped before the arena that created it is
     ///
-    pub unsafe fn store_str(&self, string: &str) -> LassoResult<&'static str> {
+    pub unsafe fn store_str<V>(&self, string: &V) -> LassoResult<&'static V>
+    where
+        V: ?Sized + Internable,
+    {
         // If the string is empty, simply return an empty string.
         // This ensures that only strings with lengths greater
         // than zero will be allocated within the arena
         if string.is_empty() {
-            return Ok("");
+            return Ok(V::empty());
         }
 
         let slice = string.as_bytes();
@@ -284,7 +284,7 @@ mod tests {
         let mut len = 4096;
         for _ in 0..10 {
             let large_string = "a".repeat(len);
-            let arena_string = unsafe { arena.store_str(&large_string) };
+            let arena_string = unsafe { arena.store_str::<str>(&large_string) };
             assert_eq!(arena_string, Ok(large_string.as_str()));
 
             len *= 2;
