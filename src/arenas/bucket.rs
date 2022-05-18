@@ -79,7 +79,6 @@ impl Bucket {
             // Create a string from that slice
             // Safety: The source string was valid utf8, so the created buffer will be as well
             V::from_slice(target)
-            // core::str::from_utf8_unchecked(target)
         }
     }
 }
