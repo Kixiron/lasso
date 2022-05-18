@@ -446,7 +446,7 @@ pub use keys::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
 pub use reader::RodeoReader;
 pub use resolver::RodeoResolver;
 pub use rodeo::Rodeo;
-pub use util::{Capacity, Iter, LassoError, LassoErrorKind, LassoResult, MemoryLimits, Strings};
+pub use util::{Capacity, Iter, LassoError, LassoErrorKind, LassoResult, MemoryLimits, Strings, Internable};
 
 compile! {
     if #[all(feature = "multi-threaded", not(feature = "no-std"))] {

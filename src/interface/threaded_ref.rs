@@ -1,26 +1,27 @@
 #![cfg(feature = "multi-threaded")]
 
-use crate::{Interner, Key, ThreadedRodeo};
+use crate::{Internable, Interner, Key, ThreadedRodeo};
 use core::hash::{BuildHasher, Hash};
 
-impl<K, S> Interner<K> for &ThreadedRodeo<K, S>
+impl<K, V, S> Interner<K, V> for &ThreadedRodeo<K, V, S>
 where
     K: Key + Hash,
+    V: ?Sized + Internable,
     S: BuildHasher + Clone,
 {
-    fn get_or_intern(&mut self, val: &str) -> K {
+    fn get_or_intern(&mut self, val: &V) -> K {
         ThreadedRodeo::get_or_intern(self, val)
     }
 
-    fn try_get_or_intern(&mut self, val: &str) -> crate::LassoResult<K> {
+    fn try_get_or_intern(&mut self, val: &V) -> crate::LassoResult<K> {
         ThreadedRodeo::try_get_or_intern(self, val)
     }
 
-    fn get_or_intern_static(&mut self, val: &'static str) -> K {
+    fn get_or_intern_static(&mut self, val: &'static V) -> K {
         ThreadedRodeo::get_or_intern_static(self, val)
     }
 
-    fn try_get_or_intern_static(&mut self, val: &'static str) -> crate::LassoResult<K> {
+    fn try_get_or_intern_static(&mut self, val: &'static V) -> crate::LassoResult<K> {
         ThreadedRodeo::try_get_or_intern_static(self, val)
     }
 }

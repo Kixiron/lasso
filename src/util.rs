@@ -1,5 +1,8 @@
 use crate::{keys::Key, reader::RodeoReader, resolver::RodeoResolver, rodeo::Rodeo};
 use core::{fmt, iter, marker::PhantomData, num::NonZeroUsize, slice};
+use core::hash::Hash;
+use std::ffi::OsStr;
+use std::path::Path;
 
 /// A continence type for an error from an interner
 pub type LassoResult<T> = core::result::Result<T, LassoError>;
@@ -196,14 +199,14 @@ impl Default for MemoryLimits {
 /// An iterator over an interner's strings and keys
 #[derive(Clone, Debug)]
 #[must_use = "iterators are lazy and do nothing unless consumed"]
-pub struct Iter<'a, K> {
-    iter: iter::Enumerate<slice::Iter<'a, &'a str>>,
+pub struct Iter<'a, K, V: ?Sized> {
+    iter: iter::Enumerate<slice::Iter<'a, &'a V>>,
     __key: PhantomData<K>,
 }
 
-impl<'a, K> Iter<'a, K> {
+impl<'a, K, V: ?Sized> Iter<'a, K, V> {
     #[cfg_attr(feature = "inline-more", inline)]
-    pub(crate) fn from_rodeo<S>(rodeo: &'a Rodeo<K, S>) -> Self {
+    pub(crate) fn from_rodeo<S>(rodeo: &'a Rodeo<K, V, S>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -211,7 +214,7 @@ impl<'a, K> Iter<'a, K> {
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    pub(crate) fn from_reader<S>(rodeo: &'a RodeoReader<K, S>) -> Self {
+    pub(crate) fn from_reader<S>(rodeo: &'a RodeoReader<K, V, S>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -219,7 +222,7 @@ impl<'a, K> Iter<'a, K> {
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<K>) -> Self {
+    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<K, V>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -227,9 +230,10 @@ impl<'a, K> Iter<'a, K> {
     }
 }
 
-fn iter_element<'a, K>((key, string): (usize, &&'a str)) -> (K, &'a str)
+fn iter_element<'a, K, V>((key, string): (usize, &&'a V)) -> (K, &'a V)
 where
     K: Key,
+    V: ?Sized + Internable,
 {
     (
         K::try_from_usize(key).unwrap_or_else(|| unreachable!()),
@@ -237,11 +241,12 @@ where
     )
 }
 
-impl<'a, K> Iterator for Iter<'a, K>
+impl<'a, K, V> Iterator for Iter<'a, K, V>
 where
     K: Key,
+    V: ?Sized + Internable,
 {
-    type Item = (K, &'a str);
+    type Item = (K, &'a V);
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -254,26 +259,27 @@ where
     }
 }
 
-impl<'a, K> DoubleEndedIterator for Iter<'a, K>
+impl<'a, K, V> DoubleEndedIterator for Iter<'a, K, V>
 where
     K: Key,
+    V: ?Sized + Internable,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn next_back(&mut self) -> Option<(K, &'a str)> {
+    fn next_back(&mut self) -> Option<(K, &'a V)> {
         self.iter.next_back().map(iter_element)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn nth_back(&mut self, n: usize) -> Option<(K, &'a str)> {
+    fn nth_back(&mut self, n: usize) -> Option<(K, &'a V)> {
         self.iter.nth_back(n).map(iter_element)
     }
 }
 
 // iter::Enumerate is exact-size if its underlying iterator is exact-size, which slice::Iter is.
-impl<'a, K: Key> ExactSizeIterator for Iter<'a, K> {}
+impl<'a, K: Key, V: ?Sized + Internable> ExactSizeIterator for Iter<'a, K, V> {}
 
 // iter::Enumerate is fused if its underlying iterator is fused, which slice::Iter is.
-impl<'a, K: Key> iter::FusedIterator for Iter<'a, K> {}
+impl<'a, K: Key, V: ?Sized + Internable> iter::FusedIterator for Iter<'a, K, V> {}
 
 // #[derive(Debug)]
 // pub struct LockedIter<'a, K: Key> {
@@ -300,14 +306,14 @@ impl<'a, K: Key> iter::FusedIterator for Iter<'a, K> {}
 /// An iterator over an interner's strings
 #[derive(Clone, Debug)]
 #[must_use = "iterators are lazy and do nothing unless consumed"]
-pub struct Strings<'a, K> {
-    iter: slice::Iter<'a, &'a str>,
+pub struct Strings<'a, K, V: ?Sized> {
+    iter: slice::Iter<'a, &'a V>,
     __key: PhantomData<K>,
 }
 
-impl<'a, K> Strings<'a, K> {
+impl<'a, K, V: ?Sized> Strings<'a, K, V> {
     #[cfg_attr(feature = "inline-more", inline)]
-    pub(crate) fn from_rodeo<H>(rodeo: &'a Rodeo<K, H>) -> Self {
+    pub(crate) fn from_rodeo<H>(rodeo: &'a Rodeo<K, V, H>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -315,7 +321,7 @@ impl<'a, K> Strings<'a, K> {
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    pub(crate) fn from_reader<H>(rodeo: &'a RodeoReader<K, H>) -> Self {
+    pub(crate) fn from_reader<H>(rodeo: &'a RodeoReader<K, V, H>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -323,7 +329,7 @@ impl<'a, K> Strings<'a, K> {
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<K>) -> Self {
+    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<K, V>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -331,8 +337,8 @@ impl<'a, K> Strings<'a, K> {
     }
 }
 
-impl<'a, K> Iterator for Strings<'a, K> {
-    type Item = &'a str;
+impl<'a, K, V: ?Sized> Iterator for Strings<'a, K, V> {
+    type Item = &'a V;
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -345,26 +351,117 @@ impl<'a, K> Iterator for Strings<'a, K> {
     }
 }
 
-impl<'a, K> DoubleEndedIterator for Strings<'a, K>
-where
-    K: Key,
-{
+impl<'a, K, V: ?Sized> DoubleEndedIterator for Strings<'a, K, V> {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn next_back(&mut self) -> Option<&'a str> {
+    fn next_back(&mut self) -> Option<&'a V> {
         self.iter.next_back().copied()
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn nth_back(&mut self, n: usize) -> Option<&'a str> {
+    fn nth_back(&mut self, n: usize) -> Option<&'a V> {
         self.iter.nth_back(n).copied()
     }
 }
 
 // slice::Iter is exact-size.
-impl<'a, K> ExactSizeIterator for Strings<'a, K> {}
+impl<'a, K, V: ?Sized> ExactSizeIterator for Strings<'a, K, V> {}
 
 // slice::Iter is fused.
-impl<'a, K: Key> iter::FusedIterator for Strings<'a, K> {}
+impl<'a, K, V: ?Sized> iter::FusedIterator for Strings<'a, K, V> {}
+
+/// Trait for types that can be interned within a `Rodeo`
+pub trait Internable: Hash + Eq + AsRef<Self> {
+    /// A reference to an empty instance of this type
+    fn empty() -> &'static Self;
+
+    /// Create this type from a byte-slice stored in a `Rodeo`
+    ///
+    /// # Safety
+    ///
+    /// This should be used only with byte arrays returned from `Internable::as_bytes`, to
+    /// ensure the provided bytes match the validity requirements of the implementor.
+    unsafe fn from_slice(slice: &[u8]) -> &Self;
+
+    /// Check whether an instance to intern is empty
+    fn is_empty(&self) -> bool;
+
+    /// Convert this type into bytes to store in the `Rodeo`
+    fn as_bytes(&self) -> &[u8];
+}
+
+impl Internable for [u8] {
+    fn empty() -> &'static Self {
+        &[]
+    }
+
+    unsafe fn from_slice(slice: &[u8]) -> &Self {
+        slice
+    }
+
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+
+    fn as_bytes(&self) -> &[u8] {
+        self
+    }
+}
+
+impl Internable for str {
+    fn empty() -> &'static Self {
+        ""
+    }
+
+    unsafe fn from_slice(slice: &[u8]) -> &Self {
+        unsafe { core::str::from_utf8_unchecked(slice) }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+
+    fn as_bytes(&self) -> &[u8] {
+        self.as_bytes()
+    }
+}
+
+impl Internable for Path {
+    fn empty() -> &'static Self {
+        Path::new("")
+    }
+
+    unsafe fn from_slice(slice: &[u8]) -> &Self {
+        unsafe { Path::new(core::str::from_utf8_unchecked(slice)) }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.as_os_str().is_empty()
+    }
+
+    fn as_bytes(&self) -> &[u8] {
+        self.as_os_str().as_bytes()
+    }
+}
+
+impl Internable for OsStr {
+    fn empty() -> &'static Self {
+        OsStr::new("")
+    }
+
+    unsafe fn from_slice(slice: &[u8]) -> &Self {
+        unsafe { OsStr::new(core::str::from_utf8_unchecked(slice)) }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+
+    fn as_bytes(&self) -> &[u8] {
+        self.to_str()
+            .unwrap()
+            .as_bytes()
+    }
+}
 
 macro_rules! compile {
     ($(

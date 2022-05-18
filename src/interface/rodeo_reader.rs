@@ -1,32 +1,34 @@
 //! Implementations of [`Reader`] and [`Resolver`] for [`RodeoReader`]
 
-use crate::{IntoResolver, Key, Reader, Resolver, RodeoReader, RodeoResolver};
+use crate::{Internable, IntoResolver, Key, Reader, Resolver, RodeoReader, RodeoResolver};
 #[cfg(feature = "no-std")]
 use alloc::boxed::Box;
 use core::hash::BuildHasher;
 
-impl<K, S> Reader<K> for RodeoReader<K, S>
+impl<K, V, S> Reader<K, V> for RodeoReader<K, V, S>
 where
     K: Key,
+    V: ?Sized + Internable,
     S: BuildHasher,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn get(&self, val: &str) -> Option<K> {
+    fn get(&self, val: &V) -> Option<K> {
         self.get(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn contains(&self, val: &str) -> bool {
+    fn contains(&self, val: &V) -> bool {
         self.contains(val)
     }
 }
 
-impl<K, S> IntoResolver<K> for RodeoReader<K, S>
+impl<K, V, S> IntoResolver<K, V> for RodeoReader<K, V, S>
 where
     K: Key,
+    V: ?Sized + Internable,
     S: BuildHasher,
 {
-    type Resolver = RodeoResolver<K>;
+    type Resolver = RodeoResolver<K, V>;
 
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
@@ -47,22 +49,23 @@ where
     }
 }
 
-impl<K, S> Resolver<K> for RodeoReader<K, S>
+impl<K, V, S> Resolver<K, V> for RodeoReader<K, V, S>
 where
     K: Key,
+    V: ?Sized + Internable,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn resolve<'a>(&'a self, key: &K) -> &'a str {
+    fn resolve<'a>(&'a self, key: &K) -> &'a V {
         self.resolve(key)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
+    fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a V> {
         self.try_resolve(key)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
+    unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a V {
         unsafe { self.resolve_unchecked(key) }
     }
 

@@ -1,4 +1,4 @@
-use crate::{LassoError, LassoErrorKind, LassoResult};
+use crate::{Internable, LassoError, LassoErrorKind, LassoResult};
 use alloc::alloc::{alloc, dealloc, Layout};
 use core::{
     mem::{align_of, size_of},
@@ -189,7 +189,10 @@ impl UniqueBucketRef {
     /// Additionally, the underlying [`AtomicBucket`] must have enough room
     /// to store the entire slice and the given slice must be valid utf-8 data.
     ///
-    pub unsafe fn push_slice(&mut self, slice: &[u8]) -> &'static str {
+    pub unsafe fn push_slice<V>(&mut self, slice: &[u8]) -> &'static V
+    where
+        V: ?Sized + Internable,
+    {
         let len = self.len();
 
         if cfg!(debug_assertions) {
@@ -214,7 +217,7 @@ impl UniqueBucketRef {
         // Create a string from that slice
         // Safety: The source string was valid utf8, so the created buffer will be as well
 
-        unsafe { core::str::from_utf8_unchecked(target) }
+        unsafe { V::from_slice(target) }
     }
 }
 

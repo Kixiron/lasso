@@ -1,9 +1,4 @@
-use crate::{
-    arenas::AnyArena,
-    keys::{Key, Spur},
-    util::{Iter, Strings},
-    Rodeo, RodeoReader,
-};
+use crate::{arenas::AnyArena, keys::{Key, Spur}, util::{Iter, Strings}, Rodeo, RodeoReader, Internable};
 use alloc::vec::Vec;
 use core::{marker::PhantomData, ops::Index};
 
@@ -15,9 +10,9 @@ use core::{marker::PhantomData, ops::Index};
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoResolver<K = Spur> {
+pub struct RodeoResolver<K = Spur, V: ?Sized + 'static = str> {
     /// Vector of strings mapped to key indexes that allows key to string resolution
-    pub(crate) strings: Vec<&'static str>,
+    pub(crate) strings: Vec<&'static V>,
     /// The arena that contains all the strings
     ///
     /// This is not touched, but *must* be kept since every string in `self.strings`
@@ -27,7 +22,7 @@ pub struct RodeoResolver<K = Spur> {
     __key: PhantomData<K>,
 }
 
-impl<K> RodeoResolver<K> {
+impl<K, V: ?Sized> RodeoResolver<K, V> {
     /// Creates a new RodeoResolver
     ///
     /// # Safety
@@ -35,7 +30,7 @@ impl<K> RodeoResolver<K> {
     /// The references inside of `strings` must be absolutely unique, meaning
     /// that no other references to those strings exist
     ///
-    pub(crate) unsafe fn new(strings: Vec<&'static str>, arena: AnyArena) -> Self {
+    pub(crate) unsafe fn new(strings: Vec<&'static V>, arena: AnyArena) -> Self {
         Self {
             strings,
             __arena: arena,
@@ -65,7 +60,7 @@ impl<K> RodeoResolver<K> {
     ///
     /// [`Key`]: crate::Key
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn resolve<'a>(&'a self, key: &K) -> &'a str
+    pub fn resolve<'a>(&'a self, key: &K) -> &'a V
     where
         K: Key,
     {
@@ -98,7 +93,7 @@ impl<K> RodeoResolver<K> {
     ///
     /// [`Key`]: crate::Key
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str>
+    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a V>
     where
         K: Key,
     {
@@ -138,7 +133,7 @@ impl<K> RodeoResolver<K> {
     ///
     /// [`Key`]: crate::Key
     #[cfg_attr(feature = "inline-more", inline)]
-    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str
+    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a V
     where
         K: Key,
     {
@@ -211,23 +206,23 @@ impl<K> RodeoResolver<K> {
 
     /// Returns an iterator over the interned strings and their key values
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn iter(&self) -> Iter<'_, K> {
+    pub fn iter(&self) -> Iter<'_, K, V> {
         Iter::from_resolver(self)
     }
 
     /// Returns an iterator over the interned strings
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn strings(&self) -> Strings<'_, K> {
+    pub fn strings(&self) -> Strings<'_, K, V> {
         Strings::from_resolver(self)
     }
 }
 
-unsafe impl<K: Send> Send for RodeoResolver<K> {}
-unsafe impl<K: Sync> Sync for RodeoResolver<K> {}
+unsafe impl<K: Send, V: Send> Send for RodeoResolver<K, V> {}
+unsafe impl<K: Sync, V: Sync> Sync for RodeoResolver<K, V> {}
 
-impl<'a, K: Key> IntoIterator for &'a RodeoResolver<K> {
-    type Item = (K, &'a str);
-    type IntoIter = Iter<'a, K>;
+impl<'a, K: Key, V: ?Sized + Internable> IntoIterator for &'a RodeoResolver<K, V> {
+    type Item = (K, &'a V);
+    type IntoIter = Iter<'a, K, V>;
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn into_iter(self) -> Self::IntoIter {
@@ -235,8 +230,8 @@ impl<'a, K: Key> IntoIterator for &'a RodeoResolver<K> {
     }
 }
 
-impl<K: Key> Index<K> for RodeoResolver<K> {
-    type Output = str;
+impl<K: Key, V: ?Sized> Index<K> for RodeoResolver<K, V> {
+    type Output = V;
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn index(&self, idx: K) -> &Self::Output {
@@ -244,25 +239,25 @@ impl<K: Key> Index<K> for RodeoResolver<K> {
     }
 }
 
-impl<K> Eq for RodeoResolver<K> {}
+impl<K, V: ?Sized + Internable> Eq for RodeoResolver<K, V> {}
 
-impl<K> PartialEq<Self> for RodeoResolver<K> {
+impl<K, V: ?Sized + Internable> PartialEq<Self> for RodeoResolver<K, V> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn eq(&self, other: &Self) -> bool {
         self.strings == other.strings
     }
 }
 
-impl<K, S> PartialEq<RodeoReader<K, S>> for RodeoResolver<K> {
+impl<K, V: ?Sized + Internable, S> PartialEq<RodeoReader<K, V, S>> for RodeoResolver<K, V> {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn eq(&self, other: &RodeoReader<K, S>) -> bool {
+    fn eq(&self, other: &RodeoReader<K, V, S>) -> bool {
         self.strings == other.strings
     }
 }
 
-impl<K, S> PartialEq<Rodeo<K, S>> for RodeoResolver<K> {
+impl<K, V: ?Sized + Internable, S> PartialEq<Rodeo<K, V, S>> for RodeoResolver<K, V> {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn eq(&self, other: &Rodeo<K, S>) -> bool {
+    fn eq(&self, other: &Rodeo<K, V, S>) -> bool {
         self.strings == other.strings
     }
 }
@@ -270,7 +265,6 @@ impl<K, S> PartialEq<Rodeo<K, S>> for RodeoResolver<K> {
 compile! {
     if #[feature = "serialize"] {
         use crate::{Capacity, arenas::Arena};
-        use alloc::string::String;
         use core::num::NonZeroUsize;
         use serde::{
             de::{Deserialize, Deserializer},
@@ -280,25 +274,31 @@ compile! {
 }
 
 #[cfg(feature = "serialize")]
-impl<K> Serialize for RodeoResolver<K> {
+impl<K, V> Serialize for RodeoResolver<K, V>
+where
+    V: ?Sized + Internable,
+{
     #[cfg_attr(feature = "inline-more", inline)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        // Serialize all of self as a `Vec<String>`
-        self.strings.serialize(serializer)
+        // Serialize all of self as a `Vec<Vec<u8>>`
+        self.strings.iter()
+            .map(|v| v.as_bytes())
+            .collect::<Vec<_>>()
+            .serialize(serializer)
     }
 }
 
 #[cfg(feature = "serialize")]
-impl<'de, K: Key> Deserialize<'de> for RodeoResolver<K> {
+impl<'de, K: Key, V: ?Sized + Internable> Deserialize<'de> for RodeoResolver<K, V> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let vector: Vec<String> = Vec::deserialize(deserializer)?;
+        let vector: Vec<Vec<u8>> = Vec::deserialize(deserializer)?;
         let capacity = {
             let total_bytes = vector.iter().map(|s| s.len()).sum::<usize>();
             let total_bytes =
@@ -314,7 +314,7 @@ impl<'de, K: Key> Deserialize<'de> for RodeoResolver<K> {
         for string in vector {
             let allocated = unsafe {
                 arena
-                    .store_str(&string)
+                    .store_str(V::from_slice(&string))
                     .expect("failed to allocate enough memory")
             };
 

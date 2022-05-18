@@ -1,4 +1,4 @@
-use crate::{LassoError, LassoErrorKind, LassoResult};
+use crate::{Internable, LassoError, LassoErrorKind, LassoResult};
 use alloc::alloc::{alloc, dealloc, Layout};
 use core::{mem, num::NonZeroUsize, ptr::NonNull, slice};
 
@@ -61,7 +61,7 @@ impl Bucket {
     /// the caller promises to forget the reference before the arena is dropped.
     /// Additionally, `slice` must be valid UTF-8 and should come from an `&str`
     ///
-    pub(crate) unsafe fn push_slice(&mut self, slice: &[u8]) -> &'static str {
+    pub(crate) unsafe fn push_slice<V: ?Sized + Internable>(&mut self, slice: &[u8]) -> &'static V {
         debug_assert!(!self.is_full());
         debug_assert!(slice.len() <= self.capacity.get() - self.index);
 
@@ -78,7 +78,8 @@ impl Bucket {
 
             // Create a string from that slice
             // Safety: The source string was valid utf8, so the created buffer will be as well
-            core::str::from_utf8_unchecked(target)
+            V::from_slice(target)
+            // core::str::from_utf8_unchecked(target)
         }
     }
 }
