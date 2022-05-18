@@ -59,7 +59,7 @@ impl Bucket {
     ///
     /// The current bucket must have room for all bytes of the slice and
     /// the caller promises to forget the reference before the arena is dropped.
-    /// Additionally, `slice` must be valid UTF-8 and should come from an `&str`
+    /// Additionally, `slice` must be valid for the interned type and should come from an `&V`
     ///
     pub(crate) unsafe fn push_slice<V: ?Sized + Internable>(&mut self, slice: &[u8]) -> &'static V {
         debug_assert!(!self.is_full());

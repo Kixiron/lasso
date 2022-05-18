@@ -17,7 +17,7 @@ use hashbrown::{hash_map::RawEntryMut, HashMap};
 /// [`RandomState`]: https://doc.rust-lang.org/std/collections/hash_map/struct.RandomState.html
 #[derive(Debug)]
 pub struct Rodeo<K = Spur, V: ?Sized + 'static = str, S = RandomState> {
-    /// Map that allows `str` -> `key` resolution
+    /// Map that allows `V` -> `key` resolution
     ///
     /// This must be a `HashMap` (for now) since `raw_api`s are only available for maps and not sets.
     /// The value of the map is `()` since the key is symbolically hashed as the string it represents and
@@ -35,7 +35,7 @@ pub struct Rodeo<K = Spur, V: ?Sized + 'static = str, S = RandomState> {
     /// The hasher of the map. This is stored outside of the map so that we can use
     /// custom hashing on the keys of the map without the map itself trying to do something else
     hasher: S,
-    /// Vec that allows `key` -> `str` resolution
+    /// Vec that allows `key` -> `V` resolution
     pub(crate) strings: Vec<&'static V>,
     /// The arena that holds all allocated strings
     arena: Arena,

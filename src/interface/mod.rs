@@ -110,7 +110,7 @@ where
 
 /// A generic interface that allows using any underlying interner for
 /// both its reading and resolution capabilities, allowing both
-/// `str -> key` and `key -> str` lookups
+/// `V -> key` and `key -> V` lookups
 pub trait Reader<K = Spur, V: ?Sized = str>: Resolver<K, V> {
     /// Get a key for the given string value if it exists
     fn get(&self, val: &V) -> Option<K>;
@@ -177,7 +177,7 @@ where
 }
 
 /// A generic interface that allows using any underlying interner only
-/// for its resolution capabilities, allowing only `key -> str` lookups
+/// for its resolution capabilities, allowing only `key -> V` lookups
 pub trait Resolver<K = Spur, V: ?Sized = str> {
     /// Resolves the given key into a string
     ///

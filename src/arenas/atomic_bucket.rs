@@ -183,7 +183,7 @@ impl UniqueBucketRef {
     ///
     /// # Safety
     ///
-    /// The returned `&'static str` (and all copies of it) must be dropped
+    /// The returned `&'static V` (and all copies of it) must be dropped
     /// before the current bucket is, as this bucket contains the backing
     /// memory for the string.
     /// Additionally, the underlying [`AtomicBucket`] must have enough room
