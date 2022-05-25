@@ -573,7 +573,7 @@ fn rodeo_fxhash_threaded(c: &mut Criterion) {
 
 pub struct ThreadedRodeoFilledSetup<S: BuildHasher + Clone> {
     lines: &'static [&'static str],
-    rodeo: ThreadedRodeo<Spur, S>,
+    rodeo: ThreadedRodeo<Spur, str, S>,
     keys: Vec<Spur>,
 }
 
@@ -592,7 +592,7 @@ impl<S: BuildHasher + Clone> ThreadedRodeoFilledSetup<S> {
         Self { lines, rodeo, keys }
     }
 
-    pub fn into_inner(self) -> ThreadedRodeo<Spur, S> {
+    pub fn into_inner(self) -> ThreadedRodeo<Spur, str, S> {
         self.rodeo
     }
 
@@ -600,11 +600,11 @@ impl<S: BuildHasher + Clone> ThreadedRodeoFilledSetup<S> {
         self.lines
     }
 
-    pub fn filled_rodeo(&self) -> &ThreadedRodeo<Spur, S> {
+    pub fn filled_rodeo(&self) -> &ThreadedRodeo<Spur, str, S> {
         &self.rodeo
     }
 
-    pub fn filled_rodeo_mut(&mut self) -> &mut ThreadedRodeo<Spur, S> {
+    pub fn filled_rodeo_mut(&mut self) -> &mut ThreadedRodeo<Spur, str, S> {
         &mut self.rodeo
     }
 
@@ -628,7 +628,7 @@ impl<S: BuildHasher + Clone> ThreadedRodeoEmptySetup<S> {
         }
     }
 
-    pub fn empty_rodeo(&self) -> ThreadedRodeo<Spur, S> {
+    pub fn empty_rodeo(&self) -> ThreadedRodeo<Spur, str, S> {
         ThreadedRodeo::with_capacity_and_hasher(
             Capacity::for_strings(self.lines.len()),
             self.build_hasher.clone(),
@@ -642,7 +642,7 @@ impl<S: BuildHasher + Clone> ThreadedRodeoEmptySetup<S> {
 
 pub fn run_threaded_filled<F, S>(func: F, num_threads: usize, iters: u64, hash: S) -> Duration
 where
-    F: FnOnce(&ThreadedRodeo<Spur, S>, &[Spur]) + Send + 'static + Clone + Copy,
+    F: FnOnce(&ThreadedRodeo<Spur, str, S>, &[Spur]) + Send + 'static + Clone + Copy,
     S: BuildHasher + Clone + Send + Sync + 'static,
 {
     let setup = ThreadedRodeoFilledSetup::new(hash);
@@ -659,7 +659,7 @@ where
         let keys = keys.clone();
 
         threads.push(thread::spawn(move || {
-            let reader: &ThreadedRodeo<Spur, S> = &*reader;
+            let reader: &ThreadedRodeo<Spur, str, S> = &*reader;
             barrier.wait();
             while running.load(Ordering::Relaxed) {
                 func(reader, &keys)
@@ -667,7 +667,7 @@ where
         }));
     }
 
-    let reader: &ThreadedRodeo<Spur, S> = &*reader;
+    let reader: &ThreadedRodeo<Spur, str, S> = &*reader;
     barrier.wait();
     let start = Instant::now();
     for _ in 0..iters {

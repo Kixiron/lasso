@@ -1,4 +1,11 @@
-use crate::{arenas::AnyArena, hasher::RandomState, keys::{Key, Spur}, resolver::RodeoResolver, util::{Iter, Strings}, Rodeo, Internable};
+use crate::{
+    arenas::AnyArena,
+    hasher::RandomState,
+    keys::{Key, Spur},
+    resolver::RodeoResolver,
+    util::{Iter, Strings},
+    Internable, Rodeo,
+};
 use alloc::vec::Vec;
 use core::{
     hash::{BuildHasher, Hasher},
@@ -332,8 +339,8 @@ impl<K, V: ?Sized, S> RodeoReader<K, V, S> {
     }
 }
 
-unsafe impl<K: Sync, V: Sync, S: Sync> Sync for RodeoReader<K, V, S> {}
-unsafe impl<K: Send, V: Send, S: Send> Send for RodeoReader<K, V, S> {}
+unsafe impl<K: Sync, V: Sync + ?Sized, S: Sync> Sync for RodeoReader<K, V, S> {}
+unsafe impl<K: Send, V: Send + ?Sized, S: Send> Send for RodeoReader<K, V, S> {}
 
 impl<'a, K: Key, V: ?Sized + Internable, S> IntoIterator for &'a RodeoReader<K, V, S> {
     type Item = (K, &'a V);
@@ -395,31 +402,31 @@ compile! {
 }
 
 #[cfg(feature = "serialize")]
-impl<K, V, H> Serialize for RodeoReader<K, V, H>
-where
-    V: ?Sized + Internable
-{
+impl<K, H> Serialize for RodeoReader<K, str, H> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        // Serialize all of self as a `Vec<Vec<u8>>`
-        self.strings.iter()
-            .map(|v| v.as_bytes())
-            .collect::<Vec<_>>()
-            .serialize(serializer)
+        // Serialize all of self as a `Vec<String>`
+        self.strings.serialize(serializer)
     }
 }
 
 #[cfg(feature = "serialize")]
-impl<'de, K: Key, V: ?Sized + Internable, S: BuildHasher + Default> Deserialize<'de> for RodeoReader<K, V, S> {
+impl<'de, K, S> Deserialize<'de> for RodeoReader<K, str, S>
+where
+    K: Key,
+    S: BuildHasher + Default,
+{
     #[cfg_attr(feature = "inline-more", inline)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let vector: Vec<Vec<u8>> = Vec::deserialize(deserializer)?;
+        use core::hash::Hash;
+
+        let vector: Vec<String> = Vec::deserialize(deserializer)?;
         let capacity = {
             let total_bytes = vector.iter().map(|s| s.len()).sum::<usize>();
             let total_bytes =
@@ -431,27 +438,26 @@ impl<'de, K: Key, V: ?Sized + Internable, S: BuildHasher + Default> Deserialize<
         let hasher: S = Default::default();
         let mut strings = Vec::with_capacity(capacity.strings);
         let mut map = HashMap::with_capacity_and_hasher(capacity.strings, ());
-        let mut arena = Arena::new(capacity.bytes, usize::max_value())
+        let mut arena = Arena::new(capacity.bytes, str::ALIGNMENT, usize::max_value())
             .expect("failed to allocate memory for interner");
 
         for (key, string) in vector.into_iter().enumerate() {
             let allocated = unsafe {
                 arena
-                    .store_str(V::from_slice(&string))
+                    .store_internable(&*string)
                     .expect("failed to allocate enough memory")
             };
 
             let hash = {
                 let mut state = hasher.build_hasher();
                 allocated.hash(&mut state);
-
                 state.finish()
             };
 
             // Get the map's entry that the string should occupy
             let entry = map.raw_entry_mut().from_hash(hash, |key: &K| {
                 // Safety: The index given by `key` will be in bounds of the strings vector
-                let key_string: &V = unsafe { index_unchecked!(strings, key.into_usize()) };
+                let key_string: &str = unsafe { index_unchecked!(strings, key.into_usize()) };
 
                 // Compare the requested string against the key's string
                 allocated == key_string
@@ -471,7 +477,7 @@ impl<'de, K: Key, V: ?Sized + Internable, S: BuildHasher + Default> Deserialize<
 
                     // Insert the key with the hash of the string that it points to, reusing the hash we made earlier
                     entry.insert_with_hasher(hash, key, (), |key| {
-                        let key_string: &V =
+                        let key_string: &str =
                             unsafe { index_unchecked!(strings, key.into_usize()) };
 
                         let mut state = hasher.build_hasher();

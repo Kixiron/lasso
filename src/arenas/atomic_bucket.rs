@@ -1,7 +1,7 @@
-use crate::{Internable, LassoError, LassoErrorKind, LassoResult};
+use crate::{LassoError, LassoErrorKind, LassoResult};
 use alloc::alloc::{alloc, dealloc, Layout};
 use core::{
-    mem::{align_of, size_of},
+    mem::{size_of, MaybeUninit},
     num::NonZeroUsize,
     ptr::{self, addr_of_mut, NonNull},
     slice,
@@ -12,15 +12,17 @@ pub(super) struct AtomicBucketList {
     /// The first bucket in the list, will be null if the list currently
     /// has no buckets
     head: AtomicPtr<AtomicBucket>,
+    align: NonZeroUsize,
 }
 
 impl AtomicBucketList {
     /// Create a new bucket list
-    pub fn new(first_bucket_capacity: NonZeroUsize) -> LassoResult<Self> {
-        let bucket = AtomicBucket::with_capacity(first_bucket_capacity)?;
+    pub fn new(first_bucket_capacity: NonZeroUsize, align: NonZeroUsize) -> LassoResult<Self> {
+        let bucket = AtomicBucket::with_capacity(first_bucket_capacity, align)?;
 
         Ok(Self {
             head: AtomicPtr::new(bucket.as_ptr()),
+            align,
         })
     }
 
@@ -70,6 +72,10 @@ impl AtomicBucketList {
             }
         }
     }
+
+    pub(super) const fn align(&self) -> NonZeroUsize {
+        self.align
+    }
 }
 
 impl Drop for AtomicBucketList {
@@ -88,7 +94,7 @@ impl Drop for AtomicBucketList {
 
                 // Get the layout of the current bucket so we can deallocate it
                 let capacity = (*current_ptr).capacity;
-                let layout = AtomicBucket::layout(capacity)
+                let layout = AtomicBucket::layout(capacity, self.align)
                     .expect("buckets with invalid capacities can't be constructed");
 
                 // Deallocate all memory that the bucket allocated
@@ -189,35 +195,27 @@ impl UniqueBucketRef {
     /// Additionally, the underlying [`AtomicBucket`] must have enough room
     /// to store the entire slice and the given slice must be valid utf-8 data.
     ///
-    pub unsafe fn push_slice<V>(&mut self, slice: &[u8]) -> &'static V
-    where
-        V: ?Sized + Internable,
-    {
-        let len = self.len();
+    pub unsafe fn allocate(&mut self, length: usize) -> &'static mut [MaybeUninit<u8>] {
+        let current_length = self.len();
 
         if cfg!(debug_assertions) {
             let capacity = self.capacity().get();
 
-            debug_assert_ne!(len, capacity);
-            debug_assert!(slice.len() <= capacity - len);
+            debug_assert_ne!(current_length, capacity);
+            debug_assert!(length <= capacity - current_length);
         }
 
-        // Get a pointer to the start of the free data
-        let ptr = unsafe { addr_of_mut!((*self.as_ptr())._data).cast::<u8>().add(len) };
+        unsafe {
+            // Get a pointer to the start of the free data
+            let ptr = addr_of_mut!((*self.as_ptr())._data)
+                .cast::<MaybeUninit<u8>>()
+                .add(current_length);
 
-        // Make the slice that we'll fill with the string's data
-        let target = unsafe { slice::from_raw_parts_mut(ptr, slice.len()) };
-        // Copy the data from the source string into the bucket's buffer
-        target.copy_from_slice(slice);
+            // Increment the index so that the string we just added isn't overwritten
+            self.set_len(current_length + length);
 
-        // Increment the index so that the string we just added isn't overwritten
-        // Safety: All bytes are initialized and the length is <= capacity
-        unsafe { self.set_len(len + slice.len()) };
-
-        // Create a string from that slice
-        // Safety: The source string was valid utf8, so the created buffer will be as well
-
-        unsafe { V::from_slice(target) }
+            slice::from_raw_parts_mut(ptr, length)
+        }
     }
 }
 
@@ -303,14 +301,17 @@ pub(super) struct AtomicBucket {
     ///
     /// Invariant: Never touch this field manually, it contains uninitialized data up
     /// to the length of `capacity`
-    _data: [u8; 0],
+    _data: [MaybeUninit<u8>; 0],
 }
 
 impl AtomicBucket {
     /// Allocates a bucket with space for `capacity` items
-    pub(crate) fn with_capacity(capacity: NonZeroUsize) -> LassoResult<UniqueBucketRef> {
+    pub(crate) fn with_capacity(
+        capacity: NonZeroUsize,
+        align: NonZeroUsize,
+    ) -> LassoResult<UniqueBucketRef> {
         // Create the bucket's layout
-        let layout = Self::layout(capacity)?;
+        let layout = Self::layout(capacity, align)?;
         debug_assert_ne!(layout.size(), 0);
 
         // Allocate memory for the bucket
@@ -345,19 +346,12 @@ impl AtomicBucket {
     ///
     /// `capacity` must be a power of two that won't overflow when rounded up
     ///
-    fn layout(capacity: NonZeroUsize) -> LassoResult<Layout> {
+    fn layout(capacity: NonZeroUsize, align: NonZeroUsize) -> LassoResult<Layout> {
         let next = Layout::new::<AtomicPtr<Self>>();
         let len = Layout::new::<usize>();
         let cap = Layout::new::<NonZeroUsize>();
-
-        // Safety: Align will always be a non-zero power of two and the
-        //         size will not overflow when rounded up
-        debug_assert!(
-            Layout::from_size_align(size_of::<u8>() * capacity.get(), align_of::<u8>()).is_ok()
-        );
-        let data = unsafe {
-            Layout::from_size_align_unchecked(size_of::<u8>() * capacity.get(), align_of::<u8>())
-        };
+        let data = Layout::from_size_align(size_of::<u8>() * capacity.get(), align.get())
+            .map_err(|_| LassoError::new(LassoErrorKind::FailedAllocation))?;
 
         next.extend(len)
             .and_then(|(layout, _)| layout.extend(cap))

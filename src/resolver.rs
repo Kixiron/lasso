@@ -1,4 +1,9 @@
-use crate::{arenas::AnyArena, keys::{Key, Spur}, util::{Iter, Strings}, Rodeo, RodeoReader, Internable};
+use crate::{
+    arenas::AnyArena,
+    keys::{Key, Spur},
+    util::{Iter, Strings},
+    Internable, Rodeo, RodeoReader,
+};
 use alloc::vec::Vec;
 use core::{marker::PhantomData, ops::Index};
 
@@ -217,8 +222,8 @@ impl<K, V: ?Sized> RodeoResolver<K, V> {
     }
 }
 
-unsafe impl<K: Send, V: Send> Send for RodeoResolver<K, V> {}
-unsafe impl<K: Sync, V: Sync> Sync for RodeoResolver<K, V> {}
+unsafe impl<K: Send, V: Send + ?Sized> Send for RodeoResolver<K, V> {}
+unsafe impl<K: Sync, V: Sync + ?Sized> Sync for RodeoResolver<K, V> {}
 
 impl<'a, K: Key, V: ?Sized + Internable> IntoIterator for &'a RodeoResolver<K, V> {
     type Item = (K, &'a V);
@@ -274,31 +279,27 @@ compile! {
 }
 
 #[cfg(feature = "serialize")]
-impl<K, V> Serialize for RodeoResolver<K, V>
-where
-    V: ?Sized + Internable,
-{
+impl<K> Serialize for RodeoResolver<K, str> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        // Serialize all of self as a `Vec<Vec<u8>>`
-        self.strings.iter()
-            .map(|v| v.as_bytes())
-            .collect::<Vec<_>>()
-            .serialize(serializer)
+        self.strings.serialize(serializer)
     }
 }
 
 #[cfg(feature = "serialize")]
-impl<'de, K: Key, V: ?Sized + Internable> Deserialize<'de> for RodeoResolver<K, V> {
+impl<'de, K> Deserialize<'de> for RodeoResolver<K, str>
+where
+    K: Key,
+{
     #[cfg_attr(feature = "inline-more", inline)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let vector: Vec<Vec<u8>> = Vec::deserialize(deserializer)?;
+        let vector: Vec<String> = Vec::deserialize(deserializer)?;
         let capacity = {
             let total_bytes = vector.iter().map(|s| s.len()).sum::<usize>();
             let total_bytes =
@@ -308,13 +309,13 @@ impl<'de, K: Key, V: ?Sized + Internable> Deserialize<'de> for RodeoResolver<K, 
         };
 
         let mut strings = Vec::with_capacity(capacity.strings);
-        let mut arena = Arena::new(capacity.bytes, usize::max_value())
+        let mut arena = Arena::new(capacity.bytes, str::ALIGNMENT, usize::max_value())
             .expect("failed to allocate memory for interner");
 
         for string in vector {
             let allocated = unsafe {
                 arena
-                    .store_str(V::from_slice(&string))
+                    .store_internable(&*string)
                     .expect("failed to allocate enough memory")
             };
 

@@ -1,8 +1,5 @@
-use crate::{keys::Key, reader::RodeoReader, resolver::RodeoResolver, rodeo::Rodeo};
-use core::{fmt, iter, marker::PhantomData, num::NonZeroUsize, slice};
-use core::hash::Hash;
-use std::ffi::OsStr;
-use std::path::Path;
+use crate::{keys::Key, reader::RodeoReader, resolver::RodeoResolver, rodeo::Rodeo, Internable};
+use core::{fmt, hash::Hash, iter, marker::PhantomData, num::NonZeroUsize, slice};
 
 /// A continence type for an error from an interner
 pub type LassoResult<T> = core::result::Result<T, LassoError>;
@@ -368,103 +365,6 @@ impl<'a, K, V: ?Sized> ExactSizeIterator for Strings<'a, K, V> {}
 
 // slice::Iter is fused.
 impl<'a, K, V: ?Sized> iter::FusedIterator for Strings<'a, K, V> {}
-
-/// Trait for types that can be interned within a `Rodeo`
-pub trait Internable: Hash + Eq + AsRef<Self> {
-    /// A reference to an empty instance of this type
-    fn empty() -> &'static Self;
-
-    /// Create this type from a byte-slice stored in a `Rodeo`
-    ///
-    /// # Safety
-    ///
-    /// This should be used only with byte arrays returned from `Internable::as_bytes`, to
-    /// ensure the provided bytes match the validity requirements of the implementor.
-    unsafe fn from_slice(slice: &[u8]) -> &Self;
-
-    /// Check whether an instance to intern is empty
-    fn is_empty(&self) -> bool;
-
-    /// Convert this type into bytes to store in the `Rodeo`
-    fn as_bytes(&self) -> &[u8];
-}
-
-impl Internable for [u8] {
-    fn empty() -> &'static Self {
-        &[]
-    }
-
-    unsafe fn from_slice(slice: &[u8]) -> &Self {
-        slice
-    }
-
-    fn is_empty(&self) -> bool {
-        self.is_empty()
-    }
-
-    fn as_bytes(&self) -> &[u8] {
-        self
-    }
-}
-
-impl Internable for str {
-    fn empty() -> &'static Self {
-        ""
-    }
-
-    unsafe fn from_slice(slice: &[u8]) -> &Self {
-        // SAFETY: The source string was valid utf8, so the created buffer will be as well
-        unsafe { core::str::from_utf8_unchecked(slice) }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.is_empty()
-    }
-
-    fn as_bytes(&self) -> &[u8] {
-        self.as_bytes()
-    }
-}
-
-impl Internable for Path {
-    fn empty() -> &'static Self {
-        Path::new("")
-    }
-
-    unsafe fn from_slice(slice: &[u8]) -> &Self {
-        // SAFETY: The source buffer was created from a call to `OsStr::as_bytes`
-        unsafe { Path::new(OsStr::from_slice(slice)) }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.as_os_str().is_empty()
-    }
-
-    fn as_bytes(&self) -> &[u8] {
-        self.as_os_str().as_bytes()
-    }
-}
-
-impl Internable for OsStr {
-    fn empty() -> &'static Self {
-        OsStr::new("")
-    }
-
-    unsafe fn from_slice(slice: &[u8]) -> &Self {
-        // SAFETY: The source string was valid utf8, so the created buffer will be as well
-        unsafe { OsStr::new(core::str::from_utf8_unchecked(slice)) }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.is_empty()
-    }
-
-    fn as_bytes(&self) -> &[u8] {
-        self.to_str()
-            .unwrap()
-            .as_bytes()
-    }
-}
 
 macro_rules! compile {
     ($(

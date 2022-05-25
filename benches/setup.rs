@@ -41,7 +41,7 @@ impl<S: BuildHasher + Clone> RodeoEmptySetup<S> {
         }
     }
 
-    pub fn empty_rodeo(&self) -> Rodeo<Spur, S> {
+    pub fn empty_rodeo(&self) -> Rodeo<Spur, str, S> {
         Rodeo::with_capacity_and_hasher(Capacity::default(), self.build_hasher.clone())
     }
 
@@ -50,9 +50,9 @@ impl<S: BuildHasher + Clone> RodeoEmptySetup<S> {
     }
 }
 
-pub struct RodeoFilledSetup<S: BuildHasher + Clone> {
+pub struct RodeoFilledSetup<S: BuildHasher + Clone + 'static> {
     lines: &'static [&'static str],
-    rodeo: Rodeo<Spur, S>,
+    rodeo: Rodeo<Spur, str, S>,
     keys: Vec<Spur>,
 }
 
@@ -78,11 +78,11 @@ impl<S: BuildHasher + Clone> RodeoFilledSetup<S> {
         self.lines
     }
 
-    pub fn filled_rodeo(&self) -> &Rodeo<Spur, S> {
+    pub fn filled_rodeo(&self) -> &Rodeo<Spur, str, S> {
         &self.rodeo
     }
 
-    pub fn filled_rodeo_mut(&mut self) -> &mut Rodeo<Spur, S> {
+    pub fn filled_rodeo_mut(&mut self) -> &mut Rodeo<Spur, str, S> {
         &mut self.rodeo
     }
 
@@ -106,7 +106,7 @@ impl<S: BuildHasher + Clone> ReaderEmptySetup<S> {
         }
     }
 
-    pub fn empty_rodeo(&self) -> RodeoReader<Spur, S> {
+    pub fn empty_rodeo(&self) -> RodeoReader<Spur, str, S> {
         Rodeo::with_capacity_and_hasher(Capacity::default(), self.build_hasher.clone())
             .into_reader()
     }
@@ -116,9 +116,9 @@ impl<S: BuildHasher + Clone> ReaderEmptySetup<S> {
     }
 }
 
-pub struct ReaderFilledSetup<S: BuildHasher + Clone> {
+pub struct ReaderFilledSetup<S: BuildHasher + Clone + 'static> {
     lines: &'static [&'static str],
-    reader: RodeoReader<Spur, S>,
+    reader: RodeoReader<Spur, str, S>,
     keys: Vec<Spur>,
 }
 
@@ -145,7 +145,7 @@ impl<S: BuildHasher + Clone> ReaderFilledSetup<S> {
         }
     }
 
-    pub fn into_inner(self) -> RodeoReader<Spur, S> {
+    pub fn into_inner(self) -> RodeoReader<Spur, str, S> {
         self.reader
     }
 
@@ -153,11 +153,11 @@ impl<S: BuildHasher + Clone> ReaderFilledSetup<S> {
         self.lines
     }
 
-    pub fn filled_rodeo(&self) -> &RodeoReader<Spur, S> {
+    pub fn filled_rodeo(&self) -> &RodeoReader<Spur, str, S> {
         &self.reader
     }
 
-    pub fn filled_rodeo_mut(&mut self) -> &mut RodeoReader<Spur, S> {
+    pub fn filled_rodeo_mut(&mut self) -> &mut RodeoReader<Spur, str, S> {
         &mut self.reader
     }
 
@@ -168,7 +168,7 @@ impl<S: BuildHasher + Clone> ReaderFilledSetup<S> {
 
 pub fn run_reader_filled<F, S>(func: F, hash: S, num_threads: usize, iters: u64) -> Duration
 where
-    F: FnOnce(&RodeoReader<Spur, S>, &[Spur]) + Send + 'static + Clone + Copy,
+    F: FnOnce(&RodeoReader<Spur, str, S>, &[Spur]) + Send + 'static + Clone + Copy,
     S: 'static + BuildHasher + Clone + Send + Sync,
 {
     let setup = ReaderFilledSetup::new(hash);
@@ -185,7 +185,7 @@ where
         let keys = keys.clone();
 
         threads.push(thread::spawn(move || {
-            let reader: &RodeoReader<Spur, S> = &*reader;
+            let reader: &RodeoReader<Spur, str, S> = &*reader;
             barrier.wait();
             while running.load(Ordering::Relaxed) {
                 func(reader, &keys)
@@ -193,7 +193,7 @@ where
         }));
     }
 
-    let reader: &RodeoReader<Spur, S> = &*reader;
+    let reader: &RodeoReader<Spur, str, S> = &*reader;
     barrier.wait();
     let start = Instant::now();
     for _ in 0..iters {

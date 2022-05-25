@@ -1,11 +1,19 @@
-use crate::{arenas::{AnyArena, Arena}, hasher::RandomState, keys::{Key, Spur}, reader::RodeoReader, resolver::RodeoResolver, util::{Iter, Strings}, Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits, Internable};
+use crate::{
+    arenas::{AnyArena, Arena},
+    hasher::RandomState,
+    keys::{Key, Spur},
+    reader::RodeoReader,
+    resolver::RodeoResolver,
+    util::{Iter, Strings},
+    Capacity, Internable, LassoError, LassoErrorKind, LassoResult, MemoryLimits,
+};
 use alloc::vec::Vec;
+use core::marker::PhantomData;
 use core::{
     hash::{BuildHasher, Hasher},
     iter::FromIterator,
     ops::Index,
 };
-use core::marker::PhantomData;
 use hashbrown::{hash_map::RawEntryMut, HashMap};
 
 /// A string interner that caches strings quickly with a minimal memory footprint,
@@ -230,7 +238,7 @@ where
             map: HashMap::with_capacity_and_hasher(strings, ()),
             hasher: hash_builder,
             strings: Vec::with_capacity(strings),
-            arena: Arena::new(bytes, max_memory_usage)
+            arena: Arena::new(bytes, V::ALIGNMENT, max_memory_usage)
                 .expect("failed to allocate memory for interner"),
             phantom: PhantomData,
         }
@@ -332,7 +340,7 @@ where
 
                 // Allocate the string in the arena
                 // Safety: The returned strings will be dropped before the arena that created them is
-                let allocated = unsafe { arena.store_str(string_slice)? };
+                let allocated = unsafe { arena.store_internable(string_slice)? };
 
                 // Push the allocated string to the strings vector
                 strings.push(allocated);
@@ -908,31 +916,31 @@ compile! {
 }
 
 #[cfg(feature = "serialize")]
-impl<K, V, H> Serialize for Rodeo<K, V, H>
-where
-    V: ?Sized + Internable,
-{
+impl<K, H> Serialize for Rodeo<K, str, H> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        // Serialize all of self as a `Vec<Vec<u8>>`
-        self.strings.iter()
-            .map(|v| v.as_bytes())
-            .collect::<Vec<_>>()
-            .serialize(serializer)
+        // Serialize all of self as a `Vec<String>`
+        self.strings.serialize(serializer)
     }
 }
 
 #[cfg(feature = "serialize")]
-impl<'de, K: Key, V: ?Sized + Internable, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, V, S> {
+impl<'de, K, S> Deserialize<'de> for Rodeo<K, str, S>
+where
+    K: Key,
+    S: BuildHasher + Default,
+{
     #[cfg_attr(feature = "inline-more", inline)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let vector: Vec<Vec<u8>> = Vec::deserialize(deserializer)?;
+        use core::hash::Hash;
+
+        let vector: Vec<String> = Vec::deserialize(deserializer)?;
         let capacity = {
             let total_bytes = vector.iter().map(|s| s.len()).sum::<usize>();
             let total_bytes =
@@ -944,13 +952,13 @@ impl<'de, K: Key, V: ?Sized + Internable, S: BuildHasher + Default> Deserialize<
         let hasher: S = Default::default();
         let mut strings = Vec::with_capacity(capacity.strings);
         let mut map = HashMap::with_capacity_and_hasher(capacity.strings, ());
-        let mut arena = Arena::new(capacity.bytes, usize::max_value())
+        let mut arena = Arena::new(capacity.bytes, str::ALIGNMENT, usize::max_value())
             .expect("failed to allocate memory for interner");
 
         for (key, string) in vector.into_iter().enumerate() {
             let allocated = unsafe {
                 arena
-                    .store_str(V::from_slice(&string))
+                    .store_internable(&*string)
                     .expect("failed to allocate enough memory")
             };
 
@@ -964,7 +972,7 @@ impl<'de, K: Key, V: ?Sized + Internable, S: BuildHasher + Default> Deserialize<
             // Get the map's entry that the string should occupy
             let entry = map.raw_entry_mut().from_hash(hash, |key: &K| {
                 // Safety: The index given by `key` will be in bounds of the strings vector
-                let key_string: &V = unsafe { index_unchecked!(strings, key.into_usize()) };
+                let key_string: &str = unsafe { index_unchecked!(strings, key.into_usize()) };
 
                 // Compare the requested string against the key's string
                 allocated == key_string
@@ -984,7 +992,7 @@ impl<'de, K: Key, V: ?Sized + Internable, S: BuildHasher + Default> Deserialize<
 
                     // Insert the key with the hash of the string that it points to, reusing the hash we made earlier
                     entry.insert_with_hasher(hash, key, (), |key| {
-                        let key_string: &V =
+                        let key_string: &str =
                             unsafe { index_unchecked!(strings, key.into_usize()) };
 
                         let mut state = hasher.build_hasher();
@@ -1385,11 +1393,12 @@ mod tests {
 
     #[test]
     fn with_capacity_memory_limits_and_hasher() {
-        let mut rodeo: Rodeo<Spur, str, RandomState> = Rodeo::with_capacity_memory_limits_and_hasher(
-            Capacity::default(),
-            MemoryLimits::default(),
-            RandomState::new(),
-        );
+        let mut rodeo: Rodeo<Spur, str, RandomState> =
+            Rodeo::with_capacity_memory_limits_and_hasher(
+                Capacity::default(),
+                MemoryLimits::default(),
+                RandomState::new(),
+            );
 
         rodeo.get_or_intern("Test");
     }

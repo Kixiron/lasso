@@ -247,7 +247,7 @@ where
             map: DashMap::with_capacity_and_hasher(strings, hash_builder.clone()),
             strings: DashMap::with_capacity_and_hasher(strings, hash_builder),
             key: AtomicUsize::new(0),
-            arena: LockfreeArena::new(bytes, max_memory_usage)
+            arena: LockfreeArena::new(bytes, V::ALIGNMENT, max_memory_usage)
                 .expect("failed to allocate memory for interner"),
         }
     }
@@ -314,7 +314,7 @@ where
             Ok(*key)
         } else {
             // Safety: The drop impl removes all references before the arena is dropped
-            let string: &'static V = unsafe { self.arena.store_str(string_slice)? };
+            let string: &'static V = unsafe { self.arena.store_internable(string_slice)? };
 
             let make_new_key = || {
                 K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
@@ -768,8 +768,8 @@ where
     }
 }
 
-unsafe impl<K: Sync, V: ?Sized + Sync, S: Sync> Sync for ThreadedRodeo<K, V, S> {}
-unsafe impl<K: Send, V: ?Sized + Send, S: Send> Send for ThreadedRodeo<K, V, S> {}
+unsafe impl<K: Sync, V: Sync + ?Sized, S: Sync> Sync for ThreadedRodeo<K, V, S> {}
+unsafe impl<K: Send, V: Send + ?Sized, S: Send> Send for ThreadedRodeo<K, V, S> {}
 
 impl<Str, K, V, S> FromIterator<Str> for ThreadedRodeo<K, V, S>
 where
@@ -922,10 +922,9 @@ compile! {
 }
 
 #[cfg(feature = "serialize")]
-impl<K, V, H> Serialize for ThreadedRodeo<K, V, H>
+impl<K, H> Serialize for ThreadedRodeo<K, str, H>
 where
     K: Copy + Eq + Hash + Serialize,
-    V: ?Sized + Internable,
     H: Clone + BuildHasher,
 {
     #[cfg_attr(feature = "inline-more", inline)]
@@ -933,13 +932,10 @@ where
     where
         S: Serializer,
     {
-        // Serialize all of self as a `HashMap<K, Vec<u8>>`
+        // Serialize all of self as a `HashMap<String, K>`
         let mut map = HashMap::with_capacity(self.map.len());
         for entry in self.map.iter() {
-            map.insert(
-                entry.value().to_owned(),
-                entry.key().as_bytes(),
-            );
+            map.insert(*entry.key(), entry.value().to_owned());
         }
 
         map.serialize(serializer)
@@ -947,10 +943,9 @@ where
 }
 
 #[cfg(feature = "serialize")]
-impl<'de, K, V, S> Deserialize<'de> for ThreadedRodeo<K, V, S>
+impl<'de, K, S> Deserialize<'de> for ThreadedRodeo<K, str, S>
 where
     K: Key + Eq + Hash + Deserialize<'de>,
-    V: ?Sized + Internable,
     S: BuildHasher + Clone + Default,
 {
     #[cfg_attr(feature = "inline-more", inline)]
@@ -958,10 +953,9 @@ where
     where
         D: Deserializer<'de>,
     {
-        let deser_map: HashMap<K, Vec<u8>> = HashMap::deserialize(deserializer)?;
-
+        let deser_map: HashMap<String, K> = HashMap::deserialize(deserializer)?;
         let capacity = {
-            let total_bytes = deser_map.values().map(|s| s.len()).sum::<usize>();
+            let total_bytes = deser_map.keys().map(|s| s.len()).sum::<usize>();
             let total_bytes =
                 NonZeroUsize::new(total_bytes).unwrap_or_else(|| Capacity::default().bytes());
 
@@ -972,17 +966,17 @@ where
         let map = DashMap::with_capacity_and_hasher(capacity.strings, hasher.clone());
         let strings = DashMap::with_capacity_and_hasher(capacity.strings, hasher);
         let mut highest = 0;
-        let arena = LockfreeArena::new(capacity.bytes, usize::max_value())
+        let arena = LockfreeArena::new(capacity.bytes, str::ALIGNMENT, usize::max_value())
             .expect("failed to allocate memory for interner");
 
-        for (key, string) in deser_map {
+        for (string, key) in deser_map {
             if key.into_usize() > highest {
                 highest = key.into_usize();
             }
 
             let allocated = unsafe {
                 arena
-                    .store_str(V::from_slice(&string))
+                    .store_internable(&*string)
                     .expect("failed to allocate enough memory")
             };
 

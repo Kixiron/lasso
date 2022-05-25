@@ -14,7 +14,8 @@ categories = ["data-structures", "concurrency", "no-std"]
 edition = "2021"
 
 [features]
-default = []
+default = ["std-ffi"]
+std-ffi = []
 inline-more = []
 no-std = ["ahasher"]
 multi-threaded = ["dashmap"]

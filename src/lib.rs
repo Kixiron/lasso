@@ -436,17 +436,19 @@ extern crate alloc;
 mod util;
 mod arenas;
 mod interface;
+mod internable;
 mod keys;
 mod reader;
 mod resolver;
 mod rodeo;
 
 pub use interface::{Interner, IntoReader, IntoReaderAndResolver, IntoResolver, Reader, Resolver};
+pub use internable::Internable;
 pub use keys::{Key, LargeSpur, MicroSpur, MiniSpur, Spur};
 pub use reader::RodeoReader;
 pub use resolver::RodeoResolver;
 pub use rodeo::Rodeo;
-pub use util::{Capacity, Iter, LassoError, LassoErrorKind, LassoResult, MemoryLimits, Strings, Internable};
+pub use util::{Capacity, Iter, LassoError, LassoErrorKind, LassoResult, MemoryLimits, Strings};
 
 compile! {
     if #[all(feature = "multi-threaded", not(feature = "no-std"))] {
