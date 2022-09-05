@@ -35,7 +35,8 @@ optional = true
 
 # Provides the hashmap that all single-threaded interners use
 [dependencies.hashbrown]
-version = "0.12.0"
+version = "0.12.3"
+features = ["raw"]
 
 # Allows {de}serialization of Spurs
 [dependencies.serde]

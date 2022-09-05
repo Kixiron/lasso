@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added blanket implementations of `Reader` and `Resolver` for `&T` and `&mut T` references to types that implement
   those traits, and `Interner` likewise for `&mut T`
+- Added `Clone` implementation for `Rodeo`
+- Added the `Rodeo::try_clone()` and `Rodeo::try_clone_from()` functions
 
 ## [0.6.0] - 2021-09-01
 
