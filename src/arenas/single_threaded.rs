@@ -27,8 +27,17 @@ impl Arena {
         })
     }
 
-    pub(crate) fn memory_usage(&self) -> usize {
+    pub const fn memory_usage(&self) -> usize {
         self.memory_usage
+    }
+
+    /// Marks all buckets as being totally unused, meaning they have their current
+    /// capacity but all memory they contain is treated as freshly allocated and
+    /// therefore valid to be allocated
+    pub fn clear(&mut self) {
+        for bucket in &mut self.buckets {
+            bucket.clear();
+        }
     }
 
     /// Doesn't actually allocate anything, but increments `self.memory_usage` and returns `None` if

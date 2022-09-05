@@ -1,6 +1,11 @@
 use crate::{LassoError, LassoErrorKind, LassoResult};
 use alloc::alloc::{alloc, dealloc, Layout};
-use core::{mem, num::NonZeroUsize, ptr::NonNull, slice};
+use core::{
+    mem::{align_of, size_of},
+    num::NonZeroUsize,
+    ptr::NonNull,
+    slice,
+};
 
 /// A bucket to hold a number of stored items
 pub(super) struct Bucket {
@@ -17,16 +22,16 @@ impl Bucket {
     pub(crate) fn with_capacity(capacity: NonZeroUsize) -> LassoResult<Self> {
         unsafe {
             debug_assert!(Layout::from_size_align(
-                mem::size_of::<u8>() * capacity.get(),
-                mem::align_of::<u8>(),
+                size_of::<u8>() * capacity.get(),
+                align_of::<u8>(),
             )
             .is_ok());
 
             // Safety: Align will always be a non-zero power of two and the
             //         size will not overflow when rounded up
             let layout = Layout::from_size_align_unchecked(
-                mem::size_of::<u8>() * capacity.get(),
-                mem::align_of::<u8>(),
+                size_of::<u8>() * capacity.get(),
+                align_of::<u8>(),
             );
 
             // Allocate the bucket's memory
@@ -51,6 +56,12 @@ impl Bucket {
     /// Returns whether the current bucket is full
     pub(crate) fn is_full(&self) -> bool {
         self.index == self.capacity.get()
+    }
+
+    /// Marks the bucket as being totally unused, meaning that all of `capacity`
+    /// is valid for allocations
+    pub(crate) fn clear(&mut self) {
+        self.index = 0;
     }
 
     /// Push a slice to the current bucket, returning a pointer to it
@@ -91,8 +102,8 @@ impl Drop for Bucket {
             let items = self.items.as_ptr();
 
             debug_assert!(Layout::from_size_align(
-                mem::size_of::<u8>() * self.capacity.get(),
-                mem::align_of::<u8>(),
+                size_of::<u8>() * self.capacity.get(),
+                align_of::<u8>(),
             )
             .is_ok());
 
@@ -102,8 +113,8 @@ impl Drop for Bucket {
                 // Safety: Align will always be a non-zero power of two and the
                 //         size will not overflow when rounded up
                 Layout::from_size_align_unchecked(
-                    mem::size_of::<u8>() * self.capacity.get(),
-                    mem::align_of::<u8>(),
+                    size_of::<u8>() * self.capacity.get(),
+                    align_of::<u8>(),
                 ),
             );
         }
