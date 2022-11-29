@@ -1177,7 +1177,7 @@ mod tests {
 
     compile! {
         if #[feature = "no-std"] {
-            use alloc::string::ToString;
+            use alloc::{string::ToString, vec::Vec};
         }
     }
 
@@ -1306,21 +1306,14 @@ mod tests {
 
     #[test]
     fn try_get_or_intern_static() {
-        use core::pin::Pin;
-        compile! {
-            if #[feature = "no-std"] {
-                use alloc::vec::Vec;
-            }
-        }
-
         let mut strings = Vec::new();
         let mut rodeo: Rodeo<MicroSpur> = Rodeo::new();
 
         for i in 0..u8::max_value() as usize - 1 {
-            let string = Pin::new(i.to_string().into_boxed_str());
-            let static_ref = unsafe { core::mem::transmute(Pin::into_inner(string.as_ref())) };
-            strings.push(string);
+            let ptr = Box::into_raw(i.to_string().into_boxed_str());
+            strings.push(ptr);
 
+            let static_ref = unsafe { &*ptr };
             rodeo.get_or_intern_static(static_ref);
         }
 
@@ -1329,6 +1322,11 @@ mod tests {
         assert_eq!("A", rodeo.resolve(&space));
 
         assert!(rodeo.try_get_or_intern_static("C").is_err());
+
+        drop(rodeo);
+        for string in strings {
+            unsafe { Box::from_raw(string) };
+        }
     }
 
     #[test]
