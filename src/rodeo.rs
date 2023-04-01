@@ -1177,7 +1177,7 @@ mod tests {
 
     compile! {
         if #[feature = "no-std"] {
-            use alloc::{string::ToString, vec::Vec};
+            use alloc::{string::ToString, vec::Vec, boxed::Box};
         }
     }
 
