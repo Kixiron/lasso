@@ -29,13 +29,14 @@ optional = true
 
 # Provides a no_std hasher, enabled with the `no-std` feature
 [dependencies.ahash]
-version = "0.7.0"
+version = "0.8.0"
 default-features = false
+features = ["no-rng"]
 optional = true
 
 # Provides the hashmap that all single-threaded interners use
 [dependencies.hashbrown]
-version = "0.12.3"
+version = "0.13.0"
 features = ["raw"]
 
 # Allows {de}serialization of Spurs
@@ -67,7 +68,7 @@ version = "1.4.0"
 
 # Cross-hash comparisons with benchmarking
 [dev-dependencies.ahash]
-version = "0.7.0"
+version = "0.8.0"
 default-features = false
 
 # Cross-hash comparisons with benchmarking

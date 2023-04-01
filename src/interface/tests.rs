@@ -1,7 +1,9 @@
 #![cfg(test)]
 
-use super::*;
-use crate::{Key, Rodeo, RodeoReader, RodeoResolver, Spur};
+use crate::{
+    interface::{Interner, IntoReader, IntoReaderAndResolver, IntoResolver, Reader, Resolver},
+    Key, Rodeo, RodeoReader, RodeoResolver, Spur,
+};
 
 compile! {
     if #[feature = "multi-threaded"] {
