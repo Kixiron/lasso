@@ -176,38 +176,27 @@ jobs:
           toolchain: stable
           target: ${{ matrix.target }}
           override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-sweep
-      - name: Set rustc version
-        run: echo "CURRENT_RUSTC_VERSION=$(rustc -V)" >> $GITHUB_ENV
 
       - name: Cache Cargo Registry
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.cargo/registry
           key: ${{ matrix.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache Cargo Bin
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.cargo/bin
           key: ${{ matrix.os }}-cargo-bin-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache Cargo Git
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.cargo/git
           key: ${{ matrix.os }}-cargo-git-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache Cargo Build
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: target
-          key: ${{ matrix.os }}-cargo-build-target-${{ env.CURRENT_RUSTC_VERSION }}-${{ hashFiles('**/Cargo.toml') }}
-      - name: Register Artifacts
-        uses: actions-rs/cargo@v1
-        with:
-          command: sweep
-          args: -s
+          key: ${{ matrix.os }}-cargo-build-test-${{ matrix.target }}-${{ env.CURRENT_RUSTC_VERSION }}-${{ hashFiles('**/Cargo.toml') }}
 
       - name: No default features
         if: ${{ !matrix.custom-features }}
@@ -236,12 +225,6 @@ jobs:
         with:
           command: test
           args: --target ${{ matrix.target }} --features no-std
-
-      - name: Clean unused artifacts
-        uses: actions-rs/cargo@v1
-        with:
-          command: sweep
-          args: -f
 
   miri:
     name: Miri ${{ matrix.name }}
@@ -292,38 +275,29 @@ jobs:
           target: ${{ matrix.target }}
           override: true
           components: miri
-      - uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-sweep
       - name: Set rustc version
         run: echo "CURRENT_RUSTC_VERSION=$(rustc -V)" >> $GITHUB_ENV
 
       - name: Cache Cargo Registry
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.cargo/registry
           key: ${{ matrix.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache Cargo Bin
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.cargo/bin
           key: ${{ matrix.os }}-cargo-bin-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache Cargo Git
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.cargo/git
           key: ${{ matrix.os }}-cargo-git-${{ hashFiles('**/Cargo.toml') }}
       - name: Cache Cargo Build
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: target
-          key: ${{ matrix.os }}-cargo-build-target-${{ env.CURRENT_RUSTC_VERSION }}-${{ hashFiles('**/Cargo.toml') }}
-      - name: Register Artifacts
-        uses: actions-rs/cargo@v1
-        with:
-          command: sweep
-          args: -s
+          key: ${{ matrix.os }}-cargo-build-miri-${{ matrix.target }}-${{ env.CURRENT_RUSTC_VERSION }}-${{ hashFiles('**/Cargo.toml') }}
 
       - name: No default features
         if: ${{ !matrix.custom-features }}
@@ -353,9 +327,3 @@ jobs:
       #   with:
       #     command: miri
       #     args: test --target ${{ matrix.target }} --features no-std
-
-      - name: Clean unused artifacts
-        uses: actions-rs/cargo@v1
-        with:
-          command: sweep
-          args: -f
