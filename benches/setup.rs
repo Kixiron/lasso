@@ -185,7 +185,7 @@ where
         let keys = keys.clone();
 
         threads.push(thread::spawn(move || {
-            let reader: &RodeoReader<Spur, S> = &*reader;
+            let reader: &RodeoReader<Spur, S> = &reader;
             barrier.wait();
             while running.load(Ordering::Relaxed) {
                 func(reader, &keys)
@@ -193,7 +193,7 @@ where
         }));
     }
 
-    let reader: &RodeoReader<Spur, S> = &*reader;
+    let reader: &RodeoReader<Spur, S> = &reader;
     barrier.wait();
     let start = Instant::now();
     for _ in 0..iters {
@@ -225,7 +225,7 @@ where
         let keys = keys.clone();
 
         threads.push(thread::spawn(move || {
-            let reader: &RodeoResolver<Spur> = &*reader;
+            let reader: &RodeoResolver<Spur> = &reader;
             barrier.wait();
             while running.load(Ordering::Relaxed) {
                 func(reader, &keys)
@@ -233,7 +233,7 @@ where
         }));
     }
 
-    let reader: &RodeoResolver<Spur> = &*reader;
+    let reader: &RodeoResolver<Spur> = &reader;
     barrier.wait();
     let start = Instant::now();
     for _ in 0..iters {

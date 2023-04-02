@@ -10,17 +10,17 @@ where
 {
     #[cfg_attr(feature = "inline-more", inline)]
     fn get_or_intern(&mut self, val: &str) -> K {
-        (&mut **self).get_or_intern(val)
+        (**self).get_or_intern(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn try_get_or_intern(&mut self, val: &str) -> LassoResult<K> {
-        (&mut **self).try_get_or_intern(val)
+        (**self).try_get_or_intern(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn get_or_intern_static(&mut self, val: &'static str) -> K {
-        (&mut **self).get_or_intern_static(val)
+        (**self).get_or_intern_static(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
@@ -62,12 +62,12 @@ where
 {
     #[cfg_attr(feature = "inline-more", inline)]
     fn get(&self, val: &str) -> Option<K> {
-        (&**self).get(val)
+        (**self).get(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn contains(&self, val: &str) -> bool {
-        (&**self).contains(val)
+        (**self).contains(val)
     }
 }
 
@@ -104,26 +104,26 @@ where
 {
     #[cfg_attr(feature = "inline-more", inline)]
     fn resolve<'a>(&'a self, key: &K) -> &'a str {
-        (&**self).resolve(key)
+        (**self).resolve(key)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
-        (&**self).try_resolve(key)
+        (**self).try_resolve(key)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
-        unsafe { (&**self).resolve_unchecked(key) }
+        unsafe { (**self).resolve_unchecked(key) }
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn contains_key(&self, key: &K) -> bool {
-        (&**self).contains_key(key)
+        (**self).contains_key(key)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn len(&self) -> usize {
-        (&**self).len()
+        (**self).len()
     }
 }
