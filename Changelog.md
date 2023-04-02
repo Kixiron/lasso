@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.7.0] - 2023-04-02
+
 ### Changed
 
 - Bumped MSRV to 1.61.0
@@ -190,7 +192,8 @@ This version really wouldn't be possible without the amazing work of @CAD97. The
 ## 0.1.0
 
 <!-- next-url -->
-[Unreleased]: https://github.com/Kixiron/lasso/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/Kixiron/lasso/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Kixiron/lasso/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Kixiron/lasso/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/Kixiron/lasso/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/Kixiron/lasso/compare/v0.4.1...v0.5.0
