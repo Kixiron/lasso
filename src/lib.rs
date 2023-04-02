@@ -13,7 +13,6 @@
 //! [![CI][1]][0]
 //! [![Security Audit][2]][0]
 //! [![Coverage][3]][4]
-//! [![LoC][5]][0]
 //! [![Docs.rs][6]][7]
 //! [![Crates.io][8]][9]
 //!
@@ -419,7 +418,6 @@
 //! [2]: https://github.com/Kixiron/lasso/workflows/Security%20Audit/badge.svg
 //! [3]: https://coveralls.io/repos/github/Kixiron/lasso/badge.svg?branch=master
 //! [4]: https://coveralls.io/github/Kixiron/lasso?branch=master
-//! [5]: https://tokei.rs/b1/github/Kixiron/lasso
 //! [6]: https://docs.rs/lasso/badge.svg
 //! [7]: https://docs.rs/lasso
 //! [8]: https://img.shields.io/crates/v/lasso.svg

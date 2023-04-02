@@ -1,7 +1,6 @@
 [![CI][1]][0]
 [![Security Audit][2]][0]
 [![Coverage][3]][4]
-[![LoC][5]][0]
 [![Docs.rs][6]][7]
 [![Crates.io][8]][9]
 
@@ -21,7 +20,7 @@ at this point. For users who just need key to string resolution, the [`RodeoReso
 minimum possible memory usage. Note that to gain access to [`ThreadedRodeo`] the `multi-threaded` feature is required.
 
 | Interner          | Thread-safe | Intern String | str to key | key to str | Contention Free | Memory Usage |
-|-------------------|:-----------:|:-------------:|:----------:|:----------:|:---------------:|:------------:|
+| ----------------- | :---------: | :-----------: | :--------: | :--------: | :-------------: | :----------: |
 | [`Rodeo`]         |      ❌      |       ✅       |     ✅      |     ✅      |       N/A       |    Medium    |
 | [`ThreadedRodeo`] |      ✅      |       ✅       |     ✅      |     ✅      |        ❌        |     Most     |
 | [`RodeoReader`]   |      ✅      |       ❌       |     ✅      |     ✅      |        ✅        |    Medium    |
@@ -235,7 +234,7 @@ Rustc: Stable 1.44.1
 #### STD RandomState
 
 | Method                       |   Time    |  Throughput  |
-|:-----------------------------|:---------:|:------------:|
+| :--------------------------- | :-------: | :----------: |
 | `resolve`                    | 1.9251 μs | 13.285 GiB/s |
 | `try_resolve`                | 1.9214 μs | 13.311 GiB/s |
 | `resolve_unchecked`          | 1.4356 μs | 17.816 GiB/s |
@@ -249,7 +248,7 @@ Rustc: Stable 1.44.1
 #### AHash
 
 | Method                       |   Time    |  Throughput  |
-|:-----------------------------|:---------:|:------------:|
+| :--------------------------- | :-------: | :----------: |
 | `try_resolve`                | 1.9282 μs | 13.264 GiB/s |
 | `resolve`                    | 1.9404 μs | 13.181 GiB/s |
 | `resolve_unchecked`          | 1.4328 μs | 17.851 GiB/s |
@@ -263,7 +262,7 @@ Rustc: Stable 1.44.1
 #### FXHash
 
 | Method                       |   Time    |  Throughput  |
-|:-----------------------------|:---------:|:------------:|
+| :--------------------------- | :-------: | :----------: |
 | `resolve`                    | 1.9014 μs | 13.451 GiB/s |
 | `try_resolve`                | 1.9278 μs | 13.267 GiB/s |
 | `resolve_unchecked`          | 1.4449 μs | 17.701 GiB/s |
@@ -280,7 +279,7 @@ Rustc: Stable 1.44.1
 #### STD RandomState
 
 | Method                       | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
-|:-----------------------------|:---------------:|:---------------------:|:-----------------:|:-----------------------:|
+| :--------------------------- | :-------------: | :-------------------: | :---------------: | :---------------------: |
 | `resolve`                    |    54.336 μs    |     482.00 MiB/s      |     364.27 μs     |      71.897 MiB/s       |
 | `try_resolve`                |    54.582 μs    |     479.82 MiB/s      |     352.67 μs     |      74.261 MiB/s       |
 | `get_or_intern` (empty)      |    266.03 μs    |     98.447 MiB/s      |        N\A        |           N\A           |
@@ -293,7 +292,7 @@ Rustc: Stable 1.44.1
 #### AHash
 
 | Method                       | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
-|:-----------------------------|:---------------:|:---------------------:|:-----------------:|:-----------------------:|
+| :--------------------------- | :-------------: | :-------------------: | :---------------: | :---------------------: |
 | `resolve`                    |    22.261 μs    |     1.1489 GiB/s      |     265.46 μs     |      98.658 MiB/s       |
 | `try_resolve`                |    22.378 μs    |     1.1429 GiB/s      |     268.58 μs     |      97.513 MiB/s       |
 | `get_or_intern` (empty)      |    157.86 μs    |     165.91 MiB/s      |        N\A        |           N\A           |
@@ -306,7 +305,7 @@ Rustc: Stable 1.44.1
 #### FXHash
 
 | Method                       | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
-|:-----------------------------|:---------------:|:---------------------:|:-----------------:|:-----------------------:|
+| :--------------------------- | :-------------: | :-------------------: | :---------------: | :---------------------: |
 | `try_resolve`                |    17.289 μs    |     1.4794 GiB/s      |     238.29 μs     |      109.91 MiB/s       |
 | `resolve`                    |    19.833 μs    |     1.2896 GiB/s      |     237.05 μs     |      110.48 MiB/s       |
 | `get_or_intern` (empty)      |    130.97 μs    |     199.97 MiB/s      |        N\A        |           N\A           |
@@ -321,7 +320,7 @@ Rustc: Stable 1.44.1
 #### STD RandomState
 
 | Method              | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput  (24 Threads) |
-|:--------------------|:---------------:|:---------------------:|:-----------------:|:------------------------:|
+| :------------------ | :-------------: | :-------------------: | :---------------: | :----------------------: |
 | `resolve`           |    1.9398 μs    |     13.185 GiB/s      |     4.3153 μs     |       5.9269 GiB/s       |
 | `try_resolve`       |    1.9315 μs    |     13.242 GiB/s      |     4.1956 μs     |       6.0959 GiB/s       |
 | `resolve_unchecked` |    1.4416 μs    |     17.741 GiB/s      |     3.1204 μs     |       8.1964 GiB/s       |
@@ -331,7 +330,7 @@ Rustc: Stable 1.44.1
 #### AHash
 
 | Method              | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
-|:--------------------|:---------------:|:---------------------:|:-----------------:|:-----------------------:|
+| :------------------ | :-------------: | :-------------------: | :---------------: | :---------------------: |
 | `resolve`           |    1.9404 μs    |     13.181 GiB/s      |     4.1881 μs     |      6.1069 GiB/s       |
 | `try_resolve`       |    1.8932 μs    |     13.509 GiB/s      |     4.2410 μs     |      6.0306 GiB/s       |
 | `resolve_unchecked` |    1.4128 μs    |     18.103 GiB/s      |     3.1691 μs     |      8.0703 GiB/s       |
@@ -341,7 +340,7 @@ Rustc: Stable 1.44.1
 #### FXHash
 
 | Method              | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
-|:--------------------|:---------------:|:---------------------:|:-----------------:|:-----------------------:|
+| :------------------ | :-------------: | :-------------------: | :---------------: | :---------------------: |
 | `resolve`           |    1.8987 μs    |     13.471 GiB/s      |     4.2117 μs     |      6.0727 GiB/s       |
 | `try_resolve`       |    1.9103 μs    |     13.389 GiB/s      |     4.2254 μs     |      6.0529 GiB/s       |
 | `resolve_unchecked` |    1.4469 μs    |     17.677 GiB/s      |     3.0923 μs     |      8.2709 GiB/s       |
@@ -351,7 +350,7 @@ Rustc: Stable 1.44.1
 ### RodeoResolver
 
 | Method              | Time (1 Thread) | Throughput (1 Thread) | Time (24 Threads) | Throughput (24 Threads) |
-|:--------------------|:---------------:|:---------------------:|:-----------------:|:-----------------------:|
+| :------------------ | :-------------: | :-------------------: | :---------------: | :---------------------: |
 | `resolve`           |    1.9416 μs    |     13.172 GiB/s      |     3.9114 μs     |      6.5387 GiB/s       |
 | `try_resolve`       |    1.9264 μs    |     13.277 GiB/s      |     3.9289 μs     |      6.5097 GiB/s       |
 | `resolve_unchecked` |    1.6638 μs    |     15.372 GiB/s      |     3.1741 μs     |      8.0578 GiB/s       |
@@ -361,7 +360,6 @@ Rustc: Stable 1.44.1
 [2]: https://github.com/Kixiron/lasso/workflows/Security%20Audit/badge.svg
 [3]: https://coveralls.io/repos/github/Kixiron/lasso/badge.svg?branch=master
 [4]: https://coveralls.io/github/Kixiron/lasso?branch=master
-[5]: https://tokei.rs/b1/github/Kixiron/lasso
 [6]: https://docs.rs/lasso/badge.svg
 [7]: https://docs.rs/lasso
 [8]: https://img.shields.io/crates/v/lasso.svg
