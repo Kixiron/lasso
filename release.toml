@@ -1,5 +1,4 @@
 pre-release-commit-message = "Release v{{version}}"
-no-dev-version = true
 tag-message = "v{{version}}"
 tag-name = "v{{version}}"
 
