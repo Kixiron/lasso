@@ -13,22 +13,22 @@ where
 {
     #[cfg_attr(feature = "inline-more", inline)]
     fn get_or_intern(&mut self, val: &str) -> K {
-        (&*self).get_or_intern(val)
+        (*self).get_or_intern(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn try_get_or_intern(&mut self, val: &str) -> LassoResult<K> {
-        (&*self).try_get_or_intern(val)
+        (*self).try_get_or_intern(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn get_or_intern_static(&mut self, val: &'static str) -> K {
-        (&*self).get_or_intern_static(val)
+        (*self).get_or_intern_static(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn try_get_or_intern_static(&mut self, val: &'static str) -> LassoResult<K> {
-        (&*self).try_get_or_intern_static(val)
+        (*self).try_get_or_intern_static(val)
     }
 }
 

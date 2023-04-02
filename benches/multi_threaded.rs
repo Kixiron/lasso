@@ -659,7 +659,7 @@ where
         let keys = keys.clone();
 
         threads.push(thread::spawn(move || {
-            let reader: &ThreadedRodeo<Spur, S> = &*reader;
+            let reader: &ThreadedRodeo<Spur, S> = &reader;
             barrier.wait();
             while running.load(Ordering::Relaxed) {
                 func(reader, &keys)
@@ -667,7 +667,7 @@ where
         }));
     }
 
-    let reader: &ThreadedRodeo<Spur, S> = &*reader;
+    let reader: &ThreadedRodeo<Spur, S> = &reader;
     barrier.wait();
     let start = Instant::now();
     for _ in 0..iters {
