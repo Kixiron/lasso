@@ -5,6 +5,7 @@ use crate::{
 use core::{
     fmt::{self, Debug},
     num::NonZeroUsize,
+    slice, str,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -99,38 +100,22 @@ impl LockfreeArena {
         // really matter, but it's worth that the opposite tradeoff can be made by adding bounded
         // retries within this loop, the worst-case performance suffers in exchange for potentially
         // better memory usage.
-        for (parent, bucket) in self.buckets.iter() {
-            // If there's space in the given bucket for our string to be stored in it
-            if bucket.free_elements() >= slice.len() {
-                // Load the bucket that this bucket points to
-                let next_bucket = bucket.next_ptr().load(Ordering::Acquire);
+        for bucket in self.buckets.iter() {
+            if let Ok(start) = bucket.try_inc_length(slice.len()) {
+                // Safety: We now have exclusive access to `bucket[start..start + slice.len()]`
+                let allocated = unsafe { bucket.slice_mut(start) };
+                // Copy the given slice into the allocation
+                unsafe { allocated.copy_from_nonoverlapping(slice.as_ptr(), slice.len()) };
 
-                // Swap the parent pointer from pointing to the current bucket to
-                // pointing to the next bucket in the chain
-                let exchange = parent.compare_exchange(
-                    bucket.as_ptr(),
-                    next_bucket,
-                    Ordering::AcqRel,
-                    Ordering::Acquire,
-                );
-
-                if exchange.is_ok() {
-                    // Safety: We have exclusive access to the current bucket
-                    let mut bucket = unsafe { bucket.into_unique() };
-                    // Safety: The bucket has enough space for the slice
-                    let allocated = unsafe { bucket.push_slice(slice) };
-
-                    // Put the bucket back into the arena's list
-                    self.buckets.push_front(bucket);
-
-                    // Return the successfully allocated string
-                    return Ok(allocated);
-                }
-
-                // Otherwise the swap failed and we no longer have exclusive access to the
-                // current bucket. We could retry things, but I think it's better to
-                // instead continue on scanning since we want this to be a fast path
+                // Return the successfully allocated string
+                let string = unsafe {
+                    str::from_utf8_unchecked(slice::from_raw_parts(allocated, slice.len()))
+                };
+                return Ok(string);
             }
+
+            // Otherwise the bucket doesn't have sufficient capacity for the string
+            // so we carry on searching through allocated buckets
         }
 
         // If we couldn't find a pre-existing bucket with enough room in it, allocate our own bucket
@@ -155,7 +140,7 @@ impl LockfreeArena {
             // Safety: The new bucket will have exactly enough room for the string and we have
             //         exclusive access to the bucket since we just created it
             let allocated_string = unsafe { bucket.push_slice(slice) };
-            self.buckets.push_front(bucket);
+            self.buckets.push_front(bucket.into_ref());
 
             Ok(allocated_string)
         } else {
@@ -180,7 +165,7 @@ impl LockfreeArena {
                 let allocated_string = unsafe { bucket.push_slice(slice) };
                 // TODO: Push the bucket to the back or something so that we can get it somewhat out
                 //       of the search path, reduce the `n` in the `O(n)` list traversal
-                self.buckets.push_front(bucket);
+                self.buckets.push_front(bucket.into_ref());
 
                 Ok(allocated_string)
 
@@ -200,7 +185,7 @@ impl LockfreeArena {
 
                 // Safety: The new bucket will have enough room for the string
                 let allocated_string = unsafe { bucket.push_slice(slice) };
-                self.buckets.push_front(bucket);
+                self.buckets.push_front(bucket.into_ref());
 
                 Ok(allocated_string)
             }

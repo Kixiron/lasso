@@ -96,6 +96,10 @@ harness = false
 name = "resolver"
 harness = false
 
+[[example]]
+name = "hello_world"
+required-features = ["multi-threaded"]
+
 [package.metadata.docs.rs]
 features = ["multi-threaded", "serialize"]
 targets = ["x86_64-unknown-linux-gnu"]

@@ -1,11 +1,12 @@
 use crate::{LassoError, LassoErrorKind, LassoResult};
 use alloc::alloc::{alloc, dealloc, Layout};
 use core::{
+    hint,
     mem::{align_of, size_of},
     num::NonZeroUsize,
     ptr::{self, addr_of_mut, NonNull},
     slice,
-    sync::atomic::{AtomicPtr, Ordering},
+    sync::atomic::{AtomicPtr, AtomicUsize, Ordering},
 };
 
 pub(super) struct AtomicBucketList {
@@ -41,7 +42,7 @@ impl AtomicBucketList {
         self.len() == 0
     }
 
-    pub fn push_front(&self, bucket: UniqueBucketRef) {
+    pub fn push_front(&self, bucket: BucketRef) {
         let bucket_ptr = bucket.as_ptr();
         let mut head_ptr = self.head.load(Ordering::Acquire);
 
@@ -103,19 +104,17 @@ pub(super) struct AtomicBucketIter<'a> {
 }
 
 impl<'a> Iterator for AtomicBucketIter<'a> {
-    type Item = (&'a AtomicPtr<AtomicBucket>, BucketRef);
+    type Item = BucketRef;
 
     fn next(&mut self) -> Option<Self::Item> {
         let current = self.current.load(Ordering::Acquire);
 
         NonNull::new(current).map(|current| {
-            let parent = self.current;
-
             // Safety: `current` is valid and not null
             self.current = unsafe { &(*current.as_ptr()).next };
 
             // Safety: `current` points to a valid bucket
-            (parent, unsafe { BucketRef::new(current) })
+            unsafe { BucketRef::new(current) }
         })
     }
 }
@@ -148,7 +147,7 @@ impl UniqueBucketRef {
     /// Get the current bucket's length
     #[inline]
     pub fn len(&self) -> usize {
-        self.bucket.len()
+        unsafe { *(*addr_of_mut!((*self.as_ptr()).len)).get_mut() }
     }
 
     /// Get the current bucket's capacity
@@ -174,9 +173,7 @@ impl UniqueBucketRef {
         );
 
         // Safety: We have exclusive access to the bucket
-        unsafe {
-            addr_of_mut!((*self.as_ptr()).len).write(new_length);
-        }
+        unsafe { *(*addr_of_mut!((*self.as_ptr()).len)).get_mut() = new_length };
     }
 
     /// Push a slice of bytes to the current bucket
@@ -216,6 +213,11 @@ impl UniqueBucketRef {
 
         unsafe { core::str::from_utf8_unchecked(target) }
     }
+
+    #[inline]
+    pub(crate) const fn into_ref(self) -> BucketRef {
+        self.bucket
+    }
 }
 
 /// A reference to an [`AtomicBucket`]
@@ -234,52 +236,63 @@ impl BucketRef {
         Self { bucket }
     }
 
-    /// Make a unique bucket out of the current bucket
-    ///
-    /// # Safety
-    ///
-    /// Must have exclusive access to the current bucket
-    pub const unsafe fn into_unique(self) -> UniqueBucketRef {
-        unsafe { UniqueBucketRef::new(self.bucket) }
-    }
-
     #[inline]
     pub const fn as_ptr(&self) -> *mut AtomicBucket {
         self.bucket.as_ptr()
     }
 
-    #[inline]
-    pub fn next_ptr(&self) -> &AtomicPtr<AtomicBucket> {
-        // Safety: `bucket` is a valid pointer to a bucket
-        unsafe { &(*self.as_ptr()).next }
-    }
-
     /// Get the bucket's length
     #[inline]
-    pub fn len(&self) -> usize {
+    fn length(&self) -> &AtomicUsize {
         // Safety: `bucket` is a valid pointer to a bucket
-        unsafe { (*self.as_ptr()).len }
+        unsafe { &(*self.as_ptr()).len }
     }
 
     /// Get the bucket's capacity
     #[inline]
-    pub fn capacity(&self) -> NonZeroUsize {
+    fn capacity(&self) -> NonZeroUsize {
         // Safety: `bucket` is a valid pointer to a bucket
         unsafe { (*self.as_ptr()).capacity }
     }
 
-    /// Get the number of available slots for the current bucket
+    /// Get a slice pointer to the specified data range
     #[inline]
-    pub fn free_elements(&self) -> usize {
-        let (len, capacity) = (self.len(), self.capacity().get());
-        debug_assert!(
-            len <= capacity,
-            "the bucket length {} should always be less than the bucket's capacity {}",
-            len,
-            capacity,
-        );
+    pub unsafe fn slice_mut(&self, start: usize) -> *mut u8 {
+        unsafe { addr_of_mut!((*self.as_ptr())._data).cast::<u8>().add(start) }
+    }
 
-        capacity - len
+    pub fn try_inc_length(&self, additional: usize) -> Result<usize, ()> {
+        debug_assert_ne!(additional, 0);
+
+        let length = self.length();
+        let capacity = self.capacity().get();
+
+        // TODO: Add backoff to this loop so we don't thrash it
+        let mut len = length.load(Ordering::Acquire);
+        for _ in 0..100 {
+            let new_length = len + additional;
+            if new_length <= capacity {
+                match length.compare_exchange_weak(
+                    len,
+                    new_length,
+                    Ordering::AcqRel,
+                    Ordering::Acquire,
+                ) {
+                    Ok(_) => {
+                        debug_assert!(len < capacity && len + additional <= capacity);
+                        return Ok(len);
+                    }
+                    Err(loaded) => {
+                        hint::spin_loop();
+                        len = loaded;
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+
+        Err(())
     }
 }
 
@@ -291,7 +304,7 @@ pub(super) struct AtomicBucket {
     /// The start of uninitialized memory within `items`
     ///
     /// Invariant: `len` will always be less than or equal to `capacity`
-    len: usize,
+    len: AtomicUsize,
 
     /// The total number of bytes allocated within the bucket
     capacity: NonZeroUsize,
@@ -325,7 +338,7 @@ impl AtomicBucket {
             let ptr = ptr.as_ptr();
 
             addr_of_mut!((*ptr).next).write(AtomicPtr::new(ptr::null_mut()));
-            addr_of_mut!((*ptr).len).write(0);
+            addr_of_mut!((*ptr).len).write(AtomicUsize::new(0));
             addr_of_mut!((*ptr).capacity).write(capacity);
 
             // We leave the allocated data uninitialized, future writers will
