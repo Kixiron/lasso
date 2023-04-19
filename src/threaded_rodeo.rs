@@ -396,17 +396,20 @@ where
         if let Some(key) = self.map.get(string) {
             Ok(*key)
         } else {
-            let make_new_key = || {
-                K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
-                    .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))
-            };
 
-            let key = *self
-                .map
-                .entry(string)
-                .or_try_insert_with(make_new_key)?
-                .value();
-            self.strings.insert(key, string);
+            let key = match self.map.entry(string) {
+                Entry::Occupied(o) => {
+                    *o.get()
+                }
+                Entry::Vacant(v) => {
+                    let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
+                        .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
+                    self.strings.insert(key, string);
+                    v.insert(key);
+
+                    key
+                }
+            }
 
             Ok(key)
         }
