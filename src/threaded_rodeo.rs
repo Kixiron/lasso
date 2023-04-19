@@ -421,7 +421,7 @@ where
                 K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
                     .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))
             };
-            
+
             let key = *self
                 .map
                 .entry(string)
