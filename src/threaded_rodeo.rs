@@ -338,7 +338,10 @@ where
                     let key = *o.get();
                     // Can assert that we have this key in `strings`, as that would be a bug if we
                     // did not.
-                    assert!(self.strings.contains_key(&key));
+                    // 
+                    // EDIT: Maybe do not want to assert as this is doing more work then necessary,
+                    // which might slow things down a bit. Leaving uncommented for now.
+                    //assert!(self.strings.contains_key(&key));
 
                     key
 
