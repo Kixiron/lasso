@@ -13,7 +13,7 @@ use core::{
     ops::Index,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use dashmap::DashMap;
+use dashmap::{mapref::entry::Entry, DashMap};
 use hashbrown::{hash_map::RawEntryMut, HashMap};
 
 macro_rules! index_unchecked_mut {
@@ -314,24 +314,47 @@ where
         T: AsRef<str>,
     {
         let string_slice = val.as_ref();
-
+        println!("Waiting on get");
         if let Some(key) = self.map.get(string_slice) {
+            println!("Got a key!");
             Ok(*key)
         } else {
             // Safety: The drop impl removes all references before the arena is dropped
             let string: &'static str = unsafe { self.arena.store_str(string_slice)? };
 
-            let make_new_key = || {
-                K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
-                    .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))
-            };
+            // Idea is that we want to insert into the strings first, as that will be used by what
+            // is given from the map. We don't want the map to say that there is something in
+            // strings until there definitely is. This is more friendly than using the raw API, so
+            // I'm going to give this a shot first.
+            
+            println!("Waiting to get into match");
+            let key = match self.map.entry(string) {
+                Entry::Occupied(o) => {
+                    println!("Got into match occupied");
+                    // Get the key from occupied entry.
+                    let key = *o.get(); 
+                    // Insert into strings.
+                    self.strings.insert(key, string);
+                    // No need to insert into map, right?
 
-            let key = *self
-                .map
-                .entry(string)
-                .or_try_insert_with(make_new_key)?
-                .value();
-            self.strings.insert(key, string);
+                    key
+
+                }
+                Entry::Vacant(v) => {
+                    println!("Got into match vacant");
+                    // Make a new key.
+                    let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
+                        .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
+                    
+                    // Insert into strings.
+                    std::thread::sleep(std::time::Duration::from_millis(5000));
+                    self.strings.insert(key, string);
+                    // Insert into map.
+                    v.insert(key);
+                    
+                    key
+                }
+            };
 
             Ok(key)
         }
@@ -398,7 +421,7 @@ where
                 K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
                     .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))
             };
-
+            
             let key = *self
                 .map
                 .entry(string)
