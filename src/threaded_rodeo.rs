@@ -322,19 +322,23 @@ where
             // Safety: The drop impl removes all references before the arena is dropped
             let string: &'static str = unsafe { self.arena.store_str(string_slice)? };
 
-            // Idea is that we want to insert into the strings first, as that will be used by what
-            // is given from the map. We don't want the map to say that there is something in
-            // strings until there definitely is.
-            
+            // Sleep to tease out case where multiple threads go down this path.
+            //std::thread::sleep(std::time::Duration::from_millis(4000));
             println!("Waiting to get into match");
             let key = match self.map.entry(string) {
                 Entry::Occupied(o) => {
-                    println!("Got into match occupied");
+                    // Panic for occupied entry. I don't think this is correct, as it is possible
+                    // that two threads head down this path to create a new entry. One will get to
+                    // create the new entries, but the other will find out that the entry is
+                    // already occupied. I think that's okay and definitely possible. We just 
+                    // want to return the key and maybe assert that `strings` contains the key.
+                    //panic!("We should not have an entry here");
+
                     // Get the key from occupied entry.
-                    let key = *o.get(); 
-                    // Insert into strings.
-                    self.strings.insert(key, string);
-                    // No need to insert into map, right?
+                    let key = *o.get();
+                    // Can assert that we have this key in `strings`, as that would be a bug if we
+                    // did not.
+                    assert!(self.strings.contains_key(&key));
 
                     key
 
@@ -346,7 +350,7 @@ where
                         .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
                     
                     // Insert into strings.
-                    std::thread::sleep(std::time::Duration::from_millis(5000));
+                    //std::thread::sleep(std::time::Duration::from_millis(5000));
                     self.strings.insert(key, string);
                     // Insert into map.
                     v.insert(key);
