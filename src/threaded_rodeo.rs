@@ -13,7 +13,7 @@ use core::{
     ops::Index,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use dashmap::{mapref::entry::Entry, DashMap};
+use dashmap::{DashMap, mapref::entry::Entry};
 use hashbrown::{hash_map::RawEntryMut, HashMap};
 
 macro_rules! index_unchecked_mut {
