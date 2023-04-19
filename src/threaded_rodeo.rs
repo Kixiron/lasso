@@ -314,6 +314,7 @@ where
         T: AsRef<str>,
     {
         let string_slice = val.as_ref();
+
         if let Some(key) = self.map.get(string_slice) {
             Ok(*key)
         } else {
