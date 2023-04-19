@@ -324,8 +324,7 @@ where
 
             // Idea is that we want to insert into the strings first, as that will be used by what
             // is given from the map. We don't want the map to say that there is something in
-            // strings until there definitely is. This is more friendly than using the raw API, so
-            // I'm going to give this a shot first.
+            // strings until there definitely is.
             
             println!("Waiting to get into match");
             let key = match self.map.entry(string) {
@@ -351,6 +350,7 @@ where
                     self.strings.insert(key, string);
                     // Insert into map.
                     v.insert(key);
+                    println!("Inserted into vacant entry");
                     
                     key
                 }
