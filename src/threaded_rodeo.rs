@@ -314,50 +314,21 @@ where
         T: AsRef<str>,
     {
         let string_slice = val.as_ref();
-        println!("Waiting on get");
         if let Some(key) = self.map.get(string_slice) {
-            println!("Got a key!");
             Ok(*key)
         } else {
             // Safety: The drop impl removes all references before the arena is dropped
             let string: &'static str = unsafe { self.arena.store_str(string_slice)? };
 
-            // Sleep to tease out case where multiple threads go down this path.
-            //std::thread::sleep(std::time::Duration::from_millis(4000));
-            println!("Waiting to get into match");
             let key = match self.map.entry(string) {
                 Entry::Occupied(o) => {
-                    // Panic for occupied entry. I don't think this is correct, as it is possible
-                    // that two threads head down this path to create a new entry. One will get to
-                    // create the new entries, but the other will find out that the entry is
-                    // already occupied. I think that's okay and definitely possible. We just 
-                    // want to return the key and maybe assert that `strings` contains the key.
-                    //panic!("We should not have an entry here");
-
-                    // Get the key from occupied entry.
-                    let key = *o.get();
-                    // Can assert that we have this key in `strings`, as that would be a bug if we
-                    // did not.
-                    // 
-                    // EDIT: Maybe do not want to assert as this is doing more work then necessary,
-                    // which might slow things down a bit. Leaving uncommented for now.
-                    //assert!(self.strings.contains_key(&key));
-
-                    key
-
+                    *o.get()
                 }
                 Entry::Vacant(v) => {
-                    println!("Got into match vacant");
-                    // Make a new key.
                     let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
                         .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
-                    
-                    // Insert into strings.
-                    //std::thread::sleep(std::time::Duration::from_millis(5000));
                     self.strings.insert(key, string);
-                    // Insert into map.
                     v.insert(key);
-                    println!("Inserted into vacant entry");
                     
                     key
                 }
