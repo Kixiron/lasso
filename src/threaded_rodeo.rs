@@ -409,7 +409,7 @@ where
 
                     key
                 }
-            }
+            };
 
             Ok(key)
         }
