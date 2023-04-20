@@ -321,12 +321,12 @@ where
             // Determine which shard will have our `string_slice` key.
             let shard_key = self.map.determine_shard(self.map.hash_usize(&string_slice));
             // Grab the shard and a write lock on it.
-            let mut my_shard = self.map.shards().get(shard_key).unwrap().write();
+            let mut shard = self.map.shards().get(shard_key).unwrap().write();
             // Try getting the value for the `string_slice` key. If we get `Some`, nothing to do. 
             // Just return the value, which is the key go to use to resolve the string. If we 
             // get `None`, an entry for the string doesn't exist yet. Store string in the arena
             // and update the maps accordingly.
-            let key = match my_shard.get(string_slice) {
+            let key = match shard.get(string_slice) {
                 Some(v) => *v.get(),
                 None => {
                     // Safety: The drop impl removes all references before the arena is dropped
@@ -336,7 +336,7 @@ where
                         .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
                     
                     self.strings.insert(key, string);
-                    my_shard.insert(string, SharedValue::new(key));
+                    shard.insert(string, SharedValue::new(key));
 
                     key
                 }
