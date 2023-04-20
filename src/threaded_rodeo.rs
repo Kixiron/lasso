@@ -13,7 +13,7 @@ use core::{
     ops::Index,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use dashmap::{DashMap, mapref::entry::Entry};
+use dashmap::{DashMap, mapref::entry::Entry, SharedValue};
 use hashbrown::{hash_map::RawEntryMut, HashMap};
 
 macro_rules! index_unchecked_mut {
@@ -318,19 +318,26 @@ where
         if let Some(key) = self.map.get(string_slice) {
             Ok(*key)
         } else {
-            // Safety: The drop impl removes all references before the arena is dropped
-            let string: &'static str = unsafe { self.arena.store_str(string_slice)? };
-
-            let key = match self.map.entry(string) {
-                Entry::Occupied(o) => {
-                    *o.get()
-                }
-                Entry::Vacant(v) => {
+            // Determine which shard will have our `string_slice` key.
+            let shard_key = self.map.determine_shard(self.map.hash_usize(&string_slice));
+            // Grab the shard and a write lock on it.
+            let mut my_shard = self.map.shards().get(shard_key).unwrap().write();
+            // Try getting the value for the `string_slice` key. If we get `Some`, nothing to do. 
+            // Just return the value, which is the key go to use to resolve the string. If we 
+            // get `None`, an entry for the string doesn't exist yet. Store string in the arena
+            // and update the maps accordingly.
+            let key = match my_shard.get(string_slice) {
+                Some(v) => *v.get(),
+                None => {
+                    // Safety: The drop impl removes all references before the arena is dropped
+                    let string: &'static str = unsafe { self.arena.store_str(string_slice)? };
+                    
                     let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
                         .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
-                    self.strings.insert(key, string);
-                    v.insert(key);
                     
+                    self.strings.insert(key, string);
+                    my_shard.insert(string, SharedValue::new(key));
+
                     key
                 }
             };
