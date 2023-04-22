@@ -324,8 +324,8 @@ where
             let mut shard = self.map.shards().get(shard_key).unwrap().write();
             // Try getting the value for the `string_slice` key. If we get `Some`, nothing to do. 
             // Just return the value, which is the key go to use to resolve the string. If we 
-            // get `None`, an entry for the string doesn't exist yet. Store string in the arena
-            // and update the maps accordingly.
+            // get `None`, an entry for the string doesn't exist yet. Store string in the arena,
+            // update the maps accordingly, and return the key.
             let key = match shard.get(string_slice) {
                 Some(v) => *v.get(),
                 None => {
