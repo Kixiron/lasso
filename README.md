@@ -4,7 +4,7 @@
 [![Docs.rs][6]][7]
 [![Crates.io][8]][9]
 
-A multithreaded and single threaded string interner that allows strings to be cached with a minimal memory footprint,
+A multithreaded and single threaded [string interner](https://en.wikipedia.org/wiki/String_interning) that allows strings to be cached with a minimal memory footprint,
 associating them with a unique [key] that can be used to retrieve them at any time. A [`Rodeo`] allows `O(1)`
 internment and resolution and can be turned into a [`RodeoReader`] to allow for contention-free resolutions
 with both key to str and str to key operations. It can also be turned into a [`RodeoResolver`] with only
