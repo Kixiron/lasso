@@ -290,6 +290,41 @@ where
             .expect("Failed to get or intern string")
     }
 
+    /// Get a boolean signifying whether the string is previously unseen and the key for it, interning it if it is
+    ///
+    /// # Panics
+    ///
+    /// Panics if the key's `try_from_usize` function fails. With the default keys, this means that
+    /// you've interned more strings than it can handle. (For [`Spur`] this means that `u32::MAX - 1`
+    /// unique strings were interned)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::ThreadedRodeo;
+    ///
+    /// let rodeo = ThreadedRodeo::default();
+    ///
+    /// // Interned the string
+    /// let (is_new, key) = rodeo.get_or_intern_yes("Strings of things with wings and dings");
+    /// assert!(is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    ///
+    /// // No string was interned, as it was already contained
+    /// let (is_new, key) = rodeo.get_or_intern_yes("Strings of things with wings and dings");
+    /// assert!(!is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    /// ```
+    ///
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn get_or_intern_yes<T>(&self, val: T) -> (bool, K)
+    where
+        T: AsRef<str>,
+    {
+        self.try_get_or_intern_yes(val)
+            .expect("Failed to get or intern string")
+    }
+
     /// Get the key for a string, interning it if it does not yet exist
     ///
     /// # Example
@@ -313,36 +348,62 @@ where
     where
         T: AsRef<str>,
     {
+        self.try_get_or_intern_yes(val).map(|(_yes, key)| key)
+    }
+
+    /// Get a boolean signifying whether the string is previously unseen and the key for it, interning it if it is
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::ThreadedRodeo;
+    ///
+    /// let rodeo = ThreadedRodeo::default();
+    ///
+    /// // Interned the string
+    /// let (is_new, key) = rodeo.get_or_intern_yes("Strings of things with wings and dings");
+    /// assert!(is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    ///
+    /// // No string was interned, as it was already contained
+    /// let (is_new, key) = rodeo.get_or_intern_yes("Strings of things with wings and dings");
+    /// assert!(!is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    /// ```
+    ///
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn try_get_or_intern_yes<T>(&self, val: T) -> LassoResult<(bool, K)>
+    where
+        T: AsRef<str>,
+    {
         let string_slice = val.as_ref();
 
         if let Some(key) = self.map.get(string_slice) {
-            Ok(*key)
+            Ok((false, *key))
         } else {
             // Determine which shard will have our `string_slice` key.
             let shard_key = self.map.determine_shard(self.map.hash_usize(&string_slice));
             // Grab the shard and a write lock on it.
             let mut shard = self.map.shards().get(shard_key).unwrap().write();
-            // Try getting the value for the `string_slice` key. If we get `Some`, nothing to do. 
-            // Just return the value, which is the key go to use to resolve the string. If we 
+            // Try getting the value for the `string_slice` key. If we get `Some`, nothing to do.
+            // Just return the value, which is the key go to use to resolve the string. If we
             // get `None`, an entry for the string doesn't exist yet. Store string in the arena,
             // update the maps accordingly, and return the key.
-            let key = match shard.get(string_slice) {
-                Some(v) => *v.get(),
+            match shard.get(string_slice) {
+                Some(v) => Ok((false, *v.get())),
                 None => {
                     // Safety: The drop impl removes all references before the arena is dropped
                     let string: &'static str = unsafe { self.arena.store_str(string_slice)? };
-                    
+
                     let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
                         .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
-                    
+
                     self.strings.insert(key, string);
                     shard.insert(string, SharedValue::new(key));
 
-                    key
+                    Ok((true, key))
                 }
-            };
-
-            Ok(key)
+            }
         }
     }
 
@@ -378,6 +439,40 @@ where
             .expect("Failed to get or intern static string")
     }
 
+    /// Get a boolean signifying whether the static string is previously unseen and the key for it, interning it if it is
+    ///
+    /// This will not reallocate or copy the given string but will instead just store it
+    ///
+    /// # Panics
+    ///
+    /// Panics if the key's `try_from_usize` function fails. With the default keys, this means that
+    /// you've interned more strings than it can handle. (For [`Spur`] this means that `u32::MAX - 1`
+    /// unique strings were interned)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::ThreadedRodeo;
+    ///
+    /// let mut rodeo = ThreadedRodeo::default();
+    ///
+    /// // Interned the string
+    /// let (is_new, key) = rodeo.get_or_intern_static_yes("Strings of things with wings and dings");
+    /// assert!(is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    ///
+    /// // No string was interned, as it was already contained
+    /// let (is_new, key) = rodeo.get_or_intern_static_yes("Strings of things with wings and dings");
+    /// assert!(!is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    /// ```
+    ///
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn get_or_intern_static_yes(&self, string: &'static str) -> (bool, K) {
+        self.try_get_or_intern_static_yes(string)
+            .expect("Failed to get or intern static string")
+    }
+
     /// Get the key for a static string, interning it if it does not yet exist
     ///
     /// This will not reallocate and copy the given string but will instead just store it
@@ -400,14 +495,39 @@ where
     ///
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn try_get_or_intern_static(&self, string: &'static str) -> LassoResult<K> {
-        if let Some(key) = self.map.get(string) {
-            Ok(*key)
-        } else {
+        self.try_get_or_intern_static_yes(string)
+            .map(|(_yes, key)| key)
+    }
 
+    /// Get a boolean signifying whether the static string is previously unseen and the key for it, interning it if it is
+    ///
+    /// This will not reallocate and copy the given string but will instead just store it
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::ThreadedRodeo;
+    ///
+    /// let mut rodeo = ThreadedRodeo::default();
+    ///
+    /// // Interned the string
+    /// let (is_new, key) = rodeo.try_get_or_intern_static_yes("Strings of things with wings and dings").unwrap();
+    /// assert!(is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    ///
+    /// // No string was interned, as it was already contained
+    /// let (is_new, key) = rodeo.try_get_or_intern_static_yes("Strings of things with wings and dings").unwrap();
+    /// assert!(!is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    /// ```
+    ///
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn try_get_or_intern_static_yes(&self, string: &'static str) -> LassoResult<(bool, K)> {
+        if let Some(key) = self.map.get(string) {
+            Ok((false, *key))
+        } else {
             let key = match self.map.entry(string) {
-                Entry::Occupied(o) => {
-                    *o.get()
-                }
+                Entry::Occupied(o) => *o.get(),
                 Entry::Vacant(v) => {
                     let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
                         .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
@@ -418,7 +538,7 @@ where
                 }
             };
 
-            Ok(key)
+            Ok((true, key))
         }
     }
 

@@ -291,6 +291,42 @@ where
             .expect("Failed to get or intern string")
     }
 
+    /// Get a boolean signifying whether the string is previously unseen and the key for it, interning it if it is
+    ///
+    /// # Panics
+    ///
+    /// Panics if the key's `try_from_usize` function fails. With the default keys, this means that
+    /// you've interned more strings than it can handle. (For [`Spur`] this means that `u32::MAX - 1`
+    /// unique strings were interned)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::Rodeo;
+    ///
+    /// let mut rodeo = Rodeo::default();
+    ///
+    /// // Interned the string
+    /// let (is_new, key) = rodeo.get_or_intern_yes("Strings of things with wings and dings");
+    /// assert!(is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    ///
+    /// // No string was interned, as it was already contained
+    /// let (is_new, key) = rodeo.get_or_intern_yes("Strings of things with wings and dings");
+    /// assert!(!is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    /// ```
+    ///
+    /// [`Spur`]: crate::Spur
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn get_or_intern_yes<T>(&mut self, val: T) -> (bool, K)
+    where
+        T: AsRef<str>,
+    {
+        self.try_get_or_intern_yes(val)
+            .expect("Failed to get or intern string")
+    }
+
     /// Get the key for a string, interning it if it does not yet exist
     ///
     /// # Example
@@ -314,6 +350,34 @@ where
     where
         T: AsRef<str>,
     {
+        self.try_get_or_intern_yes(val).map(|(_yes, key)| key)
+    }
+
+    /// Get a boolean signifying whether the string is previously unseen and the key for it, interning it if it is
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::Rodeo;
+    ///
+    /// let mut rodeo = Rodeo::default();
+    ///
+    /// // Interned the string
+    /// let (is_new, key) = rodeo.try_get_or_intern_yes("Strings of things with wings and dings").unwrap();
+    /// assert!(is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    ///
+    /// // No string was interned, as it was already contained
+    /// let (is_new, key) = rodeo.try_get_or_intern_yes("Strings of things with wings and dings").unwrap();
+    /// assert!(!is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    /// ```
+    ///
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn try_get_or_intern_yes<T>(&mut self, val: T) -> LassoResult<(bool, K)>
+    where
+        T: AsRef<str>,
+    {
         let Self {
             map,
             hasher,
@@ -327,9 +391,9 @@ where
         let hash = hash_string(hasher, string_slice);
 
         // Get the map's entry that the string should occupy
-        let key = match get_string_entry_mut(map, strings, hash, string_slice) {
+        match get_string_entry_mut(map, strings, hash, string_slice) {
             // The string already exists, so return its key
-            RawEntryMut::Occupied(entry) => *entry.into_key(),
+            RawEntryMut::Occupied(entry) => Ok((false, *entry.into_key())),
 
             // The string does not yet exist, so insert it and create its key
             RawEntryMut::Vacant(entry) => {
@@ -347,11 +411,9 @@ where
                 // Insert the key with the hash of the string that it points to, reusing the hash we made earlier
                 insert_string(entry, strings, hasher, hash, key);
 
-                key
+                Ok((true, key))
             }
-        };
-
-        Ok(key)
+        }
     }
 
     /// Get the key for a static string, interning it if it does not yet exist
@@ -386,6 +448,41 @@ where
             .expect("Failed to get or intern static string")
     }
 
+    /// Get a boolean signifying whether the static string is previously unseen and the key for it, interning it if it is
+    ///
+    /// This will not reallocate or copy the given string
+    ///
+    /// # Panics
+    ///
+    /// Panics if the key's `try_from_usize` function fails. With the default keys, this means that
+    /// you've interned more strings than it can handle. (For [`Spur`] this means that `u32::MAX - 1`
+    /// unique strings were interned)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::Rodeo;
+    ///
+    /// let mut rodeo = Rodeo::default();
+    ///
+    /// // Interned the string
+    /// let (is_new, key) = rodeo.get_or_intern_static_yes("Strings of things with wings and dings");
+    /// assert!(is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    ///
+    /// // No string was interned, as it was already contained
+    /// let (is_new, key) = rodeo.get_or_intern_static_yes("Strings of things with wings and dings");
+    /// assert!(!is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    ///
+    /// ```
+    ///
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn get_or_intern_static_yes(&mut self, string: &'static str) -> (bool, K) {
+        self.try_get_or_intern_static_yes(string)
+            .expect("Failed to get or intern static string")
+    }
+
     /// Get the key for a static string, interning it if it does not yet exist
     ///
     /// This will not reallocate or copy the given string
@@ -408,6 +505,34 @@ where
     ///
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn try_get_or_intern_static(&mut self, string: &'static str) -> LassoResult<K> {
+        self.try_get_or_intern_static_yes(string)
+            .map(|(_yes, key)| key)
+    }
+
+    /// Get a boolean signifying whether the static string is previously unseen and the key for it, interning it if it is
+    ///
+    /// This will not reallocate or copy the given string
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lasso::Rodeo;
+    ///
+    /// let mut rodeo = Rodeo::default();
+    ///
+    /// // Interned the string
+    /// let (is_new, key) = rodeo.try_get_or_intern_static_yes("Strings of things with wings and dings").unwrap();
+    /// assert!(is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    ///
+    /// // No string was interned, as it was already contained
+    /// let (is_new, key) = rodeo.try_get_or_intern_static_yes("Strings of things with wings and dings").unwrap();
+    /// assert!(!is_new);
+    /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
+    /// ```
+    ///
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn try_get_or_intern_static_yes(&mut self, string: &'static str) -> LassoResult<(bool, K)> {
         let Self {
             map,
             hasher,
@@ -419,9 +544,9 @@ where
         let hash = hash_string(hasher, string);
 
         // Get the map's entry that the string should occupy
-        let key = match get_string_entry_mut(map, strings, hash, string) {
+        match get_string_entry_mut(map, strings, hash, string) {
             // The string already exists, so return its key
-            RawEntryMut::Occupied(entry) => *entry.into_key(),
+            RawEntryMut::Occupied(entry) => Ok((false, *entry.into_key())),
 
             // The string does not yet exist, so insert it and create its key
             RawEntryMut::Vacant(entry) => {
@@ -435,11 +560,9 @@ where
                 // Insert the key with the hash of the string that it points to, reusing the hash we made earlier
                 insert_string(entry, strings, hasher, hash, key);
 
-                key
+                Ok((true, key))
             }
-        };
-
-        Ok(key)
+        }
     }
 
     /// Get the key value of a string, returning `None` if it doesn't exist
