@@ -307,23 +307,23 @@ where
     /// let mut rodeo = Rodeo::default();
     ///
     /// // Interned the string
-    /// let (is_new, key) = rodeo.get_or_intern_yes("Strings of things with wings and dings");
+    /// let (is_new, key) = rodeo.insert("Strings of things with wings and dings");
     /// assert!(is_new);
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     ///
     /// // No string was interned, as it was already contained
-    /// let (is_new, key) = rodeo.get_or_intern_yes("Strings of things with wings and dings");
+    /// let (is_new, key) = rodeo.insert("Strings of things with wings and dings");
     /// assert!(!is_new);
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     /// ```
     ///
     /// [`Spur`]: crate::Spur
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn get_or_intern_yes<T>(&mut self, val: T) -> (bool, K)
+    pub fn insert<T>(&mut self, val: T) -> (bool, K)
     where
         T: AsRef<str>,
     {
-        self.try_get_or_intern_yes(val)
+        self.try_insert(val)
             .expect("Failed to get or intern string")
     }
 
@@ -350,7 +350,7 @@ where
     where
         T: AsRef<str>,
     {
-        self.try_get_or_intern_yes(val).map(|(_yes, key)| key)
+        self.try_insert(val).map(|(_yes, key)| key)
     }
 
     /// Get a boolean signifying whether the string is previously unseen and the key for it, interning it if it is
@@ -363,18 +363,18 @@ where
     /// let mut rodeo = Rodeo::default();
     ///
     /// // Interned the string
-    /// let (is_new, key) = rodeo.try_get_or_intern_yes("Strings of things with wings and dings").unwrap();
+    /// let (is_new, key) = rodeo.try_insert("Strings of things with wings and dings").unwrap();
     /// assert!(is_new);
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     ///
     /// // No string was interned, as it was already contained
-    /// let (is_new, key) = rodeo.try_get_or_intern_yes("Strings of things with wings and dings").unwrap();
+    /// let (is_new, key) = rodeo.try_insert("Strings of things with wings and dings").unwrap();
     /// assert!(!is_new);
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_get_or_intern_yes<T>(&mut self, val: T) -> LassoResult<(bool, K)>
+    pub fn try_insert<T>(&mut self, val: T) -> LassoResult<(bool, K)>
     where
         T: AsRef<str>,
     {
@@ -466,20 +466,20 @@ where
     /// let mut rodeo = Rodeo::default();
     ///
     /// // Interned the string
-    /// let (is_new, key) = rodeo.get_or_intern_static_yes("Strings of things with wings and dings");
+    /// let (is_new, key) = rodeo.insert_static("Strings of things with wings and dings");
     /// assert!(is_new);
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     ///
     /// // No string was interned, as it was already contained
-    /// let (is_new, key) = rodeo.get_or_intern_static_yes("Strings of things with wings and dings");
+    /// let (is_new, key) = rodeo.insert_static("Strings of things with wings and dings");
     /// assert!(!is_new);
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     ///
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn get_or_intern_static_yes(&mut self, string: &'static str) -> (bool, K) {
-        self.try_get_or_intern_static_yes(string)
+    pub fn insert_static(&mut self, string: &'static str) -> (bool, K) {
+        self.try_insert_static(string)
             .expect("Failed to get or intern static string")
     }
 
@@ -505,8 +505,7 @@ where
     ///
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn try_get_or_intern_static(&mut self, string: &'static str) -> LassoResult<K> {
-        self.try_get_or_intern_static_yes(string)
-            .map(|(_yes, key)| key)
+        self.try_insert_static(string).map(|(_yes, key)| key)
     }
 
     /// Get a boolean signifying whether the static string is previously unseen and the key for it, interning it if it is
@@ -521,18 +520,18 @@ where
     /// let mut rodeo = Rodeo::default();
     ///
     /// // Interned the string
-    /// let (is_new, key) = rodeo.try_get_or_intern_static_yes("Strings of things with wings and dings").unwrap();
+    /// let (is_new, key) = rodeo.try_insert_static("Strings of things with wings and dings").unwrap();
     /// assert!(is_new);
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     ///
     /// // No string was interned, as it was already contained
-    /// let (is_new, key) = rodeo.try_get_or_intern_static_yes("Strings of things with wings and dings").unwrap();
+    /// let (is_new, key) = rodeo.try_insert_static("Strings of things with wings and dings").unwrap();
     /// assert!(!is_new);
     /// assert_eq!("Strings of things with wings and dings", rodeo.resolve(&key));
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_get_or_intern_static_yes(&mut self, string: &'static str) -> LassoResult<(bool, K)> {
+    pub fn try_insert_static(&mut self, string: &'static str) -> LassoResult<(bool, K)> {
         let Self {
             map,
             hasher,
