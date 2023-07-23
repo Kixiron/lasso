@@ -883,6 +883,13 @@ impl<K, S> Rodeo<K, S> {
         Strings::from_rodeo(self)
     }
 
+    /// Returns a reference to the slice of interned strings
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn as_str(&self) -> &[&str] {
+        // Safety: we are shortening the &str lifetime from static to self, so they won't outlive the arens
+        &self.strings
+    }
+
     /// Set the `Rodeo`'s maximum memory usage while in-flight
     ///
     /// Note that setting the maximum memory usage to below the currently allocated
