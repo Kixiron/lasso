@@ -979,8 +979,9 @@ where
             .expect("failed to allocate memory for interner");
 
         for (string, key) in deser_map {
-            if key.into_usize() > highest {
-                highest = key.into_usize();
+            let next_key = key.into_usize() + 1;
+            if next_key > highest {
+                highest = next_key;
             }
 
             let allocated = unsafe {
@@ -1706,6 +1707,12 @@ mod tests {
 
         let deser: ThreadedRodeo = serde_json::from_str(&ser).unwrap();
         let deser2: ThreadedRodeo = serde_json::from_str(&ser2).unwrap();
+
+        // Verify that the "next" key is set correctly
+        assert_eq!(
+            rodeo.key.load(Ordering::Relaxed),
+            deser.key.load(Ordering::Relaxed)
+        );
 
         for (correct_key, correct_str) in [(a, "a"), (b, "b"), (c, "c"), (d, "d")].iter().copied() {
             assert_eq!(correct_key, deser.get(correct_str).unwrap());
