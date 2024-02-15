@@ -444,7 +444,7 @@ macro_rules! index_unchecked {
         let elem: &_ = if cfg!(debug_assertions) {
             $slice[$idx]
         } else {
-            $slice.get_unchecked($idx)
+            *$slice.get_unchecked($idx)
         };
 
         elem
