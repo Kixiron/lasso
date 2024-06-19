@@ -8,7 +8,7 @@ use crate::{
 };
 use core::{
     fmt::{Debug, Formatter, Result as FmtResult},
-    hash::{BuildHasher, Hash, Hasher},
+    hash::{BuildHasher, Hash},
     iter::{self, FromIterator},
     ops::Index,
     sync::atomic::{AtomicUsize, Ordering},
@@ -674,12 +674,7 @@ where
                     let string: &str = string;
 
                     // Hash the string to use as the key's hash (See `Rodeo`'s documentation for details)
-                    let hash = {
-                        let mut state = hasher.build_hasher();
-                        string.hash(&mut state);
-
-                        state.finish()
-                    };
+                    let hash = hasher.hash_one(string);
 
                     // Get the entry of the hashmap and insert the key with our new, custom hash
                     let entry = map.raw_entry_mut().from_hash(hash, |key| {
@@ -702,10 +697,7 @@ where
                                 let key_string: &str =
                                     unsafe { index_unchecked!(strings, key.into_usize()) };
 
-                                let mut state = hasher.build_hasher();
-                                key_string.hash(&mut state);
-
-                                state.finish()
+                                hasher.hash_one(key_string)
                             });
                         }
                     }
@@ -981,7 +973,7 @@ where
         let map = DashMap::with_capacity_and_hasher(capacity.strings, hasher.clone());
         let strings = DashMap::with_capacity_and_hasher(capacity.strings, hasher);
         let mut highest = 0;
-        let arena = LockfreeArena::new(capacity.bytes, usize::max_value())
+        let arena = LockfreeArena::new(capacity.bytes, usize::MAX)
             .expect("failed to allocate memory for interner");
 
         for (string, key) in deser_map {
@@ -1184,7 +1176,7 @@ mod tests {
     fn try_get_or_intern() {
         let rodeo: ThreadedRodeo<MicroSpur> = ThreadedRodeo::new();
 
-        for i in 0..u8::max_value() as usize - 1 {
+        for i in 0..u8::MAX as usize - 1 {
             rodeo.get_or_intern(i.to_string());
         }
 
@@ -1201,7 +1193,7 @@ mod tests {
     fn try_get_or_intern_threaded() {
         let rodeo: Arc<ThreadedRodeo<MicroSpur>> = Arc::new(ThreadedRodeo::new());
 
-        for i in 0..u8::max_value() as usize - 1 {
+        for i in 0..u8::MAX as usize - 1 {
             rodeo.get_or_intern(i.to_string());
         }
 

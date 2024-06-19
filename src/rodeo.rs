@@ -1102,12 +1102,7 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, S> {
                     .expect("failed to allocate enough memory")
             };
 
-            let hash = {
-                let mut state = hasher.build_hasher();
-                allocated.hash(&mut state);
-
-                state.finish()
-            };
+            let hash = hasher.hash_one(allocated);
 
             // Get the map's entry that the string should occupy
             let entry = map.raw_entry_mut().from_hash(hash, |key: &K| {
@@ -1135,10 +1130,7 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, S> {
                         let key_string: &str =
                             unsafe { index_unchecked!(strings, key.into_usize()) };
 
-                        let mut state = hasher.build_hasher();
-                        key_string.hash(&mut state);
-
-                        state.finish()
+                        hasher.hash_one(key_string)
                     });
                 }
             }

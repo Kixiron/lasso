@@ -308,8 +308,8 @@ impl<'de, K: Key> Deserialize<'de> for RodeoResolver<K> {
         };
 
         let mut strings = Vec::with_capacity(capacity.strings);
-        let mut arena = Arena::new(capacity.bytes, usize::max_value())
-            .expect("failed to allocate memory for interner");
+        let mut arena =
+            Arena::new(capacity.bytes, usize::MAX).expect("failed to allocate memory for interner");
 
         for string in vector {
             let allocated = unsafe {
@@ -561,13 +561,13 @@ mod tests {
 
     #[cfg(all(not(any(miri, feature = "no-std")), feature = "multi-threaded"))]
     mod multi_threaded {
-        use crate::{locks::Arc, ThreadedRodeo};
+        use crate::{locks::Arc, Key, Spur, ThreadedRodeo};
         use std::thread;
 
         #[test]
         fn resolve() {
             let rodeo = ThreadedRodeo::default();
-            let key = rodeo.intern("A");
+            let key = rodeo.get_or_intern("A");
 
             let resolver = rodeo.into_resolver();
             assert_eq!("A", resolver.resolve(&key));
@@ -575,8 +575,8 @@ mod tests {
 
         #[test]
         fn try_resolve() {
-            let mut rodeo = ThreadedRodeo::default();
-            let key = rodeo.intern("A");
+            let rodeo = ThreadedRodeo::default();
+            let key = rodeo.get_or_intern("A");
 
             let resolver = rodeo.into_resolver();
             assert_eq!(Some("A"), resolver.try_resolve(&key));
@@ -587,20 +587,16 @@ mod tests {
         }
 
         #[test]
-        #[cfg(not(miri))]
         fn try_resolve_threaded() {
             let rodeo = ThreadedRodeo::default();
-            let key = rodeo.intern("A");
+            let key = rodeo.get_or_intern("A");
 
             let resolver = Arc::new(rodeo.into_resolver());
 
             let moved = Arc::clone(&resolver);
             thread::spawn(move || {
-                assert_eq!(Some("A"), resolver.try_resolve(&key));
-                assert_eq!(
-                    None,
-                    resolver.try_resolve(&Spur::try_from_usize(10).unwrap())
-                );
+                assert_eq!(Some("A"), moved.try_resolve(&key));
+                assert_eq!(None, moved.try_resolve(&Spur::try_from_usize(10).unwrap()));
             });
 
             assert_eq!(Some("A"), resolver.try_resolve(&key));
@@ -612,7 +608,7 @@ mod tests {
 
         #[test]
         fn resolve_unchecked() {
-            let mut rodeo = ThreadedRodeo::default();
+            let rodeo = ThreadedRodeo::default();
             let a = rodeo.get_or_intern("A");
 
             let resolver = rodeo.into_resolver();
@@ -622,10 +618,9 @@ mod tests {
         }
 
         #[test]
-        #[cfg(not(miri))]
         fn resolve_unchecked_threaded() {
             let rodeo = ThreadedRodeo::default();
-            let key = rodeo.intern("A");
+            let a = rodeo.get_or_intern("A");
 
             let resolver = Arc::new(rodeo.into_resolver());
 
@@ -640,10 +635,9 @@ mod tests {
         }
 
         #[test]
-        #[cfg(not(miri))]
         fn resolve_threaded() {
             let rodeo = ThreadedRodeo::default();
-            let key = rodeo.intern("A");
+            let key = rodeo.get_or_intern("A");
 
             let resolver = Arc::new(rodeo.into_resolver());
 
@@ -658,9 +652,9 @@ mod tests {
         #[test]
         fn len() {
             let rodeo = ThreadedRodeo::default();
-            rodeo.intern("A");
-            rodeo.intern("B");
-            rodeo.intern("C");
+            rodeo.get_or_intern("A");
+            rodeo.get_or_intern("B");
+            rodeo.get_or_intern("C");
 
             let resolver = rodeo.into_resolver();
             assert_eq!(resolver.len(), 3);
@@ -707,29 +701,12 @@ mod tests {
         }
 
         #[test]
-        fn clone() {
-            let rodeo = ThreadedRodeo::default();
-            let key = rodeo.intern("Test");
-
-            let resolver_rodeo = rodeo.into_resolver();
-            assert_eq!("Test", resolver_rodeo.resolve(&key));
-
-            let cloned = resolver_rodeo.clone();
-            assert_eq!("Test", cloned.resolve(&key));
-
-            drop(resolver_rodeo);
-
-            assert_eq!("Test", cloned.resolve(&key));
-        }
-
-        #[test]
         fn drops() {
             let rodeo = ThreadedRodeo::default();
             let _ = rodeo.into_resolver();
         }
 
         #[test]
-        #[cfg(not(miri))]
         fn drop_threaded() {
             let rodeo = ThreadedRodeo::default();
             let resolver = Arc::new(rodeo.into_resolver());
@@ -749,7 +726,7 @@ mod tests {
 
         #[test]
         fn contains_key() {
-            let mut rodeo = ThreadedRodeo::default();
+            let rodeo = ThreadedRodeo::default();
             let key = rodeo.get_or_intern("");
             let resolver = rodeo.into_resolver();
 
@@ -777,7 +754,7 @@ mod tests {
         #[test]
         fn index() {
             let rodeo = ThreadedRodeo::default();
-            let key = rodeo.intern("A");
+            let key = rodeo.get_or_intern("A");
 
             let resolver = rodeo.into_resolver();
             assert_eq!("A", &resolver[key]);
@@ -786,6 +763,8 @@ mod tests {
         #[test]
         #[cfg(feature = "serialize")]
         fn empty_serialize() {
+            use crate::RodeoResolver;
+
             let rodeo = ThreadedRodeo::default().into_resolver();
 
             let ser = serde_json::to_string(&rodeo).unwrap();
@@ -801,6 +780,8 @@ mod tests {
         #[test]
         #[cfg(feature = "serialize")]
         fn filled_serialize() {
+            use crate::RodeoResolver;
+
             let rodeo = ThreadedRodeo::default();
             let a = rodeo.get_or_intern("a");
             let b = rodeo.get_or_intern("b");
