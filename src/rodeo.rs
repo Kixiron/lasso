@@ -1042,7 +1042,7 @@ where
             .map_err(|_| LassoError::new(LassoErrorKind::FailedAllocation))?;
 
         self.map
-            .raw_table()
+            .raw_table_mut()
             .try_reserve(source.map.len(), |_| {
                 unreachable!("the target Rodeo's map should be empty while resizing");
             })
