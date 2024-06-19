@@ -188,7 +188,7 @@ impl Default for MemoryLimits {
     #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self {
-            max_memory_usage: usize::max_value(),
+            max_memory_usage: usize::MAX,
         }
     }
 }

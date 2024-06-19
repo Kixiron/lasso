@@ -559,7 +559,7 @@ mod tests {
         }
     }
 
-    #[cfg(all(not(any(miri, feature = "no-std")), features = "multi-threaded"))]
+    #[cfg(all(not(any(miri, feature = "no-std")), feature = "multi-threaded"))]
     mod multi_threaded {
         use crate::{locks::Arc, ThreadedRodeo};
         use std::thread;
