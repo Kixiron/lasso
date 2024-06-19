@@ -153,7 +153,7 @@ fn reader_ahash(c: &mut Criterion) {
     let mut group = c.benchmark_group("RodeoReader 1 Thread (ahash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
-    let setup = ReaderEmptySetup::new(RandomState::default());
+    let setup = ReaderEmptySetup::new(RandomState::new());
     group.bench_function("get (empty)", |b| {
         b.iter_batched(
             || setup.empty_rodeo(),
@@ -166,7 +166,7 @@ fn reader_ahash(c: &mut Criterion) {
         )
     });
 
-    let setup = ReaderFilledSetup::new(RandomState::default());
+    let setup = ReaderFilledSetup::new(RandomState::new());
     group.bench_function("get (filled)", |b| {
         b.iter_batched(
             || setup.filled_rodeo(),
@@ -179,7 +179,7 @@ fn reader_ahash(c: &mut Criterion) {
         )
     });
 
-    let setup = ReaderFilledSetup::new(RandomState::default());
+    let setup = ReaderFilledSetup::new(RandomState::new());
     group.bench_function("resolve", |b| {
         b.iter_batched(
             || setup.filled_rodeo(),
@@ -192,7 +192,7 @@ fn reader_ahash(c: &mut Criterion) {
         )
     });
 
-    let setup = ReaderFilledSetup::new(RandomState::default());
+    let setup = ReaderFilledSetup::new(RandomState::new());
     group.bench_function("try_resolve", |b| {
         b.iter_batched(
             || setup.filled_rodeo(),
@@ -205,7 +205,7 @@ fn reader_ahash(c: &mut Criterion) {
         )
     });
 
-    let setup = ReaderFilledSetup::new(RandomState::default());
+    let setup = ReaderFilledSetup::new(RandomState::new());
     group.bench_function("resolve_unchecked", |b| {
         b.iter_batched(
             || setup.filled_rodeo(),

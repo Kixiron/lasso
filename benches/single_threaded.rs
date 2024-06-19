@@ -127,7 +127,7 @@ fn rodeo_ahash(c: &mut Criterion) {
     let mut group = c.benchmark_group("Rodeo (ahash)");
     group.throughput(Throughput::Bytes(INPUT.len() as u64));
 
-    let setup = RodeoEmptySetup::new(RandomState::default());
+    let setup = RodeoEmptySetup::new(RandomState::new());
     group.bench_function("get_or_intern (empty)", |b| {
         b.iter_batched(
             || setup.empty_rodeo(),
@@ -140,7 +140,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         )
     });
 
-    let mut setup = RodeoFilledSetup::new(RandomState::default());
+    let mut setup = RodeoFilledSetup::new(RandomState::new());
     group.bench_function("get_or_intern (filled)", |b| {
         b.iter(|| {
             for &line in setup.lines() {
@@ -149,7 +149,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         })
     });
 
-    let setup = RodeoEmptySetup::new(RandomState::default());
+    let setup = RodeoEmptySetup::new(RandomState::new());
     group.bench_function("try_get_or_intern (empty)", |b| {
         b.iter_batched(
             || setup.empty_rodeo(),
@@ -162,7 +162,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         )
     });
 
-    let mut setup = RodeoFilledSetup::new(RandomState::default());
+    let mut setup = RodeoFilledSetup::new(RandomState::new());
     group.bench_function("try_get_or_intern (filled)", |b| {
         b.iter(|| {
             for &line in setup.lines() {
@@ -171,7 +171,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         })
     });
 
-    let setup = RodeoEmptySetup::new(RandomState::default());
+    let setup = RodeoEmptySetup::new(RandomState::new());
     group.bench_function("get (empty)", |b| {
         b.iter_batched(
             || setup.empty_rodeo(),
@@ -184,7 +184,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         )
     });
 
-    let setup = RodeoFilledSetup::new(RandomState::default());
+    let setup = RodeoFilledSetup::new(RandomState::new());
     group.bench_function("get (filled)", |b| {
         b.iter_batched(
             || setup.filled_rodeo(),
@@ -197,7 +197,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         )
     });
 
-    let setup = RodeoFilledSetup::new(RandomState::default());
+    let setup = RodeoFilledSetup::new(RandomState::new());
     group.bench_function("resolve", |b| {
         b.iter_batched(
             || setup.filled_rodeo(),
@@ -210,7 +210,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         )
     });
 
-    let setup = RodeoFilledSetup::new(RandomState::default());
+    let setup = RodeoFilledSetup::new(RandomState::new());
     group.bench_function("try_resolve", |b| {
         b.iter_batched(
             || setup.filled_rodeo(),
@@ -223,7 +223,7 @@ fn rodeo_ahash(c: &mut Criterion) {
         )
     });
 
-    let setup = RodeoFilledSetup::new(RandomState::default());
+    let setup = RodeoFilledSetup::new(RandomState::new());
     group.bench_function("resolve_unchecked", |b| {
         b.iter_batched(
             || setup.filled_rodeo(),

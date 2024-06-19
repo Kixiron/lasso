@@ -23,7 +23,7 @@ serialize = ["serde", "hashbrown/serde"]
 
 # Provides a concurrent hashmap, enabled with the `multi-threaded` feature
 [dependencies.dashmap]
-version = "5.1.0"
+version = "6.0.0"
 features = ["raw-api"]
 optional = true
 
@@ -36,7 +36,7 @@ optional = true
 
 # Provides the hashmap that all single-threaded interners use
 [dependencies.hashbrown]
-version = "0.13.0"
+version = "0.14.0"
 features = ["raw"]
 
 # Allows {de}serialization of Spurs
