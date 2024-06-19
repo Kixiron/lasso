@@ -8,13 +8,7 @@ use crate::{
     Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits,
 };
 use alloc::vec::Vec;
-use core::{
-    cmp::max,
-    hash::{BuildHasher, Hash, Hasher},
-    iter::FromIterator,
-    num::NonZeroUsize,
-    ops::Index,
-};
+use core::{cmp::max, hash::BuildHasher, iter::FromIterator, num::NonZeroUsize, ops::Index};
 use hashbrown::{
     hash_map::{RawEntryMut, RawVacantEntryMut},
     HashMap,
@@ -324,7 +318,7 @@ where
         let string_slice: &str = val.as_ref();
 
         // Make a hash of the requested string
-        let hash = hash_string(hasher, string_slice);
+        let hash = hasher.hash_one(string_slice);
 
         // Get the map's entry that the string should occupy
         let key = match get_string_entry_mut(map, strings, hash, string_slice) {
@@ -416,7 +410,7 @@ where
         } = self;
 
         // Make a hash of the requested string
-        let hash = hash_string(hasher, string);
+        let hash = hasher.hash_one(string);
 
         // Get the map's entry that the string should occupy
         let key = match get_string_entry_mut(map, strings, hash, string) {
@@ -465,7 +459,7 @@ where
         let string_slice: &str = val.as_ref();
 
         // Make a hash of the requested string
-        let hash = hash_string(&self.hasher, string_slice);
+        let hash = self.hasher.hash_one(string_slice);
 
         // Get the map's entry that the string should occupy
         self.map
@@ -502,17 +496,6 @@ where
     {
         self.get(val).is_some()
     }
-}
-
-/// Hashes a string using the given hasher
-#[inline]
-fn hash_string<S>(hasher: &S, string: &str) -> u64
-where
-    S: BuildHasher,
-{
-    let mut state = hasher.build_hasher();
-    string.hash(&mut state);
-    state.finish()
 }
 
 /// Gets a mutable entry for the given string using its hash
@@ -552,7 +535,7 @@ fn insert_string<K, S>(
         let key_string: &str = unsafe { index_unchecked!(strings, key.into_usize()) };
 
         // Insert the string with the given hash
-        hash_string(hasher, key_string)
+        hasher.hash_one(key_string)
     });
 }
 
@@ -968,7 +951,7 @@ where
         strings.push(allocated);
 
         // Hash the allocated string
-        let hash = hash_string(hasher, allocated);
+        let hash = hasher.hash_one(allocated);
 
         // Insert the allocated string into the string map
         match get_string_entry_mut(map, strings, hash, allocated) {
@@ -1109,8 +1092,8 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for Rodeo<K, S> {
         let hasher: S = Default::default();
         let mut strings = Vec::with_capacity(capacity.strings);
         let mut map = HashMap::with_capacity_and_hasher(capacity.strings, ());
-        let mut arena = Arena::new(capacity.bytes, usize::max_value())
-            .expect("failed to allocate memory for interner");
+        let mut arena =
+            Arena::new(capacity.bytes, usize::MAX).expect("failed to allocate memory for interner");
 
         for (key, string) in vector.into_iter().enumerate() {
             let allocated = unsafe {
@@ -1280,7 +1263,7 @@ mod tests {
     fn try_get_or_intern() {
         let mut rodeo: Rodeo<MicroSpur> = Rodeo::new();
 
-        for i in 0..u8::max_value() as usize - 1 {
+        for i in 0..u8::MAX as usize - 1 {
             rodeo.get_or_intern(i.to_string());
         }
 
@@ -1309,7 +1292,7 @@ mod tests {
         let mut strings = Vec::new();
         let mut rodeo: Rodeo<MicroSpur> = Rodeo::new();
 
-        for i in 0..u8::max_value() as usize - 1 {
+        for i in 0..u8::MAX as usize - 1 {
             let ptr = Box::into_raw(i.to_string().into_boxed_str());
             strings.push(ptr);
 
@@ -1325,7 +1308,7 @@ mod tests {
 
         drop(rodeo);
         for string in strings {
-            unsafe { Box::from_raw(string) };
+            unsafe { drop(Box::from_raw(string)) };
         }
     }
 

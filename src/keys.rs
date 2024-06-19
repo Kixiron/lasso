@@ -47,7 +47,7 @@ unsafe impl Key for LargeSpur {
     /// Returns `None` if `int` is greater than `usize::MAX - 1`
     #[cfg_attr(feature = "inline-more", inline)]
     fn try_from_usize(int: usize) -> Option<Self> {
-        if int < usize::max_value() {
+        if int < usize::MAX {
             // Safety: The integer is less than the max value and then incremented by one, meaning that
             // is is impossible for a zero to inhabit the NonZeroUsize
             unsafe {
@@ -106,7 +106,7 @@ unsafe impl Key for Spur {
     /// Returns `None` if `int` is greater than `u32::MAX - 1`
     #[cfg_attr(feature = "inline-more", inline)]
     fn try_from_usize(int: usize) -> Option<Self> {
-        if int < u32::max_value() as usize {
+        if int < u32::MAX as usize {
             // Safety: The integer is less than the max value and then incremented by one, meaning that
             // is is impossible for a zero to inhabit the NonZeroU32
             unsafe {
@@ -165,7 +165,7 @@ unsafe impl Key for MiniSpur {
     /// Returns `None` if `int` is greater than `u16::MAX - 1`
     #[cfg_attr(feature = "inline-more", inline)]
     fn try_from_usize(int: usize) -> Option<Self> {
-        if int < u16::max_value() as usize {
+        if int < u16::MAX as usize {
             // Safety: The integer is less than the max value and then incremented by one, meaning that
             // is is impossible for a zero to inhabit the NonZeroU16
             unsafe {
@@ -224,7 +224,7 @@ unsafe impl Key for MicroSpur {
     /// Returns `None` if `int` is greater than `u8::MAX - 1`
     #[cfg_attr(feature = "inline-more", inline)]
     fn try_from_usize(int: usize) -> Option<Self> {
-        if int < u8::max_value() as usize {
+        if int < u8::MAX as usize {
             // Safety: The integer is less than the max value and then incremented by one, meaning that
             // is is impossible for a zero to inhabit the NonZeroU8
             unsafe {
@@ -402,93 +402,93 @@ mod tests {
     #[test]
     fn large() {
         let zero = LargeSpur::try_from_usize(0).unwrap();
-        let max = LargeSpur::try_from_usize(usize::max_value() - 1).unwrap();
+        let max = LargeSpur::try_from_usize(usize::MAX - 1).unwrap();
         let default = LargeSpur::default();
 
         assert_eq!(zero.into_usize(), 0);
-        assert_eq!(max.into_usize(), usize::max_value() - 1);
+        assert_eq!(max.into_usize(), usize::MAX - 1);
         assert_eq!(default.into_usize(), 0);
     }
 
     #[test]
     fn large_max_returns_none() {
-        assert_eq!(None, LargeSpur::try_from_usize(usize::max_value()));
+        assert_eq!(None, LargeSpur::try_from_usize(usize::MAX));
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
     fn large_max_panics() {
-        LargeSpur::try_from_usize(usize::max_value()).unwrap();
+        LargeSpur::try_from_usize(usize::MAX).unwrap();
     }
 
     #[test]
     fn spur() {
         let zero = Spur::try_from_usize(0).unwrap();
-        let max = Spur::try_from_usize(u32::max_value() as usize - 1).unwrap();
+        let max = Spur::try_from_usize(u32::MAX as usize - 1).unwrap();
         let default = Spur::default();
 
         assert_eq!(zero.into_usize(), 0);
-        assert_eq!(max.into_usize(), u32::max_value() as usize - 1);
+        assert_eq!(max.into_usize(), u32::MAX as usize - 1);
         assert_eq!(default.into_usize(), 0);
     }
 
     #[test]
     fn spur_returns_none() {
-        assert_eq!(None, Spur::try_from_usize(u32::max_value() as usize));
+        assert_eq!(None, Spur::try_from_usize(u32::MAX as usize));
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
     fn spur_panics() {
-        Spur::try_from_usize(u32::max_value() as usize).unwrap();
+        Spur::try_from_usize(u32::MAX as usize).unwrap();
     }
 
     #[test]
     fn mini() {
         let zero = MiniSpur::try_from_usize(0).unwrap();
-        let max = MiniSpur::try_from_usize(u16::max_value() as usize - 1).unwrap();
+        let max = MiniSpur::try_from_usize(u16::MAX as usize - 1).unwrap();
         let default = MiniSpur::default();
 
         assert_eq!(zero.into_usize(), 0);
-        assert_eq!(max.into_usize(), u16::max_value() as usize - 1);
+        assert_eq!(max.into_usize(), u16::MAX as usize - 1);
         assert_eq!(default.into_usize(), 0);
     }
 
     #[test]
     fn mini_returns_none() {
-        assert_eq!(None, MiniSpur::try_from_usize(u16::max_value() as usize));
+        assert_eq!(None, MiniSpur::try_from_usize(u16::MAX as usize));
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
     fn mini_panics() {
-        MiniSpur::try_from_usize(u16::max_value() as usize).unwrap();
+        MiniSpur::try_from_usize(u16::MAX as usize).unwrap();
     }
 
     #[test]
     fn micro() {
         let zero = MicroSpur::try_from_usize(0).unwrap();
-        let max = MicroSpur::try_from_usize(u8::max_value() as usize - 1).unwrap();
+        let max = MicroSpur::try_from_usize(u8::MAX as usize - 1).unwrap();
         let default = MicroSpur::default();
 
         assert_eq!(zero.into_usize(), 0);
-        assert_eq!(max.into_usize(), u8::max_value() as usize - 1);
+        assert_eq!(max.into_usize(), u8::MAX as usize - 1);
         assert_eq!(default.into_usize(), 0);
     }
 
     #[test]
     fn micro_returns_none() {
-        assert_eq!(None, MicroSpur::try_from_usize(u8::max_value() as usize));
+        assert_eq!(None, MicroSpur::try_from_usize(u8::MAX as usize));
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
     fn micro_panics() {
-        MicroSpur::try_from_usize(u8::max_value() as usize).unwrap();
+        MicroSpur::try_from_usize(u8::MAX as usize).unwrap();
     }
 
     #[test]

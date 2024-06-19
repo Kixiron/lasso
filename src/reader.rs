@@ -7,10 +7,7 @@ use crate::{
     Rodeo,
 };
 use alloc::vec::Vec;
-use core::{
-    hash::{BuildHasher, Hash, Hasher},
-    ops::Index,
-};
+use core::{hash::BuildHasher, ops::Index};
 use hashbrown::HashMap;
 
 /// A read-only view of a [`Rodeo`] or [`ThreadedRodeo`] that allows contention-free access to interned strings,
@@ -80,12 +77,7 @@ impl<K, S> RodeoReader<K, S> {
         let string_slice: &str = val.as_ref();
 
         // Make a hash of the requested string
-        let hash = {
-            let mut state = self.hasher.build_hasher();
-            string_slice.hash(&mut state);
-
-            state.finish()
-        };
+        let hash = self.hasher.hash_one(string_slice);
 
         // Get the map's entry that the string should occupy
         let entry = self.map.raw_entry().from_hash(hash, |key| {
@@ -752,7 +744,7 @@ mod tests {
         }
     }
 
-    #[cfg(all(not(any(miri, feature = "no-std")), features = "multi-threaded"))]
+    #[cfg(all(not(any(miri, feature = "no-std")), feature = "multi-threaded"))]
     mod multi_threaded {
         use crate::{locks::Arc, RodeoReader, ThreadedRodeo};
         use std::thread;

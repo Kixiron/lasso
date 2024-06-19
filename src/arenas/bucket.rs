@@ -109,7 +109,7 @@ impl Drop for Bucket {
 
             // Deallocate all memory that the bucket allocated
             dealloc(
-                items as *mut u8,
+                items,
                 // Safety: Align will always be a non-zero power of two and the
                 //         size will not overflow when rounded up
                 Layout::from_size_align_unchecked(
