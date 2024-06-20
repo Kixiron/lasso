@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Bumped MSRV to 1.71.0
+- Updated hashbrown to 0.14.0
+- Updated dashmap to 0.6.0
+
 ## [0.7.2] - 2023-05-15
 
 ## [0.7.1] - 2023-05-15

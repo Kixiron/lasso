@@ -469,15 +469,4 @@ mod hasher {
     }
 }
 
-#[doc(hidden)]
-mod locks {
-    compile! {
-        if #[feature = "no-std"] {
-            pub use alloc::sync::Arc;
-        } else {
-            pub use std::sync::Arc;
-        }
-    }
-}
-
 // TODO: No-alloc interner
