@@ -1,30 +1,32 @@
 use crate::{
     arenas::atomic_bucket::{AtomicBucket, AtomicBucketList},
+    rodeo::{Internable, InternableRef},
     Capacity, LassoError, LassoErrorKind, LassoResult, MemoryLimits,
 };
 use core::{
     fmt::{self, Debug},
+    marker::PhantomData,
     num::NonZeroUsize,
-    slice, str,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
 /// An arena allocator that dynamically grows in size when needed, allocating memory in large chunks
-pub(crate) struct LockfreeArena {
+pub(crate) struct LockfreeArena<T: Internable> {
     /// All the internal buckets, storing all allocated and unallocated items
     // TODO: We could keep around a second list of buckets to store filled buckets
     //       in to keep us from having to iterate over them, need more tests to
     //       see what the impact of that is
-    buckets: AtomicBucketList,
+    buckets: AtomicBucketList<T>,
     /// The default capacity of each bucket
     ///
     /// Invariant: `bucket_capacity` must never be zero
     bucket_capacity: AtomicUsize,
     memory_usage: AtomicUsize,
     max_memory_usage: AtomicUsize,
+    _marker: PhantomData<T>,
 }
 
-impl LockfreeArena {
+impl<T: Internable> LockfreeArena<T> {
     /// Create a new Arena with the default bucket size of 4096 bytes
     pub fn new(capacity: NonZeroUsize, max_memory_usage: usize) -> LassoResult<Self> {
         Ok(Self {
@@ -34,6 +36,7 @@ impl LockfreeArena {
             // The current capacity is whatever size the bucket we just allocated is
             memory_usage: AtomicUsize::new(capacity.get()),
             max_memory_usage: AtomicUsize::new(max_memory_usage),
+            _marker: PhantomData,
         })
     }
 
@@ -80,16 +83,17 @@ impl LockfreeArena {
     ///
     /// The reference passed back must be dropped before the arena that created it is
     ///
-    pub unsafe fn store_str(&self, string: &str) -> LassoResult<&'static str> {
+    pub unsafe fn store_str(&self, string: &T::Ref) -> LassoResult<&'static T::Ref> {
         // If the string is empty, simply return an empty string.
         // This ensures that only strings with lengths greater
         // than zero will be allocated within the arena
         if string.is_empty() {
-            return Ok("");
+            return Ok(T::Ref::empty());
         }
 
         let slice = string.as_bytes();
-        debug_assert_ne!(slice.len(), 0);
+        let byte_len = slice.len();
+        let count = string.len();
 
         // Iterate over all of the buckets within the list while attempting to find one
         // that has enough space to fit our string within it
@@ -101,20 +105,18 @@ impl LockfreeArena {
         // retries within this loop, the worst-case performance suffers in exchange for potentially
         // better memory usage.
         for bucket in self.buckets.iter() {
-            if let Ok(start) = bucket.try_inc_length(slice.len()) {
-                // Safety: We now have exclusive access to `bucket[start..start + slice.len()]`
-                let allocated = unsafe { bucket.slice_mut(start) };
+            if let Ok(aligned_start) = bucket.try_inc_length(byte_len) {
+                // Safety: We now have exclusive access to `bucket[aligned_start..aligned_start + byte_len]`
+                // and aligned_start is properly aligned for T::Ref
+                let allocated = unsafe { bucket.slice_mut(aligned_start) };
                 // Copy the given slice into the allocation
-                unsafe { allocated.copy_from_nonoverlapping(slice.as_ptr(), slice.len()) };
+                unsafe { allocated.copy_from_nonoverlapping(slice.as_ptr(), byte_len) };
 
-                // Return the successfully allocated string
-                let string = unsafe {
-                    str::from_utf8_unchecked(slice::from_raw_parts(allocated, slice.len()))
-                };
-                return Ok(string);
+                // Return the successfully allocated data
+                return Ok(unsafe { T::Ref::from_raw_parts(allocated, count) });
             }
 
-            // Otherwise the bucket doesn't have sufficient capacity for the string
+            // Otherwise the bucket doesn't have sufficient capacity for the data
             // so we carry on searching through allocated buckets
         }
 
@@ -126,20 +128,20 @@ impl LockfreeArena {
         // If the current string's length is greater than the doubled current capacity, allocate a bucket exactly the
         // size of the large string and push it back in the buckets vector. This ensures that obscenely large strings will
         // not permanently affect the resource consumption of the interner
-        if slice.len() > next_capacity {
+        if byte_len > next_capacity {
             // Check that we haven't exhausted our memory limit
-            self.allocate_memory(slice.len())?;
+            self.allocate_memory(byte_len)?;
 
-            // Safety: `len` will never be zero since we explicitly handled zero-length strings
+            // Safety: `byte_len` will never be zero since we explicitly handled zero-length strings
             //         at the beginning of the function
-            let non_zero_len = unsafe { NonZeroUsize::new_unchecked(slice.len()) };
-            debug_assert_ne!(slice.len(), 0);
+            let non_zero_len = unsafe { NonZeroUsize::new_unchecked(byte_len) };
+            debug_assert_ne!(byte_len, 0);
 
-            let mut bucket = AtomicBucket::with_capacity(non_zero_len)?;
+            let mut bucket = AtomicBucket::<T>::with_capacity(non_zero_len)?;
 
             // Safety: The new bucket will have exactly enough room for the string and we have
             //         exclusive access to the bucket since we just created it
-            let allocated_string = unsafe { bucket.push_slice(slice) };
+            let allocated_string = unsafe { bucket.push_slice(string) };
             self.buckets.push_front(bucket.into_ref());
 
             Ok(allocated_string)
@@ -155,14 +157,14 @@ impl LockfreeArena {
                 self.allocate_memory(remaining_memory)?;
 
                 // Set the capacity to twice of what it currently is to allow for fewer allocations as more strings are interned
-                let mut bucket = AtomicBucket::with_capacity(
+                let mut bucket = AtomicBucket::<T>::with_capacity(
                     NonZeroUsize::new(remaining_memory)
                         .ok_or_else(|| LassoError::new(LassoErrorKind::MemoryLimitReached))?,
                 )?;
 
                 // Safety: The new bucket will have exactly enough room for the string and we have
                 //         exclusive access to the bucket since we just created it
-                let allocated_string = unsafe { bucket.push_slice(slice) };
+                let allocated_string = unsafe { bucket.push_slice(string) };
                 // TODO: Push the bucket to the back or something so that we can get it somewhat out
                 //       of the search path, reduce the `n` in the `O(n)` list traversal
                 self.buckets.push_front(bucket.into_ref());
@@ -181,10 +183,10 @@ impl LockfreeArena {
                 let capacity = unsafe { NonZeroUsize::new_unchecked(next_capacity) };
                 debug_assert_ne!(next_capacity, 0);
 
-                let mut bucket = AtomicBucket::with_capacity(capacity)?;
+                let mut bucket = AtomicBucket::<T>::with_capacity(capacity)?;
 
                 // Safety: The new bucket will have enough room for the string
-                let allocated_string = unsafe { bucket.push_slice(slice) };
+                let allocated_string = unsafe { bucket.push_slice(string) };
                 self.buckets.push_front(bucket.into_ref());
 
                 Ok(allocated_string)
@@ -193,7 +195,7 @@ impl LockfreeArena {
     }
 }
 
-impl Default for LockfreeArena {
+impl<T: Internable> Default for LockfreeArena<T> {
     fn default() -> Self {
         Self::new(
             Capacity::default().bytes,
@@ -203,7 +205,7 @@ impl Default for LockfreeArena {
     }
 }
 
-impl Debug for LockfreeArena {
+impl<T: Internable> Debug for LockfreeArena<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         struct TotalBuckets(usize);
 
@@ -235,10 +237,12 @@ impl Debug for LockfreeArena {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "no-std")]
+    use alloc::string::String;
 
     #[test]
     fn string() {
-        let arena = LockfreeArena::default();
+        let arena = LockfreeArena::<String>::default();
 
         unsafe {
             let idx = arena.store_str("test");
@@ -249,7 +253,7 @@ mod tests {
 
     #[test]
     fn empty_str() {
-        let arena = LockfreeArena::default();
+        let arena = LockfreeArena::<String>::default();
 
         unsafe {
             let zst = arena.store_str("");
@@ -264,7 +268,7 @@ mod tests {
 
     #[test]
     fn exponential_allocations() {
-        let arena = LockfreeArena::default();
+        let arena = LockfreeArena::<String>::default();
 
         let mut len = 4096;
         for _ in 0..10 {
@@ -278,7 +282,7 @@ mod tests {
 
     #[test]
     fn memory_exhausted() {
-        let arena = LockfreeArena::new(NonZeroUsize::new(10).unwrap(), 10).unwrap();
+        let arena = LockfreeArena::<String>::new(NonZeroUsize::new(10).unwrap(), 10).unwrap();
 
         unsafe {
             assert!(arena.store_str("0123456789").is_ok());
@@ -296,20 +300,24 @@ mod tests {
 
     #[test]
     fn allocate_too_much() {
-        let arena = LockfreeArena::new(NonZeroUsize::new(1).unwrap(), 10).unwrap();
+        let arena = LockfreeArena::<String>::new(NonZeroUsize::new(1).unwrap(), 10).unwrap();
 
         unsafe {
-            let err = arena.store_str("abcdefghijklmnopqrstuvwxyz").unwrap_err();
+            let err = arena
+                .store_str("abcdefghijklmnopqrstuvwxyz")
+                .unwrap_err();
             assert!(err.kind().is_memory_limit());
         }
     }
 
     #[test]
     fn allocate_more_than_double() {
-        let arena = LockfreeArena::new(NonZeroUsize::new(1).unwrap(), 1000).unwrap();
+        let arena = LockfreeArena::<String>::new(NonZeroUsize::new(1).unwrap(), 1000).unwrap();
 
         unsafe {
-            assert!(arena.store_str("abcdefghijklmnopqrstuvwxyz").is_ok());
+            assert!(arena
+                .store_str("abcdefghijklmnopqrstuvwxyz")
+                .is_ok());
         }
     }
 }

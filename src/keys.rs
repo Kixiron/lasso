@@ -1,5 +1,8 @@
+#[cfg(feature = "no-std")]
+use alloc::string::String;
 use core::{
     fmt::{self, Debug, Write},
+    marker::PhantomData,
     num::{NonZeroU16, NonZeroU32, NonZeroU8, NonZeroUsize},
 };
 
@@ -22,15 +25,52 @@ pub unsafe trait Key: Copy + Eq {
 ///
 /// Internally is a `NonZeroUsize` to allow for space optimizations when stored inside of an [`Option`]
 ///
+/// The type parameter `T` represents the type this key came from (e.g., `String`), providing
+/// type safety to prevent using a key from one Rodeo with a different Rodeo.
+///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(transparent)]
-pub struct LargeSpur {
+#[repr(C)]
+pub struct LargeSpur<T = String> {
     key: NonZeroUsize,
+    _marker: PhantomData<fn() -> T>,
 }
 
-impl LargeSpur {
+impl<T> Clone for LargeSpur<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Copy for LargeSpur<T> {}
+
+impl<T> PartialEq for LargeSpur<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
+impl<T> Eq for LargeSpur<T> {}
+
+impl<T> PartialOrd for LargeSpur<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<T> Ord for LargeSpur<T> {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.key.cmp(&other.key)
+    }
+}
+
+impl<T> core::hash::Hash for LargeSpur<T> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+    }
+}
+
+impl<T> LargeSpur<T> {
     /// Returns the [`NonZeroUsize`] backing the current `LargeSpur`
     #[cfg_attr(feature = "inline-more", inline)]
     pub const fn into_inner(self) -> NonZeroUsize {
@@ -38,7 +78,7 @@ impl LargeSpur {
     }
 }
 
-unsafe impl Key for LargeSpur {
+unsafe impl<T> Key for LargeSpur<T> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn into_usize(self) -> usize {
         self.key.get() - 1
@@ -53,6 +93,7 @@ unsafe impl Key for LargeSpur {
             unsafe {
                 Some(Self {
                     key: NonZeroUsize::new_unchecked(int + 1),
+                    _marker: PhantomData,
                 })
             }
         } else {
@@ -61,14 +102,14 @@ unsafe impl Key for LargeSpur {
     }
 }
 
-impl Default for LargeSpur {
+impl<T> Default for LargeSpur<T> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self::try_from_usize(0).unwrap()
     }
 }
 
-impl Debug for LargeSpur {
+impl<T> Debug for LargeSpur<T> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("LargeSpur(")?;
@@ -81,15 +122,52 @@ impl Debug for LargeSpur {
 ///
 /// Internally is a `NonZeroU32` to allow for space optimizations when stored inside of an [`Option`]
 ///
+/// The type parameter `T` represents the type this key came from (e.g., `String`), providing
+/// type safety to prevent using a key from one Rodeo with a different Rodeo.
+///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(transparent)]
-pub struct Spur {
+#[repr(C)]
+pub struct Spur<T = String> {
     key: NonZeroU32,
+    _marker: PhantomData<fn() -> T>,
 }
 
-impl Spur {
+impl<T> Clone for Spur<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Copy for Spur<T> {}
+
+impl<T> PartialEq for Spur<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
+impl<T> Eq for Spur<T> {}
+
+impl<T> PartialOrd for Spur<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<T> Ord for Spur<T> {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.key.cmp(&other.key)
+    }
+}
+
+impl<T> core::hash::Hash for Spur<T> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+    }
+}
+
+impl<T> Spur<T> {
     /// Returns the [`NonZeroU32`] backing the current `Spur`
     #[cfg_attr(feature = "inline-more", inline)]
     pub const fn into_inner(self) -> NonZeroU32 {
@@ -97,7 +175,7 @@ impl Spur {
     }
 }
 
-unsafe impl Key for Spur {
+unsafe impl<T> Key for Spur<T> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn into_usize(self) -> usize {
         self.key.get() as usize - 1
@@ -112,6 +190,7 @@ unsafe impl Key for Spur {
             unsafe {
                 Some(Self {
                     key: NonZeroU32::new_unchecked(int as u32 + 1),
+                    _marker: PhantomData,
                 })
             }
         } else {
@@ -120,14 +199,14 @@ unsafe impl Key for Spur {
     }
 }
 
-impl Default for Spur {
+impl<T> Default for Spur<T> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self::try_from_usize(0).unwrap()
     }
 }
 
-impl Debug for Spur {
+impl<T> Debug for Spur<T> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Spur(")?;
@@ -140,15 +219,52 @@ impl Debug for Spur {
 ///
 /// Internally is a `NonZeroU16` to allow for space optimizations when stored inside of an [`Option`]
 ///
+/// The type parameter `T` represents the type this key came from (e.g., `String`), providing
+/// type safety to prevent using a key from one Rodeo with a different Rodeo.
+///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(transparent)]
-pub struct MiniSpur {
+#[repr(C)]
+pub struct MiniSpur<T = String> {
     key: NonZeroU16,
+    _marker: PhantomData<fn() -> T>,
 }
 
-impl MiniSpur {
+impl<T> Clone for MiniSpur<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Copy for MiniSpur<T> {}
+
+impl<T> PartialEq for MiniSpur<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
+impl<T> Eq for MiniSpur<T> {}
+
+impl<T> PartialOrd for MiniSpur<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<T> Ord for MiniSpur<T> {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.key.cmp(&other.key)
+    }
+}
+
+impl<T> core::hash::Hash for MiniSpur<T> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+    }
+}
+
+impl<T> MiniSpur<T> {
     /// Returns the [`NonZeroU16`] backing the current `MiniSpur`
     #[cfg_attr(feature = "inline-more", inline)]
     pub const fn into_inner(self) -> NonZeroU16 {
@@ -156,7 +272,7 @@ impl MiniSpur {
     }
 }
 
-unsafe impl Key for MiniSpur {
+unsafe impl<T> Key for MiniSpur<T> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn into_usize(self) -> usize {
         self.key.get() as usize - 1
@@ -171,6 +287,7 @@ unsafe impl Key for MiniSpur {
             unsafe {
                 Some(Self {
                     key: NonZeroU16::new_unchecked(int as u16 + 1),
+                    _marker: PhantomData,
                 })
             }
         } else {
@@ -179,14 +296,14 @@ unsafe impl Key for MiniSpur {
     }
 }
 
-impl Default for MiniSpur {
+impl<T> Default for MiniSpur<T> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self::try_from_usize(0).unwrap()
     }
 }
 
-impl Debug for MiniSpur {
+impl<T> Debug for MiniSpur<T> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("MiniSpur(")?;
@@ -199,15 +316,52 @@ impl Debug for MiniSpur {
 ///
 /// Internally is a `NonZeroU8` to allow for space optimizations when stored inside of an [`Option`]
 ///
+/// The type parameter `T` represents the type this key came from (e.g., `String`), providing
+/// type safety to prevent using a key from one Rodeo with a different Rodeo.
+///
 /// [`ReadOnlyLasso`]: crate::ReadOnlyLasso
 /// [`Option`]: https://doc.rust-lang.org/std/option/enum.Option.html
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(transparent)]
-pub struct MicroSpur {
+#[repr(C)]
+pub struct MicroSpur<T = String> {
     key: NonZeroU8,
+    _marker: PhantomData<fn() -> T>,
 }
 
-impl MicroSpur {
+impl<T> Clone for MicroSpur<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Copy for MicroSpur<T> {}
+
+impl<T> PartialEq for MicroSpur<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
+impl<T> Eq for MicroSpur<T> {}
+
+impl<T> PartialOrd for MicroSpur<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<T> Ord for MicroSpur<T> {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.key.cmp(&other.key)
+    }
+}
+
+impl<T> core::hash::Hash for MicroSpur<T> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+    }
+}
+
+impl<T> MicroSpur<T> {
     /// Returns the [`NonZeroU8`] backing the current `MicroSpur`
     #[cfg_attr(feature = "inline-more", inline)]
     pub const fn into_inner(self) -> NonZeroU8 {
@@ -215,7 +369,7 @@ impl MicroSpur {
     }
 }
 
-unsafe impl Key for MicroSpur {
+unsafe impl<T> Key for MicroSpur<T> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn into_usize(self) -> usize {
         self.key.get() as usize - 1
@@ -230,6 +384,7 @@ unsafe impl Key for MicroSpur {
             unsafe {
                 Some(Self {
                     key: NonZeroU8::new_unchecked(int as u8 + 1),
+                    _marker: PhantomData,
                 })
             }
         } else {
@@ -238,14 +393,14 @@ unsafe impl Key for MicroSpur {
     }
 }
 
-impl Default for MicroSpur {
+impl<T> Default for MicroSpur<T> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self::try_from_usize(0).unwrap()
     }
 }
 
-impl Debug for MicroSpur {
+impl<T> Debug for MicroSpur<T> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("MicroSpur(")?;
@@ -259,6 +414,7 @@ macro_rules! impl_serde {
         #[cfg(feature = "serialize")]
         mod __serde {
             use super::{$($key),*};
+            use core::marker::PhantomData;
             use serde::{
                 de::{Deserialize, Deserializer},
                 ser::{Serialize, Serializer},
@@ -266,7 +422,7 @@ macro_rules! impl_serde {
             use core::num::{$($ty),*};
 
             $(
-                impl Serialize for $key {
+                impl<T> Serialize for $key<T> {
                     #[cfg_attr(feature = "inline-more", inline)]
                     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
                     where
@@ -276,14 +432,14 @@ macro_rules! impl_serde {
                     }
                 }
 
-                impl<'de> Deserialize<'de> for $key {
+                impl<'de, T> Deserialize<'de> for $key<T> {
                     #[cfg_attr(feature = "inline-more", inline)]
                     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
                     where
                         D: Deserializer<'de>,
                     {
                         let key = <$ty>::deserialize(deserializer)?;
-                        Ok(Self { key })
+                        Ok(Self { key, _marker: PhantomData })
                     }
                 }
             )*
@@ -303,6 +459,8 @@ macro_rules! impl_deepsize {
     ($($type:ident),* $(,)?) => {
         #[cfg(feature = "deepsize")]
         mod __deepsize {
+            #[cfg(feature = "no-std")]
+            use alloc::string::String;
             use super::{$($type),*};
             #[cfg(test)]
             use super::Key;
@@ -310,13 +468,13 @@ macro_rules! impl_deepsize {
             use core::mem;
 
             $(
-                impl DeepSizeOf for $type {
+                impl<T> DeepSizeOf for $type<T> {
                     fn deep_size_of_children(&self, _context: &mut Context) -> usize {
                         0
                     }
 
                     fn deep_size_of(&self) -> usize {
-                        mem::size_of::<$type>()
+                        mem::size_of::<$type<T>>()
                     }
                 }
             )*
@@ -325,8 +483,8 @@ macro_rules! impl_deepsize {
             fn deepsize_implementations() {
                 $(
                     assert_eq!(
-                        mem::size_of::<$type>(),
-                        $type::try_from_usize(0).unwrap().deep_size_of(),
+                        mem::size_of::<$type<String>>(),
+                        <$type<String>>::try_from_usize(0).unwrap().deep_size_of(),
                     );
                 )*
             }
@@ -353,7 +511,7 @@ macro_rules! impl_abomonation {
             use std::io::{self, Write};
 
             $(
-                impl Abomonation for $type {
+                impl<T> Abomonation for $type<T> {
                     unsafe fn entomb<W: Write>(&self, write: &mut W) -> io::Result<()> {
                         self.key.entomb(write)
                     }
@@ -374,7 +532,7 @@ macro_rules! impl_abomonation {
 
                 $(
                     unsafe {
-                        let base = $type::try_from_usize(0).unwrap();
+                        let base = <$type<String>>::try_from_usize(0).unwrap();
 
                         abomonation::encode(&base, &mut buf).unwrap();
                         assert_eq!(base, *abomonation::decode(&mut buf [..]).unwrap().0);
@@ -398,12 +556,14 @@ impl_abomonation! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "no-std")]
+    use alloc::string::String;
 
     #[test]
     fn large() {
-        let zero = LargeSpur::try_from_usize(0).unwrap();
-        let max = LargeSpur::try_from_usize(usize::MAX - 1).unwrap();
-        let default = LargeSpur::default();
+        let zero: LargeSpur<String> = LargeSpur::try_from_usize(0).unwrap();
+        let max: LargeSpur<String> = LargeSpur::try_from_usize(usize::MAX - 1).unwrap();
+        let default: LargeSpur<String> = LargeSpur::default();
 
         assert_eq!(zero.into_usize(), 0);
         assert_eq!(max.into_usize(), usize::MAX - 1);
@@ -412,21 +572,24 @@ mod tests {
 
     #[test]
     fn large_max_returns_none() {
-        assert_eq!(None, LargeSpur::try_from_usize(usize::MAX));
+        assert_eq!(
+            None::<LargeSpur<String>>,
+            LargeSpur::try_from_usize(usize::MAX)
+        );
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
     fn large_max_panics() {
-        LargeSpur::try_from_usize(usize::MAX).unwrap();
+        <LargeSpur<String>>::try_from_usize(usize::MAX).unwrap();
     }
 
     #[test]
     fn spur() {
-        let zero = Spur::try_from_usize(0).unwrap();
-        let max = Spur::try_from_usize(u32::MAX as usize - 1).unwrap();
-        let default = Spur::default();
+        let zero: Spur<String> = Spur::try_from_usize(0).unwrap();
+        let max: Spur<String> = Spur::try_from_usize(u32::MAX as usize - 1).unwrap();
+        let default: Spur<String> = Spur::default();
 
         assert_eq!(zero.into_usize(), 0);
         assert_eq!(max.into_usize(), u32::MAX as usize - 1);
@@ -435,21 +598,24 @@ mod tests {
 
     #[test]
     fn spur_returns_none() {
-        assert_eq!(None, Spur::try_from_usize(u32::MAX as usize));
+        assert_eq!(
+            None::<Spur<String>>,
+            Spur::try_from_usize(u32::MAX as usize)
+        );
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
     fn spur_panics() {
-        Spur::try_from_usize(u32::MAX as usize).unwrap();
+        <Spur<String>>::try_from_usize(u32::MAX as usize).unwrap();
     }
 
     #[test]
     fn mini() {
-        let zero = MiniSpur::try_from_usize(0).unwrap();
-        let max = MiniSpur::try_from_usize(u16::MAX as usize - 1).unwrap();
-        let default = MiniSpur::default();
+        let zero: MiniSpur<String> = MiniSpur::try_from_usize(0).unwrap();
+        let max: MiniSpur<String> = MiniSpur::try_from_usize(u16::MAX as usize - 1).unwrap();
+        let default: MiniSpur<String> = MiniSpur::default();
 
         assert_eq!(zero.into_usize(), 0);
         assert_eq!(max.into_usize(), u16::MAX as usize - 1);
@@ -458,21 +624,24 @@ mod tests {
 
     #[test]
     fn mini_returns_none() {
-        assert_eq!(None, MiniSpur::try_from_usize(u16::MAX as usize));
+        assert_eq!(
+            None::<MiniSpur<String>>,
+            MiniSpur::try_from_usize(u16::MAX as usize)
+        );
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
     fn mini_panics() {
-        MiniSpur::try_from_usize(u16::MAX as usize).unwrap();
+        <MiniSpur<String>>::try_from_usize(u16::MAX as usize).unwrap();
     }
 
     #[test]
     fn micro() {
-        let zero = MicroSpur::try_from_usize(0).unwrap();
-        let max = MicroSpur::try_from_usize(u8::MAX as usize - 1).unwrap();
-        let default = MicroSpur::default();
+        let zero: MicroSpur<String> = MicroSpur::try_from_usize(0).unwrap();
+        let max: MicroSpur<String> = MicroSpur::try_from_usize(u8::MAX as usize - 1).unwrap();
+        let default: MicroSpur<String> = MicroSpur::default();
 
         assert_eq!(zero.into_usize(), 0);
         assert_eq!(max.into_usize(), u8::MAX as usize - 1);
@@ -481,29 +650,53 @@ mod tests {
 
     #[test]
     fn micro_returns_none() {
-        assert_eq!(None, MicroSpur::try_from_usize(u8::MAX as usize));
+        assert_eq!(
+            None::<MicroSpur<String>>,
+            MicroSpur::try_from_usize(u8::MAX as usize)
+        );
     }
 
     #[test]
     #[should_panic]
     #[cfg(not(miri))]
     fn micro_panics() {
-        MicroSpur::try_from_usize(u8::MAX as usize).unwrap();
+        <MicroSpur<String>>::try_from_usize(u8::MAX as usize).unwrap();
     }
 
     #[test]
     #[cfg(feature = "serialize")]
     fn all_serialize() {
-        let large = LargeSpur::try_from_usize(0).unwrap();
+        let large: LargeSpur<String> = LargeSpur::try_from_usize(0).unwrap();
         let _ = serde_json::to_string(&large).unwrap();
 
-        let normal = Spur::try_from_usize(0).unwrap();
+        let normal: Spur<String> = Spur::try_from_usize(0).unwrap();
         let _ = serde_json::to_string(&normal).unwrap();
 
-        let mini = MiniSpur::try_from_usize(0).unwrap();
+        let mini: MiniSpur<String> = MiniSpur::try_from_usize(0).unwrap();
         let _ = serde_json::to_string(&mini).unwrap();
 
-        let micro = MicroSpur::try_from_usize(0).unwrap();
+        let micro: MicroSpur<String> = MicroSpur::try_from_usize(0).unwrap();
         let _ = serde_json::to_string(&micro).unwrap();
+    }
+
+    /// Ensure that `Option<Key>` has the same size as `Key` (niche optimization)
+    #[test]
+    fn option_niche_optimization() {
+        use core::mem::size_of;
+
+        // Option<Spur> should be the same size as Spur due to NonZero niche
+        assert_eq!(size_of::<Spur<String>>(), size_of::<Option<Spur<String>>>());
+        assert_eq!(
+            size_of::<MiniSpur<String>>(),
+            size_of::<Option<MiniSpur<String>>>()
+        );
+        assert_eq!(
+            size_of::<MicroSpur<String>>(),
+            size_of::<Option<MicroSpur<String>>>()
+        );
+        assert_eq!(
+            size_of::<LargeSpur<String>>(),
+            size_of::<Option<LargeSpur<String>>>()
+        );
     }
 }

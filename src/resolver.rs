@@ -1,6 +1,7 @@
 use crate::{
     arenas::AnyArena,
     keys::{Key, Spur},
+    rodeo::Internable,
     util::{Iter, Strings},
     Rodeo, RodeoReader,
 };
@@ -15,19 +16,19 @@ use core::{marker::PhantomData, ops::Index};
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoResolver<K = Spur> {
+pub struct RodeoResolver<T: Internable = String, K = Spur<T>> {
     /// Vector of strings mapped to key indexes that allows key to string resolution
-    pub(crate) strings: Vec<&'static str>,
+    pub(crate) strings: Vec<&'static T::Ref>,
     /// The arena that contains all the strings
     ///
     /// This is not touched, but *must* be kept since every string in `self.strings`
     /// points to it
-    __arena: AnyArena,
+    __arena: AnyArena<T>,
     /// The type of the key
     __key: PhantomData<K>,
 }
 
-impl<K> RodeoResolver<K> {
+impl<T: Internable, K> RodeoResolver<T, K> {
     /// Creates a new RodeoResolver
     ///
     /// # Safety
@@ -35,7 +36,7 @@ impl<K> RodeoResolver<K> {
     /// The references inside of `strings` must be absolutely unique, meaning
     /// that no other references to those strings exist
     ///
-    pub(crate) unsafe fn new(strings: Vec<&'static str>, arena: AnyArena) -> Self {
+    pub(crate) unsafe fn new(strings: Vec<&'static T::Ref>, arena: AnyArena<T>) -> Self {
         Self {
             strings,
             __arena: arena,
@@ -56,7 +57,7 @@ impl<K> RodeoResolver<K> {
     /// use lasso::Rodeo;
     ///
     /// // ThreadedRodeo is interchangeable for Rodeo here
-    /// let mut rodeo = Rodeo::default();
+    /// let mut rodeo: Rodeo = Rodeo::default();
     /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
     ///
     /// let rodeo = rodeo.into_resolver();
@@ -65,7 +66,7 @@ impl<K> RodeoResolver<K> {
     ///
     /// [`Key`]: crate::Key
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn resolve<'a>(&'a self, key: &K) -> &'a str
+    pub fn resolve<'a>(&'a self, key: &K) -> &'a T::Ref
     where
         K: Key,
     {
@@ -89,7 +90,7 @@ impl<K> RodeoResolver<K> {
     /// use lasso::Rodeo;
     ///
     /// // ThreadedRodeo is interchangeable for Rodeo here
-    /// let mut rodeo = Rodeo::default();
+    /// let mut rodeo: Rodeo = Rodeo::default();
     /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
     ///
     /// let rodeo = rodeo.into_resolver();
@@ -98,7 +99,7 @@ impl<K> RodeoResolver<K> {
     ///
     /// [`Key`]: crate::Key
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str>
+    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a T::Ref>
     where
         K: Key,
     {
@@ -127,7 +128,7 @@ impl<K> RodeoResolver<K> {
     /// use lasso::Rodeo;
     ///
     /// // ThreadedRodeo is interchangeable for Rodeo here
-    /// let mut rodeo = Rodeo::default();
+    /// let mut rodeo: Rodeo = Rodeo::default();
     /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
     ///
     /// let rodeo = rodeo.into_resolver();
@@ -138,7 +139,7 @@ impl<K> RodeoResolver<K> {
     ///
     /// [`Key`]: crate::Key
     #[cfg_attr(feature = "inline-more", inline)]
-    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str
+    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a T::Ref
     where
         K: Key,
     {
@@ -153,7 +154,7 @@ impl<K> RodeoResolver<K> {
     /// use lasso::Rodeo;
     /// # use lasso::{Key, Spur};
     ///
-    /// let mut rodeo = Rodeo::default();
+    /// let mut rodeo: Rodeo = Rodeo::default();
     /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
     /// # let key_that_doesnt_exist = Spur::try_from_usize(1000).unwrap();
     ///
@@ -178,7 +179,7 @@ impl<K> RodeoResolver<K> {
     /// use lasso::Rodeo;
     ///
     /// // ThreadedRodeo is interchangeable for Rodeo here
-    /// let mut rodeo = Rodeo::default();
+    /// let mut rodeo: Rodeo = Rodeo::default();
     /// rodeo.get_or_intern("Documentation often has little hidden bits in it");
     ///
     /// let rodeo = rodeo.into_resolver();
@@ -198,7 +199,7 @@ impl<K> RodeoResolver<K> {
     /// use lasso::Rodeo;
     ///
     /// // ThreadedRodeo is interchangeable for Rodeo here
-    /// let rodeo = Rodeo::default();
+    /// let rodeo: Rodeo = Rodeo::default();
     ///
     /// let rodeo = rodeo.into_resolver();
     /// assert!(rodeo.is_empty());
@@ -211,23 +212,23 @@ impl<K> RodeoResolver<K> {
 
     /// Returns an iterator over the interned strings and their key values
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn iter(&self) -> Iter<'_, K> {
+    pub fn iter(&self) -> Iter<'_, T, K> {
         Iter::from_resolver(self)
     }
 
     /// Returns an iterator over the interned strings
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn strings(&self) -> Strings<'_, K> {
+    pub fn strings(&self) -> Strings<'_, T, K> {
         Strings::from_resolver(self)
     }
 }
 
-unsafe impl<K: Send> Send for RodeoResolver<K> {}
-unsafe impl<K: Sync> Sync for RodeoResolver<K> {}
+unsafe impl<T: Internable, K: Send> Send for RodeoResolver<T, K> {}
+unsafe impl<T: Internable, K: Sync> Sync for RodeoResolver<T, K> {}
 
-impl<'a, K: Key> IntoIterator for &'a RodeoResolver<K> {
-    type Item = (K, &'a str);
-    type IntoIter = Iter<'a, K>;
+impl<'a, T: Internable, K: Key> IntoIterator for &'a RodeoResolver<T, K> {
+    type Item = (K, &'a T::Ref);
+    type IntoIter = Iter<'a, T, K>;
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn into_iter(self) -> Self::IntoIter {
@@ -235,8 +236,8 @@ impl<'a, K: Key> IntoIterator for &'a RodeoResolver<K> {
     }
 }
 
-impl<K: Key> Index<K> for RodeoResolver<K> {
-    type Output = str;
+impl<T: Internable, K: Key> Index<K> for RodeoResolver<T, K> {
+    type Output = T::Ref;
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn index(&self, idx: K) -> &Self::Output {
@@ -244,25 +245,25 @@ impl<K: Key> Index<K> for RodeoResolver<K> {
     }
 }
 
-impl<K> Eq for RodeoResolver<K> {}
+impl<T: Internable, K> Eq for RodeoResolver<T, K> {}
 
-impl<K> PartialEq<Self> for RodeoResolver<K> {
+impl<T: Internable, K> PartialEq<Self> for RodeoResolver<T, K> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn eq(&self, other: &Self) -> bool {
         self.strings == other.strings
     }
 }
 
-impl<K, S> PartialEq<RodeoReader<K, S>> for RodeoResolver<K> {
+impl<T: Internable, K, S> PartialEq<RodeoReader<T, K, S>> for RodeoResolver<T, K> {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn eq(&self, other: &RodeoReader<K, S>) -> bool {
+    fn eq(&self, other: &RodeoReader<T, K, S>) -> bool {
         self.strings == other.strings
     }
 }
 
-impl<K, S> PartialEq<Rodeo<K, S>> for RodeoResolver<K> {
+impl<T: Internable, K, S> PartialEq<Rodeo<T, K, S>> for RodeoResolver<T, K> {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn eq(&self, other: &Rodeo<K, S>) -> bool {
+    fn eq(&self, other: &Rodeo<T, K, S>) -> bool {
         self.strings == other.strings
     }
 }
@@ -280,7 +281,7 @@ compile! {
 }
 
 #[cfg(feature = "serialize")]
-impl<K> Serialize for RodeoResolver<K> {
+impl<K> Serialize for RodeoResolver<String, K> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -292,7 +293,7 @@ impl<K> Serialize for RodeoResolver<K> {
 }
 
 #[cfg(feature = "serialize")]
-impl<'de, K: Key> Deserialize<'de> for RodeoResolver<K> {
+impl<'de, K: Key> Deserialize<'de> for RodeoResolver<String, K> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -309,12 +310,12 @@ impl<'de, K: Key> Deserialize<'de> for RodeoResolver<K> {
 
         let mut strings = Vec::with_capacity(capacity.strings);
         let mut arena =
-            Arena::new(capacity.bytes, usize::MAX).expect("failed to allocate memory for interner");
+            Arena::<String>::new(capacity.bytes, usize::MAX).expect("failed to allocate memory for interner");
 
         for string in vector {
             let allocated = unsafe {
                 arena
-                    .store_str(&string)
+                    .store_str::<String>(&string)
                     .expect("failed to allocate enough memory")
             };
 
@@ -335,10 +336,12 @@ mod tests {
         #[cfg(feature = "serialize")]
         use crate::RodeoResolver;
         use crate::{Key, Rodeo, Spur};
+        #[cfg(feature = "no-std")]
+        use alloc::string::String;
 
         #[test]
         fn resolve() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let key = rodeo.get_or_intern("A");
 
             let resolver = rodeo.into_resolver();
@@ -349,13 +352,13 @@ mod tests {
         #[should_panic]
         #[cfg(not(miri))]
         fn resolve_out_of_bounds() {
-            let resolver = Rodeo::default().into_resolver();
+            let resolver = Rodeo::<String>::default().into_resolver();
             resolver.resolve(&Spur::try_from_usize(10).unwrap());
         }
 
         #[test]
         fn try_resolve() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let key = rodeo.get_or_intern("A");
 
             let resolver = rodeo.into_resolver();
@@ -368,7 +371,7 @@ mod tests {
 
         #[test]
         fn resolve_unchecked() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let a = rodeo.get_or_intern("A");
 
             let resolver = rodeo.into_resolver();
@@ -379,7 +382,7 @@ mod tests {
 
         #[test]
         fn len() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             rodeo.get_or_intern("A");
             rodeo.get_or_intern("B");
             rodeo.get_or_intern("C");
@@ -390,7 +393,7 @@ mod tests {
 
         #[test]
         fn empty() {
-            let rodeo = Rodeo::default();
+            let rodeo: Rodeo = Rodeo::default();
             let read_only = rodeo.into_resolver();
 
             assert!(read_only.is_empty());
@@ -398,13 +401,13 @@ mod tests {
 
         #[test]
         fn drops() {
-            let rodeo = Rodeo::default();
+            let rodeo: Rodeo = Rodeo::default();
             let _ = rodeo.into_resolver();
         }
 
         #[test]
         fn iter() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let a = rodeo.get_or_intern("a");
             let b = rodeo.get_or_intern("b");
             let c = rodeo.get_or_intern("c");
@@ -420,7 +423,7 @@ mod tests {
 
         #[test]
         fn strings() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             rodeo.get_or_intern("a");
             rodeo.get_or_intern("b");
             rodeo.get_or_intern("c");
@@ -437,13 +440,13 @@ mod tests {
         #[test]
         #[cfg(not(feature = "no-std"))]
         fn debug() {
-            let resolver = Rodeo::default().into_resolver();
+            let resolver = Rodeo::<String>::default().into_resolver();
             println!("{:?}", resolver);
         }
 
         #[test]
         fn contains_key() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let key = rodeo.get_or_intern("");
             let resolver = rodeo.into_resolver();
 
@@ -470,7 +473,7 @@ mod tests {
 
         #[test]
         fn index() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let key = rodeo.get_or_intern("A");
 
             let resolver = rodeo.into_resolver();
@@ -495,7 +498,7 @@ mod tests {
         #[test]
         #[cfg(feature = "serialize")]
         fn filled_serialize() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let a = rodeo.get_or_intern("a");
             let b = rodeo.get_or_intern("b");
             let c = rodeo.get_or_intern("c");
@@ -526,11 +529,11 @@ mod tests {
 
         #[test]
         fn resolver_eq() {
-            let a = Rodeo::default();
+            let a = Rodeo::<String>::default();
             let b = Rodeo::default();
             assert_eq!(a.into_resolver(), b.into_resolver());
 
-            let mut a = Rodeo::default();
+            let mut a = Rodeo::<String>::default();
             a.get_or_intern("a");
             a.get_or_intern("b");
             a.get_or_intern("c");
@@ -543,15 +546,15 @@ mod tests {
 
         #[test]
         fn reader_eq() {
-            let a = Rodeo::default();
+            let a = Rodeo::<String>::default();
             let b = Rodeo::default();
             assert_eq!(a.into_reader(), b.into_resolver());
 
-            let mut a = Rodeo::default();
+            let mut a = Rodeo::<String>::default();
             a.get_or_intern("a");
             a.get_or_intern("b");
             a.get_or_intern("c");
-            let mut b = Rodeo::default();
+            let mut b = Rodeo::<String>::default();
             b.get_or_intern("a");
             b.get_or_intern("b");
             b.get_or_intern("c");
@@ -562,8 +565,8 @@ mod tests {
     #[cfg(all(not(any(miri, feature = "no-std")), feature = "multi-threaded"))]
     mod multi_threaded {
         use crate::{Key, Spur, ThreadedRodeo};
-        use std::thread;
         use std::sync::Arc;
+        use std::thread;
 
         #[test]
         fn resolve() {

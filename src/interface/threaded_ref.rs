@@ -1,26 +1,28 @@
 #![cfg(feature = "multi-threaded")]
 
+use crate::rodeo::Internable;
 use crate::{Interner, Key, ThreadedRodeo};
 use core::hash::{BuildHasher, Hash};
 
-impl<K, S> Interner<K> for &ThreadedRodeo<K, S>
+impl<T, K, S> Interner<T, K> for &ThreadedRodeo<T, K, S>
 where
+    T: Internable,
     K: Key + Hash,
     S: BuildHasher + Clone,
 {
-    fn get_or_intern(&mut self, val: &str) -> K {
+    fn get_or_intern(&mut self, val: &T::Ref) -> K {
         ThreadedRodeo::get_or_intern(self, val)
     }
 
-    fn try_get_or_intern(&mut self, val: &str) -> crate::LassoResult<K> {
+    fn try_get_or_intern(&mut self, val: &T::Ref) -> crate::LassoResult<K> {
         ThreadedRodeo::try_get_or_intern(self, val)
     }
 
-    fn get_or_intern_static(&mut self, val: &'static str) -> K {
+    fn get_or_intern_static(&mut self, val: &'static T::Ref) -> K {
         ThreadedRodeo::get_or_intern_static(self, val)
     }
 
-    fn try_get_or_intern_static(&mut self, val: &'static str) -> crate::LassoResult<K> {
+    fn try_get_or_intern_static(&mut self, val: &'static T::Ref) -> crate::LassoResult<K> {
         ThreadedRodeo::try_get_or_intern_static(self, val)
     }
 }
@@ -39,7 +41,7 @@ mod test {
             .iter()
             .copied()
             .enumerate()
-            .map(|(i, s)| (Spur::try_from_usize(i).unwrap(), s))
+            .map(|(i, s)| (Spur::<String>::try_from_usize(i).unwrap(), s))
         {
             assert!(shared_ref1.get(string).is_some());
             assert!(shared_ref2.get(string).is_some());

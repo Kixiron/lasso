@@ -1,4 +1,5 @@
 use crate::{
+    rodeo::Internable,
     arenas::{AnyArena, LockfreeArena},
     hasher::RandomState,
     keys::{Key, Spur},
@@ -37,23 +38,23 @@ macro_rules! index_unchecked_mut {
 /// [`Spur`]: crate::Spur
 /// [`ahash::RandomState`]: https://docs.rs/ahash/0.3.2/ahash/struct.RandomState.html
 /// [`RandomState`]: index.html#cargo-features
-pub struct ThreadedRodeo<K = Spur, S = RandomState> {
+pub struct ThreadedRodeo<T: Internable = String, K = Spur<T>, S = RandomState> {
     // TODO: Should this be migrated over to the scheme that `Rodeo` uses for string storage?
     //       Need benchmarks to see the perf impact of two dashmap lookups and see if that's worth
     //       the storage impact of extra string pointers lying around
     /// Map that allows str to key resolution
-    map: DashMap<&'static str, K, S>,
+    map: DashMap<&'static T::Ref, K, S>,
     /// Map that allows key to str resolution
-    pub(crate) strings: DashMap<K, &'static str, S>,
+    pub(crate) strings: DashMap<K, &'static T::Ref, S>,
     /// The current key value
     key: AtomicUsize,
     /// The arena where all strings are stored
-    arena: LockfreeArena,
+    arena: LockfreeArena<T>,
 }
 
 // TODO: More parity functions with std::HashMap
 
-impl<K> ThreadedRodeo<K, RandomState>
+impl<T: Internable, K> ThreadedRodeo<T, K, RandomState>
 where
     K: Key + Hash,
 {
@@ -70,7 +71,7 @@ where
     /// use lasso::{ThreadedRodeo, Spur};
     /// use std::{thread, sync::Arc};
     ///
-    /// let lasso: Arc<ThreadedRodeo<Spur>> = Arc::new(ThreadedRodeo::new());
+    /// let lasso: Arc<ThreadedRodeo> = Arc::new(ThreadedRodeo::new());
     /// let hello = lasso.get_or_intern("Hello, ");
     ///
     /// let l = Arc::clone(&lasso);
@@ -104,7 +105,7 @@ where
     /// ```rust
     /// use lasso::{ThreadedRodeo, Capacity, Spur};
     ///
-    /// let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(Capacity::for_strings(10));
+    /// let rodeo: ThreadedRodeo = ThreadedRodeo::with_capacity(Capacity::for_strings(10));
     /// ```
     ///
     /// [`Capacity`]: crate::Capacity
@@ -131,7 +132,7 @@ where
     /// ```rust
     /// use lasso::{ThreadedRodeo, MemoryLimits, Spur};
     ///
-    /// let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_memory_limits(MemoryLimits::for_memory_usage(4096));
+    /// let rodeo: ThreadedRodeo = ThreadedRodeo::with_memory_limits(MemoryLimits::for_memory_usage(4096));
     /// ```
     ///
     /// [`MemoryLimits`]: crate::MemoryLimits
@@ -158,7 +159,7 @@ where
     /// ```rust
     /// use lasso::{ThreadedRodeo, MemoryLimits, Spur};
     ///
-    /// let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_memory_limits(MemoryLimits::for_memory_usage(4096));
+    /// let rodeo: ThreadedRodeo = ThreadedRodeo::with_memory_limits(MemoryLimits::for_memory_usage(4096));
     /// ```
     ///
     /// [`Capacity`]: crate::Capacity
@@ -172,7 +173,7 @@ where
     }
 }
 
-impl<K, S> ThreadedRodeo<K, S>
+impl<T: Internable, K, S> ThreadedRodeo<T, K, S>
 where
     K: Key + Hash,
     S: BuildHasher + Clone,
@@ -185,7 +186,7 @@ where
     /// use lasso::{Spur, ThreadedRodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: ThreadedRodeo<Spur, RandomState> = ThreadedRodeo::with_hasher(RandomState::new());
+    /// let rodeo: ThreadedRodeo<String, Spur<String>, RandomState> = ThreadedRodeo::with_hasher(RandomState::new());
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
@@ -207,7 +208,7 @@ where
     /// use lasso::{Spur, Capacity, ThreadedRodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: ThreadedRodeo<Spur, RandomState> = ThreadedRodeo::with_capacity_and_hasher(Capacity::for_strings(10), RandomState::new());
+    /// let rodeo: ThreadedRodeo<String, Spur<String>, RandomState> = ThreadedRodeo::with_capacity_and_hasher(Capacity::for_strings(10), RandomState::new());
     /// ```
     ///
     /// [`Capacity`]: crate::Capacity
@@ -230,7 +231,7 @@ where
     /// use lasso::{Spur, Capacity, MemoryLimits, ThreadedRodeo};
     /// use std::collections::hash_map::RandomState;
     ///
-    /// let rodeo: ThreadedRodeo<Spur, RandomState> = ThreadedRodeo::with_capacity_memory_limits_and_hasher(
+    /// let rodeo: ThreadedRodeo<String, Spur<String>, RandomState> = ThreadedRodeo::with_capacity_memory_limits_and_hasher(
     ///     Capacity::for_strings(10),
     ///     MemoryLimits::for_memory_usage(4096),
     ///     RandomState::new(),
@@ -252,7 +253,7 @@ where
             map: DashMap::with_capacity_and_hasher(strings, hash_builder.clone()),
             strings: DashMap::with_capacity_and_hasher(strings, hash_builder),
             key: AtomicUsize::new(0),
-            arena: LockfreeArena::new(bytes, max_memory_usage)
+            arena: LockfreeArena::<T>::new(bytes, max_memory_usage)
                 .expect("failed to allocate memory for interner"),
         }
     }
@@ -282,9 +283,9 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn get_or_intern<T>(&self, val: T) -> K
+    pub fn get_or_intern<V>(&self, val: V) -> K
     where
-        T: AsRef<str>,
+        V: AsRef<T::Ref>,
     {
         self.try_get_or_intern(val)
             .expect("Failed to get or intern string")
@@ -309,34 +310,33 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_get_or_intern<T>(&self, val: T) -> LassoResult<K>
+    pub fn try_get_or_intern<V>(&self, val: V) -> LassoResult<K>
     where
-        T: AsRef<str>,
+        V: AsRef<T::Ref>,
     {
-        let string_slice = val.as_ref();
-
-        if let Some(key) = self.map.get(string_slice) {
+        let val = val.as_ref();
+        if let Some(key) = self.map.get(val) {
             Ok(*key)
         } else {
-            // Determine which shard will have our `string_slice` key.
-            let hash = self.map.hasher().hash_one(string_slice);
+            // Determine which shard will have our `val` key.
+            let hash = self.map.hasher().hash_one(val);
             let shard_key = self.map.determine_shard(hash as usize);
             // Grab the shard and a write lock on it.
             let mut shard = self.map.shards().get(shard_key).unwrap().write();
-            // Try getting the value for the `string_slice` key. If we get `Some`, nothing to do.
+            // Try getting the value for the `val` key. If we get `Some`, nothing to do.
             // Just return the value, which is the key go to use to resolve the string. If we
             // get `None`, an entry for the string doesn't exist yet. Store string in the arena,
             // update the maps accordingly, and return the key.
             let key = match shard.find_or_find_insert_slot(
                 hash,
-                |(k, _)| *k == string_slice,
+                |(k, _)| *k == val,
                 |(k, _)| self.map.hasher().hash_one(k),
             ) {
                 // Safety: occupied_bucket is valid to borrow, which we keep short
                 Ok(occupied_bucket) => unsafe { *occupied_bucket.as_ref().1.get() },
                 Err(insert_slot) => {
                     // Safety: The drop impl removes all references before the arena is dropped
-                    let string: &'static str = unsafe { self.arena.store_str(string_slice)? };
+                    let string: &'static T::Ref = unsafe { self.arena.store_str(val)? };
 
                     let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
                         .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
@@ -382,8 +382,8 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn get_or_intern_static(&self, string: &'static str) -> K {
-        self.try_get_or_intern_static(string)
+    pub fn get_or_intern_static(&self, val: &'static T::Ref) -> K {
+        self.try_get_or_intern_static(val)
             .expect("Failed to get or intern static string")
     }
 
@@ -408,16 +408,16 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_get_or_intern_static(&self, string: &'static str) -> LassoResult<K> {
-        if let Some(key) = self.map.get(string) {
+    pub fn try_get_or_intern_static(&self, val: &'static T::Ref) -> LassoResult<K> {
+        if let Some(key) = self.map.get(val) {
             Ok(*key)
         } else {
-            let key = match self.map.entry(string) {
+            let key = match self.map.entry(val) {
                 Entry::Occupied(o) => *o.get(),
                 Entry::Vacant(v) => {
                     let key = K::try_from_usize(self.key.fetch_add(1, Ordering::SeqCst))
                         .ok_or_else(|| LassoError::new(LassoErrorKind::KeySpaceExhaustion))?;
-                    self.strings.insert(key, string);
+                    self.strings.insert(key, val);
                     v.insert(key);
 
                     key
@@ -444,9 +444,9 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn get<T>(&self, val: T) -> Option<K>
+    pub fn get<V>(&self, val: V) -> Option<K>
     where
-        T: AsRef<str>,
+        V: AsRef<T::Ref>,
     {
         self.map.get(val.as_ref()).map(|k| *k)
     }
@@ -467,9 +467,9 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn contains<T>(&self, val: T) -> bool
+    pub fn contains<V>(&self, val: V) -> bool
     where
-        T: AsRef<str>,
+        V: AsRef<T::Ref>,
     {
         self.get(val).is_some()
     }
@@ -514,7 +514,7 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn resolve<'a>(&'a self, key: &K) -> &'a str {
+    pub fn resolve<'a>(&'a self, key: &K) -> &'a T::Ref {
         *self.strings.get(key).expect("Key out of bounds")
     }
 
@@ -533,7 +533,7 @@ where
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
+    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a T::Ref> {
         self.strings.get(key).map(|s| *s)
     }
 
@@ -581,7 +581,7 @@ where
     /// ```no_run
     /// use lasso::{Spur, Capacity, ThreadedRodeo};
     ///
-    /// let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(Capacity::for_strings(10));
+    /// let rodeo: ThreadedRodeo = ThreadedRodeo::with_capacity(Capacity::for_strings(10));
     /// assert_eq!(rodeo.capacity(), 10);
     /// ```
     ///
@@ -592,13 +592,13 @@ where
 
     /// Returns an iterator over the interned strings and their key values
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn iter(&self) -> Iter<'_, K, S> {
+    pub fn iter(&self) -> Iter<'_, T, K, S> {
         Iter::new(self)
     }
 
     /// Returns an iterator over the interned strings
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn strings(&self) -> Strings<'_, K, S> {
+    pub fn strings(&self) -> Strings<'_, T, K, S> {
         Strings::new(self)
     }
 
@@ -645,12 +645,12 @@ where
     /// [`RodeoReader`]: crate::RodeoReader
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    pub fn into_reader(self) -> RodeoReader<K, S> {
+    pub fn into_reader(self) -> RodeoReader<T, K, S> {
         // Take the strings vec from the old lasso
-        let strings: Vec<&'static str> = {
+        let strings: Vec<&'static T::Ref> = {
             let mut strings = iter::from_fn(|| Some(None))
                 .take(self.strings.len())
-                .collect::<Vec<Option<&'static str>>>();
+                .collect::<Vec<Option<&'static T::Ref>>>();
 
             for shard in self.strings.shards() {
                 for (key, val) in shard.write().drain() {
@@ -671,7 +671,7 @@ where
 
             for shard in self.map.shards() {
                 for (string, key) in shard.write().drain() {
-                    let string: &str = string;
+                    let string: &T::Ref = string;
 
                     // Hash the string to use as the key's hash (See `Rodeo`'s documentation for details)
                     let hash = hasher.hash_one(string);
@@ -679,7 +679,7 @@ where
                     // Get the entry of the hashmap and insert the key with our new, custom hash
                     let entry = map.raw_entry_mut().from_hash(hash, |key| {
                         // Safety: The index given by `key` will be in bounds of the strings vector
-                        let key_string: &str =
+                        let key_string: &T::Ref =
                             unsafe { index_unchecked!(strings, key.into_usize()) };
 
                         // Compare the requested string against the key's string
@@ -694,7 +694,7 @@ where
                         RawEntryMut::Vacant(entry) => {
                             // Insert the key with the hash of the string that it points to, reusing the hash we made earlier
                             entry.insert_with_hasher(hash, *key.get(), (), |key| {
-                                let key_string: &str =
+                                let key_string: &T::Ref =
                                     unsafe { index_unchecked!(strings, key.into_usize()) };
 
                                 hasher.hash_one(key_string)
@@ -732,10 +732,10 @@ where
     /// [`RodeoResolver`]: crate::RodeoResolver
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    pub fn into_resolver(self) -> RodeoResolver<K> {
+    pub fn into_resolver(self) -> RodeoResolver<T, K> {
         let mut strings = iter::from_fn(|| Some(None))
             .take(self.strings.len())
-            .collect::<Vec<Option<&'static str>>>();
+            .collect::<Vec<Option<&'static T::Ref>>>();
 
         for shard in self.strings.shards() {
             for (key, val) in shard.write().drain() {
@@ -760,15 +760,17 @@ where
 ///
 /// [`Spur`]: crate::Spur
 /// [`RandomState`]: index.html#cargo-features
-impl Default for ThreadedRodeo<Spur, RandomState> {
+impl Default for ThreadedRodeo<String, Spur<String>, RandomState> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<K, S> Debug for ThreadedRodeo<K, S>
+impl<T, K, S> Debug for ThreadedRodeo<T, K, S>
 where
+    T: Internable,
+    T::Ref: Debug,
     K: Key + Hash + Debug,
     S: BuildHasher + Clone,
 {
@@ -782,19 +784,20 @@ where
     }
 }
 
-unsafe impl<K: Sync, S: Sync> Sync for ThreadedRodeo<K, S> {}
-unsafe impl<K: Send, S: Send> Send for ThreadedRodeo<K, S> {}
+unsafe impl<T: Internable, K: Sync, S: Sync> Sync for ThreadedRodeo<T, K, S> where T::Ref: Sync {}
+unsafe impl<T: Internable, K: Send, S: Send> Send for ThreadedRodeo<T, K, S> where T::Ref: Send {}
 
-impl<Str, K, S> FromIterator<Str> for ThreadedRodeo<K, S>
+impl<T, Str, K, S> FromIterator<Str> for ThreadedRodeo<T, K, S>
 where
-    Str: AsRef<str>,
+    T: Internable,
+    Str: AsRef<T::Ref>,
     K: Key + Hash,
     S: BuildHasher + Clone + Default,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn from_iter<T>(iter: T) -> Self
+    fn from_iter<I>(iter: I) -> Self
     where
-        T: IntoIterator<Item = Str>,
+        I: IntoIterator<Item = Str>,
     {
         let iter = iter.into_iter();
         let (lower, upper) = iter.size_hint();
@@ -804,19 +807,20 @@ where
         );
 
         for string in iter {
-            interner.get_or_intern(string.as_ref());
+            interner.get_or_intern(string);
         }
 
         interner
     }
 }
 
-impl<K, S> Index<K> for ThreadedRodeo<K, S>
+impl<T, K, S> Index<K> for ThreadedRodeo<T, K, S>
 where
+    T: Internable,
     K: Key + Hash,
     S: BuildHasher + Clone,
 {
-    type Output = str;
+    type Output = T::Ref;
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn index(&self, idx: K) -> &Self::Output {
@@ -824,32 +828,35 @@ where
     }
 }
 
-impl<K, S, T> Extend<T> for ThreadedRodeo<K, S>
+impl<T, K, S, Str> Extend<Str> for ThreadedRodeo<T, K, S>
 where
+    T: Internable,
     K: Key + Hash,
     S: BuildHasher + Clone,
-    T: AsRef<str>,
+    Str: AsRef<T::Ref>,
 {
     #[cfg_attr(feature = "inline-more", inline)]
     fn extend<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = T>,
+        I: IntoIterator<Item = Str>,
     {
         for s in iter {
-            self.get_or_intern(s.as_ref());
+            self.get_or_intern(s);
         }
     }
 }
 
-impl<K, S> Eq for ThreadedRodeo<K, S>
+impl<T, K, S> Eq for ThreadedRodeo<T, K, S>
 where
+    T: Internable,
     K: Eq + Hash,
     S: Clone + BuildHasher,
 {
 }
 
-impl<K, S> PartialEq<Self> for ThreadedRodeo<K, S>
+impl<T, K, S> PartialEq<Self> for ThreadedRodeo<T, K, S>
 where
+    T: Internable,
     K: Eq + Hash,
     S: Clone + BuildHasher,
 {
@@ -866,13 +873,14 @@ where
     }
 }
 
-impl<K, S> PartialEq<Rodeo<K, S>> for ThreadedRodeo<K, S>
+impl<T, K, S> PartialEq<Rodeo<T, K, S>> for ThreadedRodeo<T, K, S>
 where
+    T: Internable,
     K: Eq + Hash + Key,
     S: Clone + BuildHasher,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn eq(&self, other: &Rodeo<K, S>) -> bool {
+    fn eq(&self, other: &Rodeo<T, K, S>) -> bool {
         self.strings.len() == other.strings.len()
             && other.strings.iter().enumerate().all(|(key, string)| {
                 K::try_from_usize(key)
@@ -883,13 +891,14 @@ where
     }
 }
 
-impl<K, S> PartialEq<RodeoReader<K, S>> for ThreadedRodeo<K, S>
+impl<T, K, S> PartialEq<RodeoReader<T, K, S>> for ThreadedRodeo<T, K, S>
 where
+    T: Internable,
     K: Eq + Hash + Key,
     S: Clone + BuildHasher,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn eq(&self, other: &RodeoReader<K, S>) -> bool {
+    fn eq(&self, other: &RodeoReader<T, K, S>) -> bool {
         self.strings.len() == other.strings.len()
             && other.strings.iter().enumerate().all(|(key, string)| {
                 K::try_from_usize(key)
@@ -900,13 +909,14 @@ where
     }
 }
 
-impl<K, S> PartialEq<RodeoResolver<K>> for ThreadedRodeo<K, S>
+impl<T, K, S> PartialEq<RodeoResolver<T, K>> for ThreadedRodeo<T, K, S>
 where
+    T: Internable,
     K: Eq + Hash + Key,
     S: Clone + BuildHasher,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn eq(&self, other: &RodeoResolver<K>) -> bool {
+    fn eq(&self, other: &RodeoResolver<T, K>) -> bool {
         self.strings.len() == other.strings.len()
             && other.strings.iter().enumerate().all(|(key, string)| {
                 K::try_from_usize(key)
@@ -929,7 +939,7 @@ compile! {
 }
 
 #[cfg(feature = "serialize")]
-impl<K, H> Serialize for ThreadedRodeo<K, H>
+impl<K, H> Serialize for ThreadedRodeo<String, K, H>
 where
     K: Copy + Eq + Hash + Serialize,
     H: Clone + BuildHasher,
@@ -950,7 +960,7 @@ where
 }
 
 #[cfg(feature = "serialize")]
-impl<'de, K, S> Deserialize<'de> for ThreadedRodeo<K, S>
+impl<'de, K, S> Deserialize<'de> for ThreadedRodeo<String, K, S>
 where
     K: Key + Eq + Hash + Deserialize<'de>,
     S: BuildHasher + Clone + Default,
@@ -973,7 +983,7 @@ where
         let map = DashMap::with_capacity_and_hasher(capacity.strings, hasher.clone());
         let strings = DashMap::with_capacity_and_hasher(capacity.strings, hasher);
         let mut highest = 0;
-        let arena = LockfreeArena::new(capacity.bytes, usize::MAX)
+        let arena = LockfreeArena::<String>::new(capacity.bytes, usize::MAX)
             .expect("failed to allocate memory for interner");
 
         for (string, key) in deser_map {
@@ -983,7 +993,7 @@ where
 
             let allocated = unsafe {
                 arena
-                    .store_str(&string)
+                    .store_str::<String>(&string)
                     .expect("failed to allocate enough memory")
             };
 
@@ -1002,29 +1012,31 @@ where
 
 /// An iterator over an interner's strings and keys
 #[must_use = "iterators are lazy and do nothing unless consumed"]
-pub struct Iter<'a, K, S> {
-    iter: dashmap::iter::Iter<'a, K, &'static str, S, DashMap<K, &'static str, S>>,
+pub struct Iter<'a, T: Internable, K, S> {
+    iter: dashmap::iter::Iter<'a, K, &'static T::Ref, S, DashMap<K, &'static T::Ref, S>>,
 }
 
-impl<'a, K, S> Iter<'a, K, S>
+impl<'a, T, K, S> Iter<'a, T, K, S>
 where
+    T: Internable,
     K: Key + Hash,
     S: BuildHasher + Clone,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    pub(crate) fn new(rodeo: &'a ThreadedRodeo<K, S>) -> Self {
+    pub(crate) fn new(rodeo: &'a ThreadedRodeo<T, K, S>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
         }
     }
 }
 
-impl<'a, K, S> Iterator for Iter<'a, K, S>
+impl<'a, T, K, S> Iterator for Iter<'a, T, K, S>
 where
+    T: Internable,
     K: Key + Hash,
     S: BuildHasher + Clone,
 {
-    type Item = (K, &'a str);
+    type Item = (K, &'a T::Ref);
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -1037,38 +1049,39 @@ where
     }
 }
 
-impl<K, S> Debug for Iter<'_, K, S> {
+impl<T: Internable, K, S> Debug for Iter<'_, T, K, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("Iter").finish_non_exhaustive()
     }
 }
 
 /// An iterator over an interner's strings
-#[derive(Debug)]
 #[must_use = "iterators are lazy and do nothing unless consumed"]
-pub struct Strings<'a, K, S> {
-    iter: Iter<'a, K, S>,
+pub struct Strings<'a, T: Internable, K, S> {
+    iter: Iter<'a, T, K, S>,
 }
 
-impl<'a, K, S> Strings<'a, K, S>
+impl<'a, T, K, S> Strings<'a, T, K, S>
 where
+    T: Internable,
     K: Key + Hash,
     S: BuildHasher + Clone,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    pub(crate) fn new(rodeo: &'a ThreadedRodeo<K, S>) -> Self {
+    pub(crate) fn new(rodeo: &'a ThreadedRodeo<T, K, S>) -> Self {
         Self {
             iter: Iter::new(rodeo),
         }
     }
 }
 
-impl<'a, K, S> Iterator for Strings<'a, K, S>
+impl<'a, T, K, S> Iterator for Strings<'a, T, K, S>
 where
+    T: Internable,
     K: Key + Hash,
     S: BuildHasher + Clone,
 {
-    type Item = &'a str;
+    type Item = &'a T::Ref;
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -1078,6 +1091,12 @@ where
     #[cfg_attr(feature = "inline-more", inline)]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
+    }
+}
+
+impl<T: Internable, K, S> Debug for Strings<'_, T, K, S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.debug_struct("Strings").finish_non_exhaustive()
     }
 }
 
@@ -1095,7 +1114,7 @@ mod tests {
 
     compile! {
         if #[feature = "no-std"] {
-            use alloc::string::ToString;
+            use alloc::string::{String, ToString};
         } else {
             use std::string::ToString;
         }
@@ -1103,19 +1122,19 @@ mod tests {
 
     #[test]
     fn new() {
-        let _: ThreadedRodeo<Spur> = ThreadedRodeo::new();
+        let _: ThreadedRodeo = ThreadedRodeo::new();
     }
 
     #[test]
     fn with_capacity() {
-        let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity(Capacity::for_strings(10));
+        let rodeo: ThreadedRodeo = ThreadedRodeo::with_capacity(Capacity::for_strings(10));
         // DashMap's capacity isn't reliable
         let _cap = rodeo.capacity();
     }
 
     #[test]
     fn with_hasher() {
-        let rodeo: ThreadedRodeo<Spur, RandomState> =
+        let rodeo: ThreadedRodeo<String, Spur<String>, RandomState> =
             ThreadedRodeo::with_hasher(RandomState::new());
 
         let key = rodeo.get_or_intern("Test");
@@ -1124,7 +1143,7 @@ mod tests {
 
     #[test]
     fn with_capacity_and_hasher() {
-        let rodeo: ThreadedRodeo<Spur, RandomState> =
+        let rodeo: ThreadedRodeo<String, Spur<String>, RandomState> =
             ThreadedRodeo::with_capacity_and_hasher(Capacity::for_strings(10), RandomState::new());
 
         let key = rodeo.get_or_intern("Test");
@@ -1174,10 +1193,10 @@ mod tests {
 
     #[test]
     fn try_get_or_intern() {
-        let rodeo: ThreadedRodeo<MicroSpur> = ThreadedRodeo::new();
+        let rodeo: ThreadedRodeo<String, MicroSpur> = ThreadedRodeo::new();
 
         for i in 0..u8::MAX as usize - 1 {
-            rodeo.get_or_intern(i.to_string());
+            rodeo.get_or_intern(&i.to_string());
         }
 
         let space = rodeo.try_get_or_intern("A").unwrap();
@@ -1191,10 +1210,10 @@ mod tests {
     #[test]
     #[cfg(not(any(miri, feature = "no-std")))]
     fn try_get_or_intern_threaded() {
-        let rodeo: Arc<ThreadedRodeo<MicroSpur>> = Arc::new(ThreadedRodeo::new());
+        let rodeo: Arc<ThreadedRodeo<String, MicroSpur>> = Arc::new(ThreadedRodeo::new());
 
         for i in 0..u8::MAX as usize - 1 {
-            rodeo.get_or_intern(i.to_string());
+            rodeo.get_or_intern(&i.to_string());
         }
 
         let moved = Arc::clone(&rodeo);
@@ -1248,7 +1267,7 @@ mod tests {
     #[test]
     #[cfg(not(any(miri, feature = "no-std")))]
     fn try_get_or_intern_static_threaded() {
-        let rodeo: Arc<ThreadedRodeo<MicroSpur>> = Arc::new(ThreadedRodeo::new());
+        let rodeo: Arc<ThreadedRodeo<String, MicroSpur>> = Arc::new(ThreadedRodeo::new());
 
         let moved = Arc::clone(&rodeo);
         thread::spawn(move || {
@@ -1494,7 +1513,7 @@ mod tests {
 
     #[test]
     fn memory_exhausted() {
-        let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity_and_memory_limits(
+        let rodeo: ThreadedRodeo = ThreadedRodeo::with_capacity_and_memory_limits(
             Capacity::for_bytes(NonZeroUsize::new(10).unwrap()),
             MemoryLimits::for_memory_usage(10),
         );
@@ -1512,7 +1531,7 @@ mod tests {
     #[test]
     #[cfg(not(any(miri, feature = "no-std")))]
     fn memory_exhausted_threaded() {
-        let rodeo: Arc<ThreadedRodeo<Spur>> =
+        let rodeo: Arc<ThreadedRodeo> =
             Arc::new(ThreadedRodeo::with_capacity_and_memory_limits(
                 Capacity::for_bytes(NonZeroUsize::new(10).unwrap()),
                 MemoryLimits::for_memory_usage(10),
@@ -1544,7 +1563,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn memory_exhausted_panics() {
-        let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity_and_memory_limits(
+        let rodeo: ThreadedRodeo = ThreadedRodeo::with_capacity_and_memory_limits(
             Capacity::for_bytes(NonZeroUsize::new(10).unwrap()),
             MemoryLimits::for_memory_usage(10),
         );
@@ -1557,7 +1576,7 @@ mod tests {
 
     #[test]
     fn with_capacity_memory_limits_and_hasher() {
-        let rodeo: ThreadedRodeo<Spur, RandomState> =
+        let rodeo: ThreadedRodeo<String, Spur<String>, RandomState> =
             ThreadedRodeo::with_capacity_memory_limits_and_hasher(
                 Capacity::default(),
                 MemoryLimits::default(),
@@ -1569,7 +1588,7 @@ mod tests {
 
     #[test]
     fn with_capacity_and_memory_limits() {
-        let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity_and_memory_limits(
+        let rodeo: ThreadedRodeo = ThreadedRodeo::with_capacity_and_memory_limits(
             Capacity::default(),
             MemoryLimits::default(),
         );
@@ -1579,7 +1598,7 @@ mod tests {
 
     #[test]
     fn set_memory_limits() {
-        let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity_and_memory_limits(
+        let rodeo: ThreadedRodeo = ThreadedRodeo::with_capacity_and_memory_limits(
             Capacity::for_bytes(NonZeroUsize::new(10).unwrap()),
             MemoryLimits::for_memory_usage(10),
         );
@@ -1608,7 +1627,7 @@ mod tests {
 
     #[test]
     fn memory_usage_stats() {
-        let rodeo: ThreadedRodeo<Spur> = ThreadedRodeo::with_capacity_and_memory_limits(
+        let rodeo: ThreadedRodeo = ThreadedRodeo::with_capacity_and_memory_limits(
             Capacity::for_bytes(NonZeroUsize::new(10).unwrap()),
             MemoryLimits::for_memory_usage(10),
         );

@@ -1,4 +1,9 @@
-use crate::{keys::Key, reader::RodeoReader, resolver::RodeoResolver, rodeo::Rodeo};
+use crate::{
+    keys::Key,
+    reader::RodeoReader,
+    resolver::RodeoResolver,
+    rodeo::{Internable, Rodeo},
+};
 use core::{fmt, iter, marker::PhantomData, num::NonZeroUsize, slice};
 
 /// A continence type for an error from an interner
@@ -196,14 +201,14 @@ impl Default for MemoryLimits {
 /// An iterator over an interner's strings and keys
 #[derive(Clone, Debug)]
 #[must_use = "iterators are lazy and do nothing unless consumed"]
-pub struct Iter<'a, K> {
-    iter: iter::Enumerate<slice::Iter<'a, &'a str>>,
+pub struct Iter<'a, T: Internable, K> {
+    iter: iter::Enumerate<slice::Iter<'a, &'a T::Ref>>,
     __key: PhantomData<K>,
 }
 
-impl<'a, K> Iter<'a, K> {
+impl<'a, T: Internable, K> Iter<'a, T, K> {
     #[cfg_attr(feature = "inline-more", inline)]
-    pub(crate) fn from_rodeo<S>(rodeo: &'a Rodeo<K, S>) -> Self {
+    pub(crate) fn from_rodeo<S>(rodeo: &'a Rodeo<T, K, S>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -211,7 +216,7 @@ impl<'a, K> Iter<'a, K> {
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    pub(crate) fn from_reader<S>(rodeo: &'a RodeoReader<K, S>) -> Self {
+    pub(crate) fn from_reader<S>(rodeo: &'a RodeoReader<T, K, S>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -219,7 +224,7 @@ impl<'a, K> Iter<'a, K> {
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<K>) -> Self {
+    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<T, K>) -> Self {
         Self {
             iter: rodeo.strings.iter().enumerate(),
             __key: PhantomData,
@@ -227,7 +232,7 @@ impl<'a, K> Iter<'a, K> {
     }
 }
 
-fn iter_element<'a, K>((key, string): (usize, &&'a str)) -> (K, &'a str)
+fn iter_element<'a, T: Internable, K>((key, string): (usize, &&'a T::Ref)) -> (K, &'a T::Ref)
 where
     K: Key,
 {
@@ -237,15 +242,15 @@ where
     )
 }
 
-impl<'a, K> Iterator for Iter<'a, K>
+impl<'a, T: Internable, K> Iterator for Iter<'a, T, K>
 where
     K: Key,
 {
-    type Item = (K, &'a str);
+    type Item = (K, &'a T::Ref);
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(iter_element)
+        self.iter.next().map(iter_element::<T, K>)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
@@ -254,26 +259,26 @@ where
     }
 }
 
-impl<'a, K> DoubleEndedIterator for Iter<'a, K>
+impl<'a, T: Internable, K> DoubleEndedIterator for Iter<'a, T, K>
 where
     K: Key,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn next_back(&mut self) -> Option<(K, &'a str)> {
-        self.iter.next_back().map(iter_element)
+    fn next_back(&mut self) -> Option<(K, &'a T::Ref)> {
+        self.iter.next_back().map(iter_element::<T, K>)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn nth_back(&mut self, n: usize) -> Option<(K, &'a str)> {
-        self.iter.nth_back(n).map(iter_element)
+    fn nth_back(&mut self, n: usize) -> Option<(K, &'a T::Ref)> {
+        self.iter.nth_back(n).map(iter_element::<T, K>)
     }
 }
 
 // iter::Enumerate is exact-size if its underlying iterator is exact-size, which slice::Iter is.
-impl<'a, K: Key> ExactSizeIterator for Iter<'a, K> {}
+impl<'a, T: Internable, K: Key> ExactSizeIterator for Iter<'a, T, K> {}
 
 // iter::Enumerate is fused if its underlying iterator is fused, which slice::Iter is.
-impl<'a, K: Key> iter::FusedIterator for Iter<'a, K> {}
+impl<'a, T: Internable, K: Key> iter::FusedIterator for Iter<'a, T, K> {}
 
 // #[derive(Debug)]
 // pub struct LockedIter<'a, K: Key> {
@@ -300,14 +305,14 @@ impl<'a, K: Key> iter::FusedIterator for Iter<'a, K> {}
 /// An iterator over an interner's strings
 #[derive(Clone, Debug)]
 #[must_use = "iterators are lazy and do nothing unless consumed"]
-pub struct Strings<'a, K> {
-    iter: slice::Iter<'a, &'a str>,
+pub struct Strings<'a, T: Internable, K> {
+    iter: slice::Iter<'a, &'a T::Ref>,
     __key: PhantomData<K>,
 }
 
-impl<'a, K> Strings<'a, K> {
+impl<'a, T: Internable, K> Strings<'a, T, K> {
     #[cfg_attr(feature = "inline-more", inline)]
-    pub(crate) fn from_rodeo<H>(rodeo: &'a Rodeo<K, H>) -> Self {
+    pub(crate) fn from_rodeo<H>(rodeo: &'a Rodeo<T, K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -315,7 +320,7 @@ impl<'a, K> Strings<'a, K> {
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    pub(crate) fn from_reader<H>(rodeo: &'a RodeoReader<K, H>) -> Self {
+    pub(crate) fn from_reader<H>(rodeo: &'a RodeoReader<T, K, H>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -323,7 +328,7 @@ impl<'a, K> Strings<'a, K> {
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<K>) -> Self {
+    pub(crate) fn from_resolver(rodeo: &'a RodeoResolver<T, K>) -> Self {
         Self {
             iter: rodeo.strings.iter(),
             __key: PhantomData,
@@ -331,8 +336,8 @@ impl<'a, K> Strings<'a, K> {
     }
 }
 
-impl<'a, K> Iterator for Strings<'a, K> {
-    type Item = &'a str;
+impl<'a, T: Internable, K> Iterator for Strings<'a, T, K> {
+    type Item = &'a T::Ref;
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -345,26 +350,26 @@ impl<'a, K> Iterator for Strings<'a, K> {
     }
 }
 
-impl<'a, K> DoubleEndedIterator for Strings<'a, K>
+impl<'a, T: Internable, K> DoubleEndedIterator for Strings<'a, T, K>
 where
     K: Key,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn next_back(&mut self) -> Option<&'a str> {
+    fn next_back(&mut self) -> Option<&'a T::Ref> {
         self.iter.next_back().copied()
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn nth_back(&mut self, n: usize) -> Option<&'a str> {
+    fn nth_back(&mut self, n: usize) -> Option<&'a T::Ref> {
         self.iter.nth_back(n).copied()
     }
 }
 
 // slice::Iter is exact-size.
-impl<'a, K> ExactSizeIterator for Strings<'a, K> {}
+impl<'a, T: Internable, K> ExactSizeIterator for Strings<'a, T, K> {}
 
 // slice::Iter is fused.
-impl<'a, K: Key> iter::FusedIterator for Strings<'a, K> {}
+impl<'a, T: Internable, K> iter::FusedIterator for Strings<'a, T, K> {}
 
 macro_rules! compile {
     ($(
@@ -478,7 +483,7 @@ mod tests {
 
     #[test]
     fn iter_rodeo() {
-        let mut rodeo = Rodeo::default();
+        let mut rodeo: Rodeo = Rodeo::default();
         let a = rodeo.get_or_intern("A");
         let b = rodeo.get_or_intern("B");
         let c = rodeo.get_or_intern("C");
@@ -497,7 +502,7 @@ mod tests {
 
     #[test]
     fn iter_reader() {
-        let mut rodeo = Rodeo::default();
+        let mut rodeo: Rodeo = Rodeo::default();
         let a = rodeo.get_or_intern("A");
         let b = rodeo.get_or_intern("B");
         let c = rodeo.get_or_intern("C");
@@ -517,7 +522,7 @@ mod tests {
 
     #[test]
     fn iter_resolver() {
-        let mut rodeo = Rodeo::default();
+        let mut rodeo: Rodeo = Rodeo::default();
         let a = rodeo.get_or_intern("A");
         let b = rodeo.get_or_intern("B");
         let c = rodeo.get_or_intern("C");
@@ -537,7 +542,7 @@ mod tests {
 
     #[test]
     fn strings_rodeo() {
-        let mut rodeo = Rodeo::default();
+        let mut rodeo: Rodeo = Rodeo::default();
         rodeo.get_or_intern("A");
         rodeo.get_or_intern("B");
         rodeo.get_or_intern("C");
@@ -556,7 +561,7 @@ mod tests {
 
     #[test]
     fn strings_reader() {
-        let mut rodeo = Rodeo::default();
+        let mut rodeo: Rodeo = Rodeo::default();
         rodeo.get_or_intern("A");
         rodeo.get_or_intern("B");
         rodeo.get_or_intern("C");
@@ -576,7 +581,7 @@ mod tests {
 
     #[test]
     fn strings_resolver() {
-        let mut rodeo = Rodeo::default();
+        let mut rodeo: Rodeo = Rodeo::default();
         rodeo.get_or_intern("A");
         rodeo.get_or_intern("B");
         rodeo.get_or_intern("C");

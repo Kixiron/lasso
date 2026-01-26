@@ -2,7 +2,7 @@ use lasso::Rodeo;
 use std::sync::RwLock;
 
 lazy_static::lazy_static! {
-    static ref INTERNER: RwLock<Rodeo> = RwLock::new(Rodeo::new());
+    static ref INTERNER: RwLock<Rodeo<String>> = RwLock::new(Rodeo::<String>::new());
 }
 
 #[test]

@@ -1,31 +1,34 @@
-use crate::{LassoError, LassoErrorKind, LassoResult};
+use crate::{
+    rodeo::{Internable, InternableRef},
+    LassoError, LassoErrorKind, LassoResult,
+};
 use alloc::alloc::{alloc, dealloc, Layout};
 use core::{
     hint,
-    mem::{align_of, size_of},
+    marker::PhantomData,
+    mem::size_of,
     num::NonZeroUsize,
     ptr::{self, addr_of_mut, NonNull},
-    slice,
     sync::atomic::{AtomicPtr, AtomicUsize, Ordering},
 };
 
-pub(super) struct AtomicBucketList {
+pub(super) struct AtomicBucketList<T: Internable> {
     /// The first bucket in the list, will be null if the list currently
     /// has no buckets
-    head: AtomicPtr<AtomicBucket>,
+    head: AtomicPtr<AtomicBucket<T>>,
 }
 
-impl AtomicBucketList {
+impl<T: Internable> AtomicBucketList<T> {
     /// Create a new bucket list
     pub fn new(first_bucket_capacity: NonZeroUsize) -> LassoResult<Self> {
-        let bucket = AtomicBucket::with_capacity(first_bucket_capacity)?;
+        let bucket = AtomicBucket::<T>::with_capacity(first_bucket_capacity)?;
 
         Ok(Self {
             head: AtomicPtr::new(bucket.as_ptr()),
         })
     }
 
-    pub fn iter(&self) -> AtomicBucketIter<'_> {
+    pub fn iter(&self) -> AtomicBucketIter<'_, T> {
         AtomicBucketIter {
             current: &self.head,
         }
@@ -42,7 +45,7 @@ impl AtomicBucketList {
         self.len() == 0
     }
 
-    pub fn push_front(&self, bucket: BucketRef) {
+    pub fn push_front(&self, bucket: BucketRef<T>) {
         let bucket_ptr = bucket.as_ptr();
         let mut head_ptr = self.head.load(Ordering::Acquire);
 
@@ -73,7 +76,7 @@ impl AtomicBucketList {
     }
 }
 
-impl Drop for AtomicBucketList {
+impl<T: Internable> Drop for AtomicBucketList<T> {
     fn drop(&mut self) {
         // Safety: We should have exclusive access to all buckets
         unsafe {
@@ -89,7 +92,7 @@ impl Drop for AtomicBucketList {
 
                 // Get the layout of the current bucket so we can deallocate it
                 let capacity = (*current_ptr).capacity;
-                let layout = AtomicBucket::layout(capacity)
+                let layout = AtomicBucket::<T>::layout(capacity)
                     .expect("buckets with invalid capacities can't be constructed");
 
                 // Deallocate all memory that the bucket allocated
@@ -99,12 +102,12 @@ impl Drop for AtomicBucketList {
     }
 }
 
-pub(super) struct AtomicBucketIter<'a> {
-    current: &'a AtomicPtr<AtomicBucket>,
+pub(super) struct AtomicBucketIter<'a, T: Internable> {
+    current: &'a AtomicPtr<AtomicBucket<T>>,
 }
 
-impl<'a> Iterator for AtomicBucketIter<'a> {
-    type Item = BucketRef;
+impl<'a, T: Internable> Iterator for AtomicBucketIter<'a, T> {
+    type Item = BucketRef<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let current = self.current.load(Ordering::Acquire);
@@ -121,11 +124,11 @@ impl<'a> Iterator for AtomicBucketIter<'a> {
 
 /// A unique reference to an atomic bucket
 #[repr(transparent)]
-pub(super) struct UniqueBucketRef {
-    bucket: BucketRef,
+pub(super) struct UniqueBucketRef<T: Internable> {
+    bucket: BucketRef<T>,
 }
 
-impl UniqueBucketRef {
+impl<T: Internable> UniqueBucketRef<T> {
     /// Create a new unique bucket ref
     ///
     /// # Safety
@@ -133,14 +136,14 @@ impl UniqueBucketRef {
     /// The pointer must have exclusive, mutable and unique access to the pointed-to
     /// bucket
     #[inline]
-    const unsafe fn new(bucket: NonNull<AtomicBucket>) -> Self {
+    const unsafe fn new(bucket: NonNull<AtomicBucket<T>>) -> Self {
         Self {
             bucket: unsafe { BucketRef::new(bucket) },
         }
     }
 
     #[inline]
-    pub const fn as_ptr(&self) -> *mut AtomicBucket {
+    pub const fn as_ptr(&self) -> *mut AtomicBucket<T> {
         self.bucket.as_ptr()
     }
 
@@ -180,64 +183,72 @@ impl UniqueBucketRef {
     ///
     /// # Safety
     ///
-    /// The returned `&'static str` (and all copies of it) must be dropped
+    /// The returned `&'static T::Ref` (and all copies of it) must be dropped
     /// before the current bucket is, as this bucket contains the backing
-    /// memory for the string.
+    /// memory for the data.
     /// Additionally, the underlying [`AtomicBucket`] must have enough room
-    /// to store the entire slice and the given slice must be valid utf-8 data.
+    /// to store the entire value (including alignment padding).
     ///
-    pub unsafe fn push_slice(&mut self, slice: &[u8]) -> &'static str {
+    pub unsafe fn push_slice(&mut self, value: &T::Ref) -> &'static T::Ref {
         let len = self.len();
+        let slice = value.as_bytes();
+        let count = value.len();
+
+        // Align the index to the required alignment for T::Ref
+        let align = T::Ref::ALIGNMENT;
+        let aligned_len = (len + align - 1) & !(align - 1);
 
         if cfg!(debug_assertions) {
             let capacity = self.capacity().get();
 
-            debug_assert_ne!(len, capacity);
-            debug_assert!(slice.len() <= capacity - len);
+            debug_assert_ne!(aligned_len, capacity);
+            debug_assert!(aligned_len + slice.len() <= capacity);
         }
 
-        // Get a pointer to the start of the free data
-        let ptr = unsafe { addr_of_mut!((*self.as_ptr())._data).cast::<u8>().add(len) };
+        // Get a pointer to the aligned start of the free data
+        let ptr = unsafe {
+            addr_of_mut!((*self.as_ptr())._data)
+                .cast::<u8>()
+                .add(aligned_len)
+        };
 
-        // Make the slice that we'll fill with the string's data
-        let target = unsafe { slice::from_raw_parts_mut(ptr, slice.len()) };
-        // Copy the data from the source string into the bucket's buffer
-        target.copy_from_slice(slice);
+        // Copy the data from the source into the bucket's buffer
+        unsafe { ptr.copy_from_nonoverlapping(slice.as_ptr(), slice.len()) };
 
-        // Increment the index so that the string we just added isn't overwritten
+        // Increment the index so that the data we just added isn't overwritten
         // Safety: All bytes are initialized and the length is <= capacity
-        unsafe { self.set_len(len + slice.len()) };
+        unsafe { self.set_len(aligned_len + slice.len()) };
 
-        // Create a string from that slice
-        // Safety: The source string was valid utf8, so the created buffer will be as well
-
-        unsafe { core::str::from_utf8_unchecked(target) }
+        // Create a reference from the allocated data
+        // Safety: The source data was valid, so the created buffer will be as well.
+        // The pointer is properly aligned because we aligned the index above.
+        unsafe { T::Ref::from_raw_parts(ptr, count) }
     }
 
     #[inline]
-    pub(crate) const fn into_ref(self) -> BucketRef {
+    pub(crate) fn into_ref(self) -> BucketRef<T> {
         self.bucket
     }
 }
 
 /// A reference to an [`AtomicBucket`]
 #[repr(transparent)]
-pub(super) struct BucketRef {
-    bucket: NonNull<AtomicBucket>,
+pub(super) struct BucketRef<T: Internable> {
+    bucket: NonNull<AtomicBucket<T>>,
 }
 
-impl BucketRef {
+impl<T: Internable> BucketRef<T> {
     /// Create a new [`BucketRef`]
     ///
     /// # Safety
     ///
     /// `bucket` must be a valid pointer to an [`AtomicBucket`]
-    const unsafe fn new(bucket: NonNull<AtomicBucket>) -> Self {
+    const unsafe fn new(bucket: NonNull<AtomicBucket<T>>) -> Self {
         Self { bucket }
     }
 
     #[inline]
-    pub const fn as_ptr(&self) -> *mut AtomicBucket {
+    pub const fn as_ptr(&self) -> *mut AtomicBucket<T> {
         self.bucket.as_ptr()
     }
 
@@ -261,16 +272,22 @@ impl BucketRef {
         unsafe { addr_of_mut!((*self.as_ptr())._data).cast::<u8>().add(start) }
     }
 
+    /// Try to atomically reserve space for `additional` bytes with the given alignment.
+    /// Returns the aligned start position on success.
     pub fn try_inc_length(&self, additional: usize) -> Result<usize, ()> {
         debug_assert_ne!(additional, 0);
 
         let length = self.length();
         let capacity = self.capacity().get();
+        let align = T::Ref::ALIGNMENT;
 
         // TODO: Add backoff to this loop so we don't thrash it
         let mut len = length.load(Ordering::Acquire);
         for _ in 0..100 {
-            let new_length = len + additional;
+            // Compute the aligned start position
+            let aligned_start = (len + align - 1) & !(align - 1);
+            let new_length = aligned_start + additional;
+
             if new_length <= capacity {
                 match length.compare_exchange_weak(
                     len,
@@ -279,8 +296,8 @@ impl BucketRef {
                     Ordering::Acquire,
                 ) {
                     Ok(_) => {
-                        debug_assert!(len < capacity && len + additional <= capacity);
-                        return Ok(len);
+                        debug_assert!(aligned_start < capacity && new_length <= capacity);
+                        return Ok(aligned_start);
                     }
                     Err(loaded) => {
                         hint::spin_loop();
@@ -297,7 +314,7 @@ impl BucketRef {
 }
 
 #[repr(C)]
-pub(super) struct AtomicBucket {
+pub(super) struct AtomicBucket<T: Internable> {
     /// The next bucket in the list, will be null if this is the last bucket
     next: AtomicPtr<Self>,
 
@@ -314,11 +331,16 @@ pub(super) struct AtomicBucket {
     /// Invariant: Never touch this field manually, it contains uninitialized data up
     /// to the length of `capacity`
     _data: [u8; 0],
+
+    /// Marker for the internable type
+    _marker: PhantomData<T>,
 }
 
-impl AtomicBucket {
+impl<T: Internable> AtomicBucket<T> {
+    const ALIGN: usize = T::Ref::ALIGNMENT;
+
     /// Allocates a bucket with space for `capacity` items
-    pub(crate) fn with_capacity(capacity: NonZeroUsize) -> LassoResult<UniqueBucketRef> {
+    pub(crate) fn with_capacity(capacity: NonZeroUsize) -> LassoResult<UniqueBucketRef<T>> {
         // Create the bucket's layout
         let layout = Self::layout(capacity)?;
         debug_assert_ne!(layout.size(), 0);
@@ -360,14 +382,11 @@ impl AtomicBucket {
         let len = Layout::new::<usize>();
         let cap = Layout::new::<NonZeroUsize>();
 
-        // Safety: Align will always be a non-zero power of two and the
+        // Safety: ALIGN is a non-zero power of two (checked at construction) and the
         //         size will not overflow when rounded up
-        debug_assert!(
-            Layout::from_size_align(size_of::<u8>() * capacity.get(), align_of::<u8>()).is_ok()
-        );
-        let data = unsafe {
-            Layout::from_size_align_unchecked(size_of::<u8>() * capacity.get(), align_of::<u8>())
-        };
+        debug_assert!(Layout::from_size_align(size_of::<u8>() * capacity.get(), Self::ALIGN).is_ok());
+        let data =
+            unsafe { Layout::from_size_align_unchecked(size_of::<u8>() * capacity.get(), Self::ALIGN) };
 
         next.extend(len)
             .and_then(|(layout, _)| layout.extend(cap))
@@ -377,5 +396,5 @@ impl AtomicBucket {
     }
 }
 
-unsafe impl Send for AtomicBucket {}
-unsafe impl Sync for AtomicBucket {}
+unsafe impl<T: Internable> Send for AtomicBucket<T> {}
+unsafe impl<T: Internable> Sync for AtomicBucket<T> {}

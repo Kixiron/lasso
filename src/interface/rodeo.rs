@@ -1,53 +1,52 @@
 //! Implementations of [`Interner`], [`Reader`] and [`Resolver`] for [`Rodeo`]
 
-use crate::*;
+use crate::{rodeo::Internable, *};
 #[cfg(feature = "no-std")]
 use alloc::boxed::Box;
 use core::hash::BuildHasher;
 use interface::IntoReaderAndResolver;
 
-impl<K, S> Interner<K> for Rodeo<K, S>
+impl<T: Internable, K, S> Interner<T, K> for Rodeo<T, K, S>
 where
     K: Key,
     S: BuildHasher,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn get_or_intern(&mut self, val: &str) -> K {
+    fn get_or_intern(&mut self, val: &T::Ref) -> K {
         self.get_or_intern(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn try_get_or_intern(&mut self, val: &str) -> LassoResult<K> {
+    fn try_get_or_intern(&mut self, val: &T::Ref) -> LassoResult<K> {
         self.try_get_or_intern(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn get_or_intern_static(&mut self, val: &'static str) -> K {
+    fn get_or_intern_static(&mut self, val: &'static T::Ref) -> K {
         self.get_or_intern_static(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn try_get_or_intern_static(&mut self, val: &'static str) -> LassoResult<K> {
+    fn try_get_or_intern_static(&mut self, val: &'static T::Ref) -> LassoResult<K> {
         self.try_get_or_intern_static(val)
     }
 }
 
-impl<K, S> IntoReaderAndResolver<K> for Rodeo<K, S>
+impl<T: Internable, K, S> IntoReaderAndResolver<T, K> for Rodeo<T, K, S>
 where
     K: Key,
     S: BuildHasher,
 {
 }
 
-impl<K, S> IntoReader<K> for Rodeo<K, S>
+impl<T: Internable, K, S> IntoReader<T, K> for Rodeo<T, K, S>
 where
     K: Key,
     S: BuildHasher,
 {
-    type Reader = RodeoReader<K, S>;
+    type Reader = RodeoReader<T, K, S>;
 
     #[cfg_attr(feature = "inline-more", inline)]
-    #[must_use]
     fn into_reader(self) -> Self::Reader
     where
         Self: 'static,
@@ -56,7 +55,6 @@ where
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    #[must_use]
     fn into_reader_boxed(self: Box<Self>) -> Self::Reader
     where
         Self: 'static,
@@ -65,31 +63,30 @@ where
     }
 }
 
-impl<K, S> Reader<K> for Rodeo<K, S>
+impl<T: Internable, K, S> Reader<T, K> for Rodeo<T, K, S>
 where
     K: Key,
     S: BuildHasher,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn get(&self, val: &str) -> Option<K> {
+    fn get(&self, val: &T::Ref) -> Option<K> {
         self.get(val)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn contains(&self, val: &str) -> bool {
+    fn contains(&self, val: &T::Ref) -> bool {
         self.contains(val)
     }
 }
 
-impl<K, S> IntoResolver<K> for Rodeo<K, S>
+impl<T: Internable, K, S> IntoResolver<T, K> for Rodeo<T, K, S>
 where
     K: Key,
     S: BuildHasher,
 {
-    type Resolver = RodeoResolver<K>;
+    type Resolver = RodeoResolver<T, K>;
 
     #[cfg_attr(feature = "inline-more", inline)]
-    #[must_use]
     fn into_resolver(self) -> Self::Resolver
     where
         Self: 'static,
@@ -98,7 +95,6 @@ where
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    #[must_use]
     fn into_resolver_boxed(self: Box<Self>) -> Self::Resolver
     where
         Self: 'static,
@@ -107,22 +103,22 @@ where
     }
 }
 
-impl<K, S> Resolver<K> for Rodeo<K, S>
+impl<T: Internable, K, S> Resolver<T, K> for Rodeo<T, K, S>
 where
     K: Key,
 {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn resolve<'a>(&'a self, key: &K) -> &'a str {
+    fn resolve<'a>(&'a self, key: &K) -> &'a T::Ref {
         self.resolve(key)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str> {
+    fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a T::Ref> {
         self.try_resolve(key)
     }
 
     #[cfg_attr(feature = "inline-more", inline)]
-    unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str {
+    unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a T::Ref {
         unsafe { self.resolve_unchecked(key) }
     }
 

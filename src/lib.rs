@@ -58,7 +58,7 @@
 //! ```rust
 //! use lasso::Rodeo;
 //!
-//! let mut rodeo = Rodeo::default();
+//! let mut rodeo: Rodeo = Rodeo::default();
 //! let key = rodeo.get_or_intern("Hello, world!");
 //!
 //! // Easily retrieve the value of a key and find the key for values
@@ -149,7 +149,7 @@
 //! use lasso::Rodeo;
 //!
 //! // Rodeo and ThreadedRodeo are interchangeable here
-//! let mut rodeo = Rodeo::default();
+//! let mut rodeo: Rodeo = Rodeo::default();
 //!
 //! let key = rodeo.get_or_intern("Hello, world!");
 //! assert_eq!("Hello, world!", rodeo.resolve(&key));
@@ -169,7 +169,7 @@
 //! use lasso::Rodeo;
 //!
 //! // Rodeo and ThreadedRodeo are interchangeable here
-//! let mut rodeo = Rodeo::default();
+//! let mut rodeo: Rodeo = Rodeo::default();
 //!
 //! let key = rodeo.get_or_intern("Hello, world!");
 //! assert_eq!("Hello, world!", rodeo.resolve(&key));
@@ -240,7 +240,7 @@
 //! # value_out_of_range();
 //!
 //! // And now we're done and can make `Rodeo`s or `ThreadedRodeo`s that use our custom key!
-//! let mut rodeo: Rodeo<NicheKey> = Rodeo::new();
+//! let mut rodeo: Rodeo<String, NicheKey> = Rodeo::new();
 //! let key = rodeo.get_or_intern("It works!");
 //! assert_eq!(rodeo.resolve(&key), "It works!");
 //! ```
@@ -447,14 +447,13 @@ pub use rodeo::Rodeo;
 pub use util::{Capacity, Iter, LassoError, LassoErrorKind, LassoResult, MemoryLimits, Strings};
 
 compile! {
-    if #[all(feature = "multi-threaded", not(feature = "no-std"))] {
+    // If the `multi-threaded` and `no-std` features are both active, error
+    if #[all(feature = "multi-threaded", feature = "no-std")] {
+        compile_error!("The `multi-threaded` and `no-std` features are not supported together");
+    } else if #[feature = "multi-threaded"] {
         mod threaded_rodeo;
 
         pub use threaded_rodeo::ThreadedRodeo;
-
-    // If the `multi-threaded` and `no-std` features are both active
-    } else if #[all(feature = "multi-threaded", feature = "no-std")] {
-        compile_error!("The `multi-threaded` and `no-std` features are not supported together");
     }
 }
 

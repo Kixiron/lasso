@@ -10,19 +10,20 @@ mod lockfree;
 pub(crate) use lockfree::LockfreeArena;
 pub(crate) use single_threaded::Arena;
 
+use crate::rodeo::Internable;
 use core::fmt::{self, Debug};
 
 /// A wrapper type to abstract over all arena types
 ///
 /// Used for readers & resolvers to allow them to be created from
 /// any arena type without using dynamic dispatch or allocation
-pub(crate) enum AnyArena {
-    Arena(Arena),
+pub(crate) enum AnyArena<T: Internable> {
+    Arena(Arena<T>),
     #[cfg(feature = "multi-threaded")]
-    Lockfree(LockfreeArena),
+    Lockfree(LockfreeArena<T>),
 }
 
-impl Debug for AnyArena {
+impl<T: Internable> Debug for AnyArena<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Arena(arena) => arena.fmt(f),

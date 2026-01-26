@@ -3,6 +3,7 @@ use crate::{
     hasher::RandomState,
     keys::{Key, Spur},
     resolver::RodeoResolver,
+    rodeo::Internable,
     util::{Iter, Strings},
     Rodeo,
 };
@@ -19,16 +20,16 @@ use hashbrown::HashMap;
 /// [`Rodeo`]: crate::Rodeo
 /// [`ThreadedRodeo`]: crate::ThreadedRodeo
 #[derive(Debug)]
-pub struct RodeoReader<K = Spur, S = RandomState> {
+pub struct RodeoReader<T: Internable = String, K = Spur<T>, S = RandomState> {
     // The logic behind this arrangement is more heavily documented inside of
     // `Rodeo` itself
-    map: HashMap<K, (), ()>,
-    hasher: S,
-    pub(crate) strings: Vec<&'static str>,
-    __arena: AnyArena,
+    pub(crate) map: HashMap<K, (), ()>,
+    pub(crate) hasher: S,
+    pub(crate) strings: Vec<&'static T::Ref>,
+    pub(crate) __arena: AnyArena<T>,
 }
 
-impl<K, S> RodeoReader<K, S> {
+impl<T: Internable, K, S> RodeoReader<T, K, S> {
     /// Creates a new RodeoReader
     ///
     /// # Safety
@@ -39,8 +40,8 @@ impl<K, S> RodeoReader<K, S> {
     pub(crate) unsafe fn new(
         map: HashMap<K, (), ()>,
         hasher: S,
-        strings: Vec<&'static str>,
-        arena: AnyArena,
+        strings: Vec<&'static T::Ref>,
+        arena: AnyArena<T>,
     ) -> Self {
         Self {
             map,
@@ -58,7 +59,7 @@ impl<K, S> RodeoReader<K, S> {
     /// use lasso::Rodeo;
     ///
     /// // ThreadedRodeo is interchangeable for Rodeo here
-    /// let mut rodeo = Rodeo::default();
+    /// let mut rodeo: Rodeo = Rodeo::default();
     /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
     ///
     /// let rodeo = rodeo.into_reader();
@@ -68,13 +69,13 @@ impl<K, S> RodeoReader<K, S> {
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn get<T>(&self, val: T) -> Option<K>
+    pub fn get<V>(&self, val: V) -> Option<K>
     where
-        T: AsRef<str>,
+        V: AsRef<T::Ref>,
         S: BuildHasher,
         K: Key,
     {
-        let string_slice: &str = val.as_ref();
+        let string_slice: &T::Ref = val.as_ref();
 
         // Make a hash of the requested string
         let hash = self.hasher.hash_one(string_slice);
@@ -82,7 +83,7 @@ impl<K, S> RodeoReader<K, S> {
         // Get the map's entry that the string should occupy
         let entry = self.map.raw_entry().from_hash(hash, |key| {
             // Safety: The index given by `key` will be in bounds of the strings vector
-            let key_string: &str = unsafe { index_unchecked!(self.strings, key.into_usize()) };
+            let key_string: &T::Ref = unsafe { index_unchecked!(self.strings, key.into_usize()) };
 
             // Compare the requested string against the key's string
             string_slice == key_string
@@ -99,7 +100,7 @@ impl<K, S> RodeoReader<K, S> {
     /// use lasso::Rodeo;
     ///
     /// // ThreadedRodeo is interchangeable for Rodeo here
-    /// let mut rodeo = Rodeo::default();
+    /// let mut rodeo: Rodeo = Rodeo::default();
     /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
     ///
     /// let rodeo = rodeo.into_reader();
@@ -109,9 +110,9 @@ impl<K, S> RodeoReader<K, S> {
     /// ```
     ///
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn contains<T>(&self, val: T) -> bool
+    pub fn contains<V>(&self, val: V) -> bool
     where
-        T: AsRef<str>,
+        V: AsRef<T::Ref>,
         S: BuildHasher,
         K: Key,
     {
@@ -126,7 +127,7 @@ impl<K, S> RodeoReader<K, S> {
     /// use lasso::Rodeo;
     /// # use lasso::{Key, Spur};
     ///
-    /// let mut rodeo = Rodeo::default();
+    /// let mut rodeo: Rodeo = Rodeo::default();
     /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
     /// # let key_that_doesnt_exist = Spur::try_from_usize(1000).unwrap();
     ///
@@ -156,7 +157,7 @@ impl<K, S> RodeoReader<K, S> {
     /// use lasso::Rodeo;
     ///
     /// // ThreadedRodeo is interchangeable for Rodeo here
-    /// let mut rodeo = Rodeo::default();
+    /// let mut rodeo: Rodeo = Rodeo::default();
     /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
     ///
     /// let rodeo = rodeo.into_resolver();
@@ -165,7 +166,7 @@ impl<K, S> RodeoReader<K, S> {
     ///
     /// [`Key`]: crate::Key
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn resolve<'a>(&'a self, key: &K) -> &'a str
+    pub fn resolve<'a>(&'a self, key: &K) -> &'a T::Ref
     where
         K: Key,
     {
@@ -188,7 +189,7 @@ impl<K, S> RodeoReader<K, S> {
     /// use lasso::Rodeo;
     ///
     /// // ThreadedRodeo is interchangeable for Rodeo here
-    /// let mut rodeo = Rodeo::default();
+    /// let mut rodeo: Rodeo = Rodeo::default();
     /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
     ///
     /// let rodeo = rodeo.into_resolver();
@@ -197,7 +198,7 @@ impl<K, S> RodeoReader<K, S> {
     ///
     /// [`Key`]: crate::Key
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a str>
+    pub fn try_resolve<'a>(&'a self, key: &K) -> Option<&'a T::Ref>
     where
         K: Key,
     {
@@ -226,7 +227,7 @@ impl<K, S> RodeoReader<K, S> {
     /// use lasso::Rodeo;
     ///
     /// // ThreadedRodeo is interchangeable for Rodeo here
-    /// let mut rodeo = Rodeo::default();
+    /// let mut rodeo: Rodeo = Rodeo::default();
     /// let key = rodeo.get_or_intern("Strings of things with wings and dings");
     ///
     /// let rodeo = rodeo.into_resolver();
@@ -237,7 +238,7 @@ impl<K, S> RodeoReader<K, S> {
     ///
     /// [`Key`]: crate::Key
     #[cfg_attr(feature = "inline-more", inline)]
-    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a str
+    pub unsafe fn resolve_unchecked<'a>(&'a self, key: &K) -> &'a T::Ref
     where
         K: Key,
     {
@@ -252,7 +253,7 @@ impl<K, S> RodeoReader<K, S> {
     /// use lasso::Rodeo;
     ///
     /// // ThreadedRodeo is interchangeable for Rodeo here
-    /// let mut rodeo = Rodeo::default();
+    /// let mut rodeo: Rodeo = Rodeo::default();
     /// rodeo.get_or_intern("Documentation often has little hidden bits in it");
     ///
     /// let rodeo = rodeo.into_reader();
@@ -272,7 +273,7 @@ impl<K, S> RodeoReader<K, S> {
     /// use lasso::Rodeo;
     ///
     /// // ThreadedRodeo is interchangeable for Rodeo here
-    /// let rodeo = Rodeo::default();
+    /// let rodeo: Rodeo = Rodeo::default();
     ///
     /// let rodeo = rodeo.into_reader();
     /// assert!(rodeo.is_empty());
@@ -285,13 +286,13 @@ impl<K, S> RodeoReader<K, S> {
 
     /// Returns an iterator over the interned strings and their key values
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn iter(&self) -> Iter<'_, K> {
+    pub fn iter(&self) -> Iter<'_, T, K> {
         Iter::from_reader(self)
     }
 
     /// Returns an iterator over the interned strings
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn strings(&self) -> Strings<'_, K> {
+    pub fn strings(&self) -> Strings<'_, T, K> {
         Strings::from_reader(self)
     }
 
@@ -304,7 +305,7 @@ impl<K, S> RodeoReader<K, S> {
     /// use lasso::Rodeo;
     ///
     /// // ThreadedRodeo is interchangeable for Rodeo here
-    /// let mut rodeo = Rodeo::default();
+    /// let mut rodeo: Rodeo = Rodeo::default();
     /// let key = rodeo.get_or_intern("Appear weak when you are strong, and strong when you are weak.");
     /// let reader_rodeo = rodeo.into_reader();
     ///
@@ -318,23 +319,23 @@ impl<K, S> RodeoReader<K, S> {
     /// [`RodeoResolver`]: crate::RodeoResolver
     #[cfg_attr(feature = "inline-more", inline)]
     #[must_use]
-    pub fn into_resolver(self) -> RodeoResolver<K> {
+    pub fn into_resolver(self) -> RodeoResolver<T, K> {
         let RodeoReader {
             strings, __arena, ..
         } = self;
 
         // Safety: The current reader no longer contains references to the strings
         // in the vec given to RodeoResolver
-        unsafe { RodeoResolver::new(strings, __arena) }
+        unsafe { RodeoResolver::<T, K>::new(strings, __arena) }
     }
 }
 
-unsafe impl<K: Sync, S: Sync> Sync for RodeoReader<K, S> {}
-unsafe impl<K: Send, S: Send> Send for RodeoReader<K, S> {}
+unsafe impl<T: Internable, K: Sync, S: Sync> Sync for RodeoReader<T, K, S> {}
+unsafe impl<T: Internable, K: Send, S: Send> Send for RodeoReader<T, K, S> {}
 
-impl<'a, K: Key, S> IntoIterator for &'a RodeoReader<K, S> {
-    type Item = (K, &'a str);
-    type IntoIter = Iter<'a, K>;
+impl<'a, T: Internable, K: Key, S> IntoIterator for &'a RodeoReader<T, K, S> {
+    type Item = (K, &'a T::Ref);
+    type IntoIter = Iter<'a, T, K>;
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn into_iter(self) -> Self::IntoIter {
@@ -342,12 +343,12 @@ impl<'a, K: Key, S> IntoIterator for &'a RodeoReader<K, S> {
     }
 }
 
-impl<K, S> Index<K> for RodeoReader<K, S>
+impl<T: Internable, K, S> Index<K> for RodeoReader<T, K, S>
 where
     K: Key,
     S: BuildHasher,
 {
-    type Output = str;
+    type Output = T::Ref;
 
     #[cfg_attr(feature = "inline-more", inline)]
     fn index(&self, idx: K) -> &Self::Output {
@@ -355,25 +356,25 @@ where
     }
 }
 
-impl<K, S> Eq for RodeoReader<K, S> {}
+impl<T: Internable, K, S> Eq for RodeoReader<T, K, S> {}
 
-impl<K, S> PartialEq<Self> for RodeoReader<K, S> {
+impl<T: Internable, K, S> PartialEq<Self> for RodeoReader<T, K, S> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn eq(&self, other: &Self) -> bool {
         self.strings == other.strings
     }
 }
 
-impl<K, S> PartialEq<RodeoResolver<K>> for RodeoReader<K, S> {
+impl<T: Internable, K, S> PartialEq<RodeoResolver<T, K>> for RodeoReader<T, K, S> {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn eq(&self, other: &RodeoResolver<K>) -> bool {
+    fn eq(&self, other: &RodeoResolver<T, K>) -> bool {
         self.strings == other.strings
     }
 }
 
-impl<K, S> PartialEq<Rodeo<K, S>> for RodeoReader<K, S> {
+impl<T: Internable, K, S> PartialEq<Rodeo<T, K, S>> for RodeoReader<T, K, S> {
     #[cfg_attr(feature = "inline-more", inline)]
-    fn eq(&self, other: &Rodeo<K, S>) -> bool {
+    fn eq(&self, other: &Rodeo<T, K, S>) -> bool {
         self.strings == other.strings
     }
 }
@@ -392,7 +393,7 @@ compile! {
 }
 
 #[cfg(feature = "serialize")]
-impl<K, H> Serialize for RodeoReader<K, H> {
+impl<K, H> Serialize for RodeoReader<String, K, H> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -404,7 +405,7 @@ impl<K, H> Serialize for RodeoReader<K, H> {
 }
 
 #[cfg(feature = "serialize")]
-impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for RodeoReader<K, S> {
+impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for RodeoReader<String, K, S> {
     #[cfg_attr(feature = "inline-more", inline)]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -423,12 +424,12 @@ impl<'de, K: Key, S: BuildHasher + Default> Deserialize<'de> for RodeoReader<K, 
         let mut strings = Vec::with_capacity(capacity.strings);
         let mut map = HashMap::with_capacity_and_hasher(capacity.strings, ());
         let mut arena =
-            Arena::new(capacity.bytes, usize::MAX).expect("failed to allocate memory for interner");
+            Arena::<String>::new(capacity.bytes, usize::MAX).expect("failed to allocate memory for interner");
 
         for (key, string) in vector.into_iter().enumerate() {
             let allocated = unsafe {
                 arena
-                    .store_str(&string)
+                    .store_str::<String>(&string)
                     .expect("failed to allocate enough memory")
             };
 
@@ -481,10 +482,12 @@ mod tests {
         #[cfg(feature = "serialize")]
         use crate::RodeoReader;
         use crate::{Key, Rodeo, Spur};
+        #[cfg(feature = "no-std")]
+        use alloc::string::String;
 
         #[test]
         fn get() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let key = rodeo.get_or_intern("A");
 
             let reader = rodeo.into_reader();
@@ -495,7 +498,7 @@ mod tests {
 
         #[test]
         fn resolve() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let key = rodeo.get_or_intern("A");
 
             let reader = rodeo.into_reader();
@@ -505,13 +508,13 @@ mod tests {
         #[test]
         #[should_panic]
         fn resolve_panics() {
-            let reader = Rodeo::default().into_reader();
+            let reader = Rodeo::<String>::default().into_reader();
             reader.resolve(&Spur::try_from_usize(100).unwrap());
         }
 
         #[test]
         fn try_resolve() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let key = rodeo.get_or_intern("A");
 
             let reader = rodeo.into_reader();
@@ -524,7 +527,7 @@ mod tests {
 
         #[test]
         fn resolve_unchecked() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let key = rodeo.get_or_intern("A");
 
             let reader = rodeo.into_reader();
@@ -535,7 +538,7 @@ mod tests {
 
         #[test]
         fn len() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             rodeo.get_or_intern("A");
             rodeo.get_or_intern("B");
             rodeo.get_or_intern("C");
@@ -546,7 +549,7 @@ mod tests {
 
         #[test]
         fn empty() {
-            let rodeo = Rodeo::default();
+            let rodeo: Rodeo = Rodeo::default();
             let reader = rodeo.into_reader();
 
             assert!(reader.is_empty());
@@ -554,7 +557,7 @@ mod tests {
 
         #[test]
         fn iter() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let a = rodeo.get_or_intern("a");
             let b = rodeo.get_or_intern("b");
             let c = rodeo.get_or_intern("c");
@@ -570,7 +573,7 @@ mod tests {
 
         #[test]
         fn strings() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             rodeo.get_or_intern("a");
             rodeo.get_or_intern("b");
             rodeo.get_or_intern("c");
@@ -586,13 +589,13 @@ mod tests {
 
         #[test]
         fn drops() {
-            let rodeo = Rodeo::default();
+            let rodeo: Rodeo = Rodeo::default();
             let _ = rodeo.into_reader();
         }
 
         #[test]
         fn into_resolver() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let key = rodeo.get_or_intern("A");
 
             let resolver = rodeo.into_reader().into_resolver();
@@ -602,13 +605,13 @@ mod tests {
         #[test]
         #[cfg(not(any(feature = "no-std", feature = "ahasher")))]
         fn debug() {
-            let reader = Rodeo::default().into_reader();
+            let reader = Rodeo::<String>::default().into_reader();
             println!("{:?}", reader);
         }
 
         #[test]
         fn contains() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             rodeo.get_or_intern("");
             let resolver = rodeo.into_reader();
 
@@ -618,7 +621,7 @@ mod tests {
 
         #[test]
         fn contains_key() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let key = rodeo.get_or_intern("");
             let resolver = rodeo.into_reader();
 
@@ -646,7 +649,7 @@ mod tests {
 
         #[test]
         fn index() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let key = rodeo.get_or_intern("A");
 
             let reader = rodeo.into_reader();
@@ -656,7 +659,7 @@ mod tests {
         #[test]
         #[cfg(feature = "serialize")]
         fn empty_serialize() {
-            let rodeo = Rodeo::default().into_reader();
+            let rodeo = Rodeo::<String>::default().into_reader();
 
             let ser = serde_json::to_string(&rodeo).unwrap();
             let ser2 = serde_json::to_string(&rodeo).unwrap();
@@ -671,7 +674,7 @@ mod tests {
         #[test]
         #[cfg(feature = "serialize")]
         fn filled_serialize() {
-            let mut rodeo = Rodeo::default();
+            let mut rodeo: Rodeo = Rodeo::default();
             let a = rodeo.get_or_intern("a");
             let b = rodeo.get_or_intern("b");
             let c = rodeo.get_or_intern("c");
@@ -702,15 +705,15 @@ mod tests {
 
         #[test]
         fn reader_eq() {
-            let a = Rodeo::default();
-            let b = Rodeo::default();
+            let a: Rodeo = Rodeo::default();
+            let b: Rodeo = Rodeo::default();
             assert_eq!(a.into_reader(), b.into_reader());
 
-            let mut a = Rodeo::default();
+            let mut a: Rodeo = Rodeo::default();
             a.get_or_intern("a");
             a.get_or_intern("b");
             a.get_or_intern("c");
-            let mut b = Rodeo::default();
+            let mut b: Rodeo = Rodeo::default();
             b.get_or_intern("a");
             b.get_or_intern("b");
             b.get_or_intern("c");
@@ -719,15 +722,15 @@ mod tests {
 
         #[test]
         fn resolver_eq() {
-            let a = Rodeo::default();
-            let b = Rodeo::default();
+            let a: Rodeo = Rodeo::default();
+            let b: Rodeo = Rodeo::default();
             assert_eq!(a.into_reader(), b.into_resolver());
 
-            let mut a = Rodeo::default();
+            let mut a: Rodeo = Rodeo::default();
             a.get_or_intern("a");
             a.get_or_intern("b");
             a.get_or_intern("c");
-            let mut b = Rodeo::default();
+            let mut b: Rodeo = Rodeo::default();
             b.get_or_intern("a");
             b.get_or_intern("b");
             b.get_or_intern("c");
@@ -738,8 +741,8 @@ mod tests {
     #[cfg(all(not(any(miri, feature = "no-std")), feature = "multi-threaded"))]
     mod multi_threaded {
         use crate::{Key, RodeoReader, Spur, ThreadedRodeo};
-        use std::thread;
         use std::sync::Arc;
+        use std::thread;
 
         #[test]
         fn get() {

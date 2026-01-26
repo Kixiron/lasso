@@ -11,7 +11,7 @@ compile! {
     }
 
     if #[feature = "no-std"] {
-        use alloc::{boxed::Box, vec};
+        use alloc::{boxed::Box, string::String, vec};
     }
 }
 
@@ -19,8 +19,8 @@ pub(crate) const INTERNED_STRINGS: &[&str] = &["foo", "bar", "baz", "biz", "buzz
 pub(crate) const UNINTERNED_STRINGS: &[&str] =
     &["rodeo", "default", "string", "static", "unwrap", "array"];
 
-fn filled_rodeo() -> Rodeo {
-    let mut rodeo = Rodeo::default();
+fn filled_rodeo() -> Rodeo<String> {
+    let mut rodeo = Rodeo::<String>::default();
     for string in INTERNED_STRINGS.iter().copied() {
         rodeo.try_get_or_intern_static(string).unwrap();
     }
@@ -41,14 +41,26 @@ pub(crate) fn filled_threaded_rodeo() -> ThreadedRodeo {
 mod interner {
     use super::*;
 
-    pub fn rodeo(
-    ) -> Box<dyn IntoReaderAndResolver<Spur, Reader = RodeoReader, Resolver = RodeoResolver>> {
+    pub fn rodeo() -> Box<
+        dyn IntoReaderAndResolver<
+            String,
+            Spur,
+            Reader = RodeoReader<String>,
+            Resolver = RodeoResolver<String>,
+        >,
+    > {
         Box::new(filled_rodeo())
     }
 
     #[cfg(feature = "multi-threaded")]
-    pub fn threaded_rodeo(
-    ) -> Box<dyn IntoReaderAndResolver<Spur, Reader = RodeoReader, Resolver = RodeoResolver>> {
+    pub fn threaded_rodeo() -> Box<
+        dyn IntoReaderAndResolver<
+            String,
+            Spur,
+            Reader = RodeoReader<String>,
+            Resolver = RodeoResolver<String>,
+        >,
+    > {
         Box::new(filled_threaded_rodeo())
     }
 }
@@ -159,16 +171,17 @@ fn interner_implementations() {
 mod reader {
     use super::*;
 
-    pub fn rodeo() -> Box<dyn IntoResolver<Spur, Resolver = RodeoResolver>> {
+    pub fn rodeo() -> Box<dyn IntoResolver<String, Spur, Resolver = RodeoResolver<String>>> {
         Box::new(filled_rodeo())
     }
 
-    pub fn rodeo_reader() -> Box<dyn IntoResolver<Spur, Resolver = RodeoResolver>> {
+    pub fn rodeo_reader() -> Box<dyn IntoResolver<String, Spur, Resolver = RodeoResolver<String>>> {
         Box::new(filled_rodeo().into_reader())
     }
 
     #[cfg(feature = "multi-threaded")]
-    pub fn threaded_rodeo() -> Box<dyn IntoResolver<Spur, Resolver = RodeoResolver>> {
+    pub fn threaded_rodeo() -> Box<dyn IntoResolver<String, Spur, Resolver = RodeoResolver<String>>>
+    {
         Box::new(filled_threaded_rodeo())
     }
 }
@@ -228,20 +241,20 @@ fn reader_implementations() {
 mod resolver {
     use super::*;
 
-    pub fn rodeo() -> Box<dyn Resolver<Spur>> {
+    pub fn rodeo() -> Box<dyn Resolver<String, Spur>> {
         Box::new(filled_rodeo())
     }
 
-    pub fn rodeo_reader() -> Box<dyn Resolver<Spur>> {
+    pub fn rodeo_reader() -> Box<dyn Resolver<String, Spur>> {
         Box::new(filled_rodeo().into_reader())
     }
 
-    pub fn rodeo_resolver() -> Box<dyn Resolver<Spur>> {
+    pub fn rodeo_resolver() -> Box<dyn Resolver<String, Spur>> {
         Box::new(filled_rodeo().into_resolver())
     }
 
     #[cfg(feature = "multi-threaded")]
-    pub fn threaded_rodeo() -> Box<dyn Resolver<Spur>> {
+    pub fn threaded_rodeo() -> Box<dyn Resolver<String, Spur>> {
         Box::new(filled_threaded_rodeo())
     }
 }
