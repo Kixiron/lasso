@@ -8,6 +8,7 @@ use core::{
     slice, str,
     sync::atomic::{AtomicUsize, Ordering},
 };
+use std::sync::Mutex;
 
 /// An arena allocator that dynamically grows in size when needed, allocating memory in large chunks
 pub(crate) struct LockfreeArena {
@@ -22,6 +23,14 @@ pub(crate) struct LockfreeArena {
     bucket_capacity: AtomicUsize,
     memory_usage: AtomicUsize,
     max_memory_usage: AtomicUsize,
+    /// Serializes the slow path that allocates a fresh bucket.
+    ///
+    /// Without this, concurrent callers each load `bucket_capacity`, double it,
+    /// and allocate that doubled size. With enough threads racing through the
+    /// load-modify-write, the doublings can cascade up to `bucket_capacity *
+    /// 2^N` and attempt petabyte-scale allocations (issue #48). The fast path
+    /// (`try_inc_length` on existing buckets) remains lock-free.
+    grow_lock: Mutex<()>,
 }
 
 impl LockfreeArena {
@@ -34,6 +43,7 @@ impl LockfreeArena {
             // The current capacity is whatever size the bucket we just allocated is
             memory_usage: AtomicUsize::new(capacity.get()),
             max_memory_usage: AtomicUsize::new(max_memory_usage),
+            grow_lock: Mutex::new(()),
         })
     }
 
@@ -91,36 +101,33 @@ impl LockfreeArena {
         let slice = string.as_bytes();
         debug_assert_ne!(slice.len(), 0);
 
-        // Iterate over all of the buckets within the list while attempting to find one
-        // that has enough space to fit our string within it
-        //
-        // This is a tradeoff between allocation speed and memory usage. As-is we prioritize
-        // allocation speed in exchange for potentially missing possible reuse situations
-        // and then allocating more memory than is strictly necessary. In practice this shouldn't
-        // really matter, but it's worth that the opposite tradeoff can be made by adding bounded
-        // retries within this loop, the worst-case performance suffers in exchange for potentially
-        // better memory usage.
-        for bucket in self.buckets.iter() {
-            if let Ok(start) = bucket.try_inc_length(slice.len()) {
-                // Safety: We now have exclusive access to `bucket[start..start + slice.len()]`
-                let allocated = unsafe { bucket.slice_mut(start) };
-                // Copy the given slice into the allocation
-                unsafe { allocated.copy_from_nonoverlapping(slice.as_ptr(), slice.len()) };
-
-                // Return the successfully allocated string
-                let string = unsafe {
-                    str::from_utf8_unchecked(slice::from_raw_parts(allocated, slice.len()))
-                };
-                return Ok(string);
-            }
-
-            // Otherwise the bucket doesn't have sufficient capacity for the string
-            // so we carry on searching through allocated buckets
+        // Fast path: try to place the string into an already-allocated bucket
+        // without taking the growth lock. `try_inc_length` is a bounded CAS, so
+        // multiple threads can succeed concurrently on different buckets.
+        if let Some(allocated) = unsafe { self.try_store_in_existing(slice) } {
+            return Ok(allocated);
         }
 
-        // If we couldn't find a pre-existing bucket with enough room in it, allocate our own bucket
+        // Slow path: allocate a new bucket. Serialized so that N racing threads
+        // don't each independently double `bucket_capacity` and each allocate
+        // that doubled size (issue #48). A poisoned lock still hands back a
+        // usable guard: the arena's atomics remain internally consistent even
+        // if a prior holder panicked.
+        let _guard = self.grow_lock.lock().unwrap_or_else(|e| e.into_inner());
 
-        let next_capacity = self.bucket_capacity.load(Ordering::Relaxed) * 2;
+        // Double-checked: another thread may have pushed a bucket with room
+        // while we were waiting on the lock. Using it avoids a spurious grow.
+        if let Some(allocated) = unsafe { self.try_store_in_existing(slice) } {
+            return Ok(allocated);
+        }
+
+        // We are the sole grower. Saturating_mul so that an already-huge
+        // `bucket_capacity` doesn't silently wrap to zero and slip past the
+        // debug assert; `allocate_memory` will then reject the request cleanly.
+        let next_capacity = self
+            .bucket_capacity
+            .load(Ordering::Relaxed)
+            .saturating_mul(2);
         debug_assert_ne!(next_capacity, 0);
 
         // If the current string's length is greater than the doubled current capacity, allocate a bucket exactly the
@@ -190,6 +197,43 @@ impl LockfreeArena {
                 Ok(allocated_string)
             }
         }
+    }
+
+    /// Walk the existing buckets and place `slice` in the first one with room.
+    ///
+    /// # Safety
+    ///
+    /// The returned `&'static str` (and all copies of it) must be dropped
+    /// before the arena that created it is.
+    unsafe fn try_store_in_existing(&self, slice: &[u8]) -> Option<&'static str> {
+        // Iterate over all of the buckets within the list while attempting to find one
+        // that has enough space to fit our string within it.
+        //
+        // This is a tradeoff between allocation speed and memory usage. As-is we prioritize
+        // allocation speed in exchange for potentially missing possible reuse situations
+        // and then allocating more memory than is strictly necessary. In practice this shouldn't
+        // really matter, but it's worth that the opposite tradeoff can be made by adding bounded
+        // retries within this loop, the worst-case performance suffers in exchange for potentially
+        // better memory usage.
+        for bucket in self.buckets.iter() {
+            if let Ok(start) = bucket.try_inc_length(slice.len()) {
+                // Safety: We now have exclusive access to `bucket[start..start + slice.len()]`
+                let allocated = unsafe { bucket.slice_mut(start) };
+                // Copy the given slice into the allocation
+                unsafe { allocated.copy_from_nonoverlapping(slice.as_ptr(), slice.len()) };
+
+                // Return the successfully allocated string
+                let string = unsafe {
+                    str::from_utf8_unchecked(slice::from_raw_parts(allocated, slice.len()))
+                };
+                return Some(string);
+            }
+
+            // Otherwise the bucket doesn't have sufficient capacity for the string
+            // so we carry on searching through allocated buckets
+        }
+
+        None
     }
 }
 
@@ -311,5 +355,55 @@ mod tests {
         unsafe {
             assert!(arena.store_str("abcdefghijklmnopqrstuvwxyz").is_ok());
         }
+    }
+
+    /// Regression test for https://github.com/Kixiron/lasso/issues/48.
+    ///
+    /// Before the grow-lock fix, racing threads would each load
+    /// `bucket_capacity`, double it, and allocate that doubled size, so N
+    /// threads could cascade growth up to `initial * 2^N` bytes. With the fix,
+    /// only one thread grows per round and `memory_usage` stays proportional
+    /// to the data actually stored.
+    #[test]
+    #[cfg(not(miri))]
+    fn concurrent_growth_bounded() {
+        use std::{
+            sync::{Arc, Barrier},
+            thread,
+        };
+
+        const THREADS: usize = 64;
+        const STRINGS_PER_THREAD: usize = 200;
+
+        let arena =
+            Arc::new(LockfreeArena::new(NonZeroUsize::new(16).unwrap(), usize::MAX).unwrap());
+        let barrier = Arc::new(Barrier::new(THREADS));
+
+        let handles: Vec<_> = (0..THREADS)
+            .map(|tid| {
+                let arena = Arc::clone(&arena);
+                let barrier = Arc::clone(&barrier);
+                thread::spawn(move || {
+                    barrier.wait();
+                    for i in 0..STRINGS_PER_THREAD {
+                        let s = format!("thread-{tid}-string-{i}-payload");
+                        unsafe { arena.store_str(&s).unwrap() };
+                    }
+                })
+            })
+            .collect();
+
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        // 64 * 200 ~30-byte strings = ~400 KB of actual data. A few MB of
+        // bucket overhead is normal (geometric doubling). The broken code
+        // would balloon this into gigabytes-to-petabytes or panic outright.
+        let mem = arena.current_memory_usage();
+        assert!(
+            mem < 50 * 1024 * 1024,
+            "memory_usage grew to {mem} bytes; growth lock is ineffective",
+        );
     }
 }
