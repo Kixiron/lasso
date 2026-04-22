@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- Fixed a race in `ThreadedRodeo`'s lock-free arena where concurrent callers could
+  each double `bucket_capacity` and independently allocate that doubled size,
+  cascading into terabyte- to petabyte-scale allocation attempts on high-core
+  systems ([#48](https://github.com/Kixiron/lasso/issues/48)). Bucket growth is
+  now serialized with a short-held mutex that double-checks the bucket list after
+  acquiring the lock, so racing threads share a single newly-allocated bucket.
+  The fast path (placing a string into an existing bucket) remains lock-free.
+
 ## [0.7.3] - 2024-08-19
 
 ### Changed
